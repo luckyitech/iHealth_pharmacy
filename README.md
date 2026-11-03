@@ -23,6 +23,7 @@ npm run check
 npm run docker:up      # MySQL 9.7.1, Redis, Mailpit
 npm run db:copy        # read-only copy of the legacy database into Docker
 npm run db:test:load   # test database: schema + synthetic seed
+npm run dev            # API on http://localhost:4000, web app on http://localhost:5180
 ```
 
 `npm install` also installs the Git hooks (Husky). For database details, see [docs/runbooks/dev-database.md](docs/runbooks/dev-database.md).
@@ -54,7 +55,7 @@ docs/
   runbooks/     Operational how-tos
 ```
 
-Workspaces are added one at a time as each part of the foundation lands.
+See each workspace's README for details: [web](apps/web/README.md), [api](apps/api/README.md), [db](packages/db/README.md), [shared](packages/shared/README.md).
 
 ## Conventions
 

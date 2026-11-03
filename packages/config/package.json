@@ -6,12 +6,16 @@
   "type": "module",
   "exports": {
     "./eslint": "./eslint.config.js",
-    "./prettier": "./prettier.config.js"
+    "./prettier": "./prettier.config.js",
+    "./eslint-react": "./eslint-react.config.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-jsdoc": "65.4.2",
-    "globals": "17.14.0"
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.14.0",
+    "eslint-plugin-jsx-a11y-x": "0.2.0"
   }
 }
