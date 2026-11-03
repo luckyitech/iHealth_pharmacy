@@ -56,7 +56,7 @@ export async function startTestDatabase() {
     if (result.exitCode !== 0) throw new Error(`Loading ${files[index]} failed: ${result.output}`);
   }
 
-  const url = `mysql://root:${ROOT_PASSWORD}@${mysql.getHost()}:${mysql.getPort()}/${DATABASE}`;
+  const url = `mysql://root:${ROOT_PASSWORD}@${mysql.getHost()}:${mysql.getPort()}/${DATABASE}?allowPublicKeyRetrieval=true`;
   const prisma = createPrismaClient({ url });
   const redis = new Redis(redisContainer.getConnectionUrl());
 
