@@ -65,3 +65,13 @@ Workspaces are added one at a time as each part of the foundation lands.
 ## Architecture decisions
 
 See [docs/adr](docs/adr/README.md).
+
+## Continuous integration
+
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request and on every push to `main`:
+
+1. Lint, format check, typecheck, test and build (Node version from `.nvmrc`)
+2. `npm audit` (fails on moderate or higher)
+3. commitlint on the pull request's commits
+
+Dependabot opens weekly grouped updates for npm packages and GitHub Actions.
