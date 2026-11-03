@@ -36,7 +36,7 @@ npm run db:test:load          # builds the test database from the schema file an
 ## Test database (`ihealthpharm_test`)
 
 - `packages/db/sql/schema/legacy-schema.sql` is the legacy schema with no data, AUTO_INCREMENT counters or definers. It is committed so tests and CI do not need the legacy server. To regenerate it, run `npm run db:schema:dump`.
-- `packages/db/sql/seed/test-seed.sql` is a small, fully synthetic seed (test accounts are listed at the top of the file).
+- `packages/db/sql/seed/` is loaded in name order: `01-pharma-access.sql` (the legacy permission catalogue, which is reference data) and `02-test-data.sql` (a small, fully synthetic data set; test accounts are listed at the top of the file).
 - To rebuild the test database: `npm run db:test:load`.
 
 ## Reset

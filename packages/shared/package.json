@@ -1,0 +1,23 @@
+{
+  "name": "@ihealth/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Code shared by the API and the web app: Zod schemas, permissions, error codes, money helpers.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.js",
+    "./schemas": "./src/schemas/index.js",
+    "./permissions": "./src/permissions/index.js",
+    "./errors": "./src/errors/index.js",
+    "./money": "./src/money/index.js",
+    "./locale": "./src/locale.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0",
+    "zod": "4.6.7"
+  }
+}

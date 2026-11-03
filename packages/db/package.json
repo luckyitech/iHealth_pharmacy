@@ -12,7 +12,8 @@
     "test": "vitest run --passWithNoTests",
     "db:pull": "prisma db pull && node scripts/camelize-schema.js prisma/schema.prisma && prisma format",
     "db:diff": "node scripts/schema-diff.js",
-    "db:report": "node scripts/unmapped-objects-report.js"
+    "db:report": "node scripts/unmapped-objects-report.js",
+    "permissions:generate": "node scripts/generate-permissions.js && prettier --write ../shared/src/permissions/definitions.js"
   },
   "devDependencies": {
     "prisma": "7.10.1"

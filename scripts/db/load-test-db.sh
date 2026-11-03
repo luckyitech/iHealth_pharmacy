@@ -13,6 +13,8 @@ dev_mysql -e "DROP DATABASE IF EXISTS \`${DEV_DB_TEST_NAME}\`;
 
 log "Loading schema"
 dev_mysql "${DEV_DB_TEST_NAME}" <"${SCHEMA_FILE}"
-log "Loading synthetic seed"
-dev_mysql "${DEV_DB_TEST_NAME}" <"${SEED_FILE}"
+for seed in "${SEED_DIR}"/*.sql; do
+  log "Loading seed $(basename "${seed}")"
+  dev_mysql "${DEV_DB_TEST_NAME}" <"${seed}"
+done
 log "Test database '${DEV_DB_TEST_NAME}' is ready"
