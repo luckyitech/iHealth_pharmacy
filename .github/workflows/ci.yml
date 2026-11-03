@@ -43,6 +43,44 @@ jobs:
       - name: Build
         run: npm run build
 
+  db-schema:
+    name: Prisma schema matches legacy schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:9.7.1
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only
+          MYSQL_DATABASE: ihealthpharm_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-only --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      TEST_DATABASE_URL: mysql://root:ci-only@127.0.0.1:3306/ihealthpharm_test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Load legacy schema
+        env:
+          MYSQL_PWD: ci-only
+        run: |
+          mysql -h 127.0.0.1 -uroot -e "SET GLOBAL log_bin_trust_function_creators = 1"
+          mysql -h 127.0.0.1 -uroot ihealthpharm_test < packages/db/sql/schema/legacy-schema.sql
+
+      - name: Schema diff
+        run: npm run db:diff -w @ihealth/db
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
