@@ -23,7 +23,13 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -p jsconfig.json",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "docker:up": "docker compose up -d --wait",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "db:copy": "scripts/db/copy-dev-db.sh",
+    "db:schema:dump": "scripts/db/dump-test-schema.sh",
+    "db:test:load": "scripts/db/load-test-db.sh"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs}": [

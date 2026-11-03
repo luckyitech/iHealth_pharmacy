@@ -1,0 +1,55 @@
+# Local development services. Start with: npm run docker:up
+# The MySQL version matches the legacy server exactly (see docs/runbooks/dev-database.md).
+name: ihealth
+
+services:
+  mysql:
+    image: mysql:9.7.1
+    restart: unless-stopped
+    command:
+      # Must be set before the data directory is initialised; matches the Windows production server.
+      - --lower-case-table-names=1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DEV_DB_ROOT_PASSWORD:?set DEV_DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${DEV_DB_NAME:-ihealthpharm}
+      MYSQL_USER: ${DEV_DB_USER:-ihealth}
+      MYSQL_PASSWORD: ${DEV_DB_PASSWORD:?set DEV_DB_PASSWORD in .env}
+      DEV_DB_TEST_NAME: ${DEV_DB_TEST_NAME:-ihealthpharm_test}
+      TZ: Africa/Nairobi
+    ports:
+      - '${DEV_DB_PORT:-3307}:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.33
+    restart: unless-stopped
+    ports:
+      - '${SMTP_PORT:-1025}:1025'
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+
+volumes:
+  mysql-data:
+  redis-data:
