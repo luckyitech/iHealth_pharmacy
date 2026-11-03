@@ -2,14 +2,17 @@ import { cva } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
 
+/*
+ * Quiet by design: the alert sits on the surface it appears on, and colour is limited to a thin
+ * left accent and the icon. Text stays in the foreground colour so it reads as a sentence, not a banner.
+ */
 const alertVariants = cva(
-  'relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border px-4 py-3 text-sm has-[>svg]:grid-cols-[1.25rem_1fr] has-[>svg]:gap-x-3 [&>svg]:size-5 [&>svg]:translate-y-0.5',
+  'relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 border-l-[3px] py-1 pr-1 pl-3 text-sm has-[>svg]:grid-cols-[1rem_1fr] has-[>svg]:gap-x-2.5 [&>svg]:size-4 [&>svg]:translate-y-0.5',
   {
     variants: {
       variant: {
-        default: 'bg-card text-card-foreground',
-        destructive:
-          'border-destructive/40 bg-destructive/5 text-destructive [&>svg]:text-destructive',
+        default: 'border-l-primary text-foreground [&>svg]:text-primary',
+        destructive: 'border-l-destructive text-foreground [&>svg]:text-destructive',
       },
     },
     defaultVariants: { variant: 'default' },
@@ -49,7 +52,7 @@ export function AlertDescription({ className, ...props }) {
   return (
     <div
       data-slot="alert-description"
-      className={cn('col-start-2 text-sm text-muted-foreground [&_p]:leading-relaxed', className)}
+      className={cn('col-start-2 text-sm leading-relaxed [&_p]:leading-relaxed', className)}
       {...props}
     />
   );

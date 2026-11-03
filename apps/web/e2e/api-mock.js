@@ -53,7 +53,10 @@ export async function mockApi(page) {
         return reply(route, 200, { data: { user, csrfToken: CSRF_TOKEN } });
       }
       return reply(route, 401, {
-        error: { code: 'INVALID_CREDENTIALS', message: 'The username or password is incorrect.' },
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'The username or password is incorrect. Check them and try again.',
+        },
       });
     }
     if (key === 'GET auth/me')

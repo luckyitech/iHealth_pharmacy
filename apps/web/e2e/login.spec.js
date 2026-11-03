@@ -19,7 +19,17 @@ test('signs in, shows only permitted modules, and signs out', async ({ page, isM
   await page.getByLabel('Username', { exact: true }).fill(CASHIER.username);
   await page.getByLabel('Password', { exact: true }).fill('wrong-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('alert')).toContainText('The username or password is incorrect.');
+  await expect(page.getByRole('alert')).toHaveText(
+    'The username or password is incorrect. Check them and try again.',
+  );
+  await expect(page.getByLabel('Username', { exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
 
   await page.getByLabel('Password', { exact: true }).fill(CASHIER.password);
   await page.getByRole('button', { name: 'Sign in' }).click();

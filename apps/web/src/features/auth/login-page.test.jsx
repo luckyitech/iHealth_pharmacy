@@ -65,7 +65,31 @@ describe('LoginPage', () => {
     expect(await screen.findByText('Sales page')).toBeInTheDocument();
   });
 
-  it('shows the API message when the sign-in is refused', async () => {
+  it('shows the API message and marks both fields when the credentials are rejected', async () => {
+    setup({
+      'POST auth/login': () =>
+        jsonResponse(401, {
+          error: {
+            code: 'INVALID_CREDENTIALS',
+            message: 'The username or password is incorrect. Check them and try again.',
+          },
+        }),
+    });
+    await userEvent.type(await screen.findByLabelText('Username'), 'test.admin');
+    await userEvent.type(screen.getByLabelText('Password'), 'wrong');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'The username or password is incorrect. Check them and try again.',
+    );
+    for (const label of ['Username', 'Password']) {
+      const field = screen.getByLabelText(label);
+      expect(field).toHaveAttribute('aria-invalid', 'true');
+      expect(field.getAttribute('aria-describedby')).toContain(alert.id);
+    }
+  });
+
+  it('shows other refusals without marking the fields', async () => {
     setup({
       'POST auth/login': () =>
         jsonResponse(423, {
@@ -78,8 +102,8 @@ describe('LoginPage', () => {
     await userEvent.type(await screen.findByLabelText('Username'), 'test.admin');
     await userEvent.type(screen.getByLabelText('Password'), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Account temporarily locked');
-    expect(screen.getByRole('alert')).toHaveTextContent('Too many failed sign-in attempts');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Too many failed sign-in attempts');
+    expect(screen.getByLabelText('Username')).not.toHaveAttribute('aria-invalid');
   });
 
   it('lets the user reveal the password', async () => {

@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ERROR_CODES } from '@ihealth/shared/error-codes';
 import { loginBodySchema } from '@ihealth/shared/schemas';
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { errorMessage, isApiError } from '@/lib/api-error';
@@ -16,16 +16,15 @@ import { errorMessage, isApiError } from '@/lib/api-error';
 import { safeRedirect } from './safe-redirect.js';
 import { useCurrentUser, useLogin } from './use-auth.js';
 
+const SIGN_IN_ERROR_ID = 'sign-in-error';
+
 /**
- * @param {unknown} error
- * @returns {string}
+ * @param {string | undefined} fieldErrorId
+ * @param {boolean} rejected
+ * @returns {string | undefined}
  */
-function signInErrorTitle(error) {
-  if (!isApiError(error)) return 'Could not sign in';
-  if (error.code === ERROR_CODES.ACCOUNT_LOCKED) return 'Account temporarily locked';
-  if (error.code === ERROR_CODES.ACCOUNT_INACTIVE) return 'Account not active';
-  return 'Could not sign in';
-}
+const describedBy = (fieldErrorId, rejected) =>
+  [fieldErrorId, rejected ? SIGN_IN_ERROR_ID : undefined].filter(Boolean).join(' ') || undefined;
 
 /**
  * @returns {React.JSX.Element}
@@ -48,6 +47,12 @@ export default function LoginPage() {
 
   if (user) return <Navigate to={redirectTo} replace />;
 
+  // Wrong credentials concern both fields, so both are marked invalid and point at the message.
+  const credentialsRejected =
+    login.isError &&
+    isApiError(login.error) &&
+    login.error.code === ERROR_CODES.INVALID_CREDENTIALS;
+
   const onSubmit = handleSubmit((values) =>
     login.mutate(values, { onSuccess: () => navigate(redirectTo, { replace: true }) }),
   );
@@ -63,11 +68,7 @@ export default function LoginPage() {
         <CardContent>
           <form className="grid gap-4" noValidate onSubmit={onSubmit}>
             {login.isError && (
-              <Alert variant="destructive">
-                <AlertCircle aria-hidden="true" />
-                <AlertTitle>{signInErrorTitle(login.error)}</AlertTitle>
-                <AlertDescription>{errorMessage(login.error)}</AlertDescription>
-              </Alert>
+              <FormError id={SIGN_IN_ERROR_ID}>{errorMessage(login.error)}</FormError>
             )}
 
             <div className="grid gap-2">
@@ -77,8 +78,11 @@ export default function LoginPage() {
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
-                aria-invalid={errors.username ? true : undefined}
-                aria-describedby={errors.username ? 'username-error' : undefined}
+                aria-invalid={errors.username || credentialsRejected ? true : undefined}
+                aria-describedby={describedBy(
+                  errors.username && 'username-error',
+                  credentialsRejected,
+                )}
                 {...register('username')}
               />
               {errors.username && (
@@ -96,8 +100,11 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   className="pr-11"
-                  aria-invalid={errors.password ? true : undefined}
-                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  aria-invalid={errors.password || credentialsRejected ? true : undefined}
+                  aria-describedby={describedBy(
+                    errors.password && 'password-error',
+                    credentialsRejected,
+                  )}
                   {...register('password')}
                 />
                 <Button

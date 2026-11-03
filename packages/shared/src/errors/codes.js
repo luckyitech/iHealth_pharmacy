@@ -45,7 +45,7 @@ export const ERROR_HTTP_STATUS = Object.freeze({
 export const ERROR_MESSAGES = Object.freeze({
   VALIDATION_FAILED: 'Some fields are invalid.',
   UNAUTHENTICATED: 'Please sign in to continue.',
-  INVALID_CREDENTIALS: 'The username or password is incorrect.',
+  INVALID_CREDENTIALS: 'The username or password is incorrect. Check them and try again.',
   SESSION_EXPIRED: 'Your session has expired. Please sign in again.',
   ACCOUNT_INACTIVE: 'This account is not active. Contact your administrator.',
   TWO_FACTOR_REQUIRED:
