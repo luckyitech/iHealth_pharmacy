@@ -57,6 +57,9 @@
   "allowScripts": {
     "@prisma/engines@7.10.1": true,
     "prisma@7.10.1": true,
-    "msgpackr-extract": false
+    "msgpackr-extract": false,
+    "cpu-features": false,
+    "protobufjs": false,
+    "ssh2": false
   }
 }

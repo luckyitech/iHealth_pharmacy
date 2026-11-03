@@ -4,7 +4,8 @@ import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
 import { createRedis } from './infra/redis.js';
 import { createLogger } from './lib/logger.js';
-import { routes } from './routes.js';
+import { createAuthModule } from './features/auth/auth.module.js';
+import { collectRoutes } from './routes.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
 
@@ -20,7 +21,16 @@ try {
   logger.warn({ err: error }, 'Redis is not reachable at startup');
 }
 
-const app = createApp({ config, logger, prisma, redis, routes });
+const auth = createAuthModule({ config, prisma, counters: redis, redis, logger });
+const app = createApp({
+  config,
+  logger,
+  prisma,
+  redis,
+  routes: collectRoutes({ auth }),
+  guards: auth.guards,
+  apiRateLimit: auth.apiRateLimit,
+});
 const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.env }, 'API listening');
 });

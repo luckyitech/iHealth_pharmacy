@@ -88,6 +88,7 @@ export function mountRoutes(routes, { guards = () => [], validateResponses = fal
     router[route.method](
       route.path,
       ...guards(route),
+      ...(route.before ?? []),
       validateRequest(route),
       runHandler(route, validateResponses),
     );

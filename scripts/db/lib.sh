@@ -5,6 +5,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCHEMA_FILE="${REPO_ROOT}/packages/db/sql/schema/legacy-schema.sql"
 SEED_DIR="${REPO_ROOT}/packages/db/sql/seed"
+ADDITIVE_DIR="${REPO_ROOT}/packages/db/sql/additive"
 DUMP_DIR="${REPO_ROOT}/packages/db/dumps"
 
 # Legacy table whose rows are scratch data rebuilt by stored procedures (about 20 GB).
@@ -75,6 +76,15 @@ assert_target_is_not_legacy() {
   if [[ "${DEV_DB_PORT}" == "${LEGACY_DB_PORT}" ]]; then
     die "DEV_DB_PORT and LEGACY_DB_PORT are both ${DEV_DB_PORT}. The Docker database must use a different port."
   fi
+}
+
+# Creates the new system's own tables (ih_*) next to the legacy schema. Docker databases only.
+apply_additive() {
+  local database="$1" file
+  for file in "${ADDITIVE_DIR}"/*.sql; do
+    log "Applying $(basename "${file}") to ${database}"
+    dev_mysql "${database}" <"${file}"
+  done
 }
 
 progress() {

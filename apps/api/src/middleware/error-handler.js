@@ -5,6 +5,8 @@ import { AppError } from '../lib/errors.js';
 import { getRequestId } from '../lib/request-context.js';
 
 const SERVER_ERROR_STATUS = 500;
+// Thrown by csrf-csrf when the token is missing, wrong or bound to another session.
+const CSRF_ERROR_CODE = 'EBADCSRFTOKEN';
 
 // Prisma error codes that describe a client problem rather than a server fault.
 const PRISMA_ERRORS = Object.freeze({
@@ -37,6 +39,9 @@ function toAppError(error) {
       message: 'The request body is too large.',
       cause: error,
     });
+  }
+  if (candidate.code === CSRF_ERROR_CODE) {
+    return new AppError(ERROR_CODES.CSRF_INVALID, { cause: error });
   }
   const prismaCode =
     candidate.code && PRISMA_ERRORS[/** @type {keyof typeof PRISMA_ERRORS} */ (candidate.code)];

@@ -81,6 +81,24 @@ jobs:
       - name: Schema diff
         run: npm run db:diff -w @ihealth/db
 
+  integration:
+    name: API integration tests (MySQL 9.7.1 + Redis via Testcontainers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Integration tests
+        run: npm run test:integration -w @ihealth/api
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

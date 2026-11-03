@@ -1,6 +1,11 @@
+/** @typedef {ReturnType<typeof import('./http/define-route.js').defineRoute>} Route */
+
 /**
- * Every API route, in one place. Features add their route arrays here.
+ * Every API route, in one place. Each feature module contributes its route list.
  *
- * @type {readonly ReturnType<typeof import('./http/define-route.js').defineRoute>[]}
+ * @param {{ auth: { routes: readonly Route[] } }} modules
+ * @returns {readonly Route[]}
  */
-export const routes = Object.freeze([]);
+export function collectRoutes({ auth }) {
+  return Object.freeze([...auth.routes]);
+}
