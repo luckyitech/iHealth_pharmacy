@@ -6,6 +6,16 @@ import { RequireAuth, RequirePermission } from '@/features/auth/route-guards';
 
 import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
 
+/** Paths of the item-master lookup pages (one page component, configured per lookup). */
+const ITEM_LOOKUP_ROUTES = /** @type {const} */ ([
+  'item-categories',
+  'item-forms',
+  'item-groups',
+  'generic-names',
+  'specializations',
+  'units-of-measure',
+]);
+
 import { NAV_ITEMS } from './navigation.js';
 
 /**
@@ -83,6 +93,14 @@ export function createAppRouter() {
                             Component: (await import('@/features/masters/masters-index')).default,
                           }),
                         },
+                        ...ITEM_LOOKUP_ROUTES.map((lookup) => ({
+                          path: lookup,
+                          lazy: async () => {
+                            const { default: ItemLookupPage } =
+                              await import('@/features/masters/item-lookups/item-lookup-pages');
+                            return { Component: () => <ItemLookupPage lookup={lookup} /> };
+                          },
+                        })),
                         {
                           path: 'manufacturers',
                           lazy: async () => ({

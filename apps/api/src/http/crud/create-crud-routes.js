@@ -21,6 +21,19 @@ const INACTIVE = 'N';
 export const STATUS_FILTER = Object.freeze({ ACTIVE: 'active', INACTIVE: 'inactive', ALL: 'all' });
 
 /**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean} Equal ignoring case and surrounding spaces, as MySQL compares them.
+ */
+const sameText = (a, b) =>
+  String(a ?? '')
+    .trim()
+    .toLowerCase() ===
+  String(b ?? '')
+    .trim()
+    .toLowerCase();
+
+/**
  * @typedef {object} UniqueRule
  * @property {string} field API field the rule is about (used for the error's `path`).
  * @property {(input: Record<string, any>) => Record<string, unknown> | null} where Prisma `where` that finds a clash, or null to skip.
@@ -48,6 +61,7 @@ export const STATUS_FILTER = Object.freeze({ ACTIVE: 'active', INACTIVE: 'inacti
  * @property {string} [activeField] Prisma field of the legacy `ACTIVE_S` flag; enables deactivate/restore and the status filter.
  * @property {UniqueRule[]} [unique]
  * @property {{ createdBy?: string, updatedBy?: string, updatedAt?: string }} [stamps] Legacy audit columns to fill.
+ * @property {(items: Record<string, any>[], prisma: any) => Promise<Record<string, any>[]>} [enrich] Adds related data (e.g. names of linked records) to items, in one query for a whole page.
  */
 
 /**
@@ -107,10 +121,13 @@ export function createCrudRoutes(config, { prisma, audit }) {
    * @param {any} client
    * @param {Record<string, any>} input
    * @param {number | undefined} excludeId
+   * @param {Record<string, unknown>} [current] The stored record (API shape) when updating.
    * @returns {Promise<void>}
    */
-  async function assertUnique(client, input, excludeId) {
+  async function assertUnique(client, input, excludeId, current) {
     for (const rule of config.unique ?? []) {
+      // Legacy data has duplicates; only a changed value is checked, so old records stay editable.
+      if (current && sameText(current[rule.field], input[rule.field])) continue;
       const where = rule.where(input);
       if (!where) continue;
       const clash = await config.delegate(client).findFirst({
@@ -189,8 +206,23 @@ export function createCrudRoutes(config, { prisma, audit }) {
         },
       });
       await record(req, active ? 'restore' : 'deactivate', id);
-      return active ? { data: config.toItem(await findOrFail(id)) } : undefined;
+      return active ? { data: await toOneItem(await findOrFail(id)) } : undefined;
     };
+
+  /**
+   * @param {any[]} rows
+   * @returns {Promise<Record<string, any>[]>}
+   */
+  const toItems = async (rows) => {
+    const items = rows.map(config.toItem);
+    return config.enrich ? config.enrich(items, prisma) : items;
+  };
+
+  /**
+   * @param {any} row
+   * @returns {Promise<Record<string, any>>}
+   */
+  const toOneItem = async (row) => (await toItems([row]))[0];
 
   const itemResponse = dataResponseSchema(config.itemSchema);
   const readPermissions = config.permissions.read;
@@ -223,7 +255,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
               take,
             }),
         });
-        return { data: page.data.map(config.toItem), meta: page.meta };
+        return { data: await toItems(page.data), meta: page.meta };
       },
     }),
 
@@ -235,7 +267,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
       permissions: readPermissions,
       request: { params: idParamsSchema },
       responses: { 200: { description: config.label, schema: itemResponse } },
-      handler: async ({ input }) => ({ data: config.toItem(await findOrFail(input.params.id)) }),
+      handler: async ({ input }) => ({ data: await toOneItem(await findOrFail(input.params.id)) }),
     }),
 
     defineRoute({
@@ -259,7 +291,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
           });
         });
         await record(req, 'create', created[idField], { fields: Object.keys(input.body) });
-        return { data: config.toItem(created) };
+        return { data: await toOneItem(created) };
       },
     }),
 
@@ -274,9 +306,9 @@ export function createCrudRoutes(config, { prisma, audit }) {
       responses: { 200: { description: 'Updated', schema: itemResponse } },
       handler: async ({ req, res, input }) => {
         const id = input.params.id;
-        await findOrFail(id);
+        const current = config.toItem(await findOrFail(id));
         const updated = await prisma.$transaction(async (tx) => {
-          await assertUnique(tx, input.body, id);
+          await assertUnique(tx, input.body, id, current);
           return config.delegate(tx).update({
             where: { [idField]: id },
             data: { ...config.toData(input.body), ...stampsFor(res, false) },
@@ -284,7 +316,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
           });
         });
         await record(req, 'update', id, { fields: Object.keys(input.body) });
-        return { data: config.toItem(updated) };
+        return { data: await toOneItem(updated) };
       },
     }),
   ];

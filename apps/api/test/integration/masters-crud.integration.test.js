@@ -7,6 +7,7 @@ import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createLookupRoutes } from '../../src/features/lookups/lookup-routes.js';
+import { createItemLookupRoutes } from '../../src/features/masters/item-lookups.js';
 import { createManufacturerRoutes } from '../../src/features/masters/manufacturers.js';
 import { collectRoutes } from '../../src/routes.js';
 import { buildTestApp, TEST_ENV } from '../helpers.js';
@@ -39,7 +40,12 @@ beforeAll(async () => {
     routes: collectRoutes({
       auth,
       lookups: { routes: createLookupRoutes({ prisma: db.prisma }) },
-      masters: { routes: createManufacturerRoutes({ prisma: db.prisma, audit }) },
+      masters: {
+        routes: [
+          ...createManufacturerRoutes({ prisma: db.prisma, audit }),
+          ...createItemLookupRoutes({ prisma: db.prisma, audit }),
+        ],
+      },
     }),
     guards: auth.guards,
   });
@@ -183,5 +189,81 @@ describe('master data CRUD against the legacy manufacturer table', () => {
     const countries = await viewer.agent.get('/api/v1/lookups/countries');
     expect(countries.status).toBe(200);
     expect(Array.isArray(countries.body.data)).toBe(true);
+  });
+
+  describe('item lookups', () => {
+    /** @type {Awaited<ReturnType<typeof signIn>>} */
+    let admin;
+    beforeAll(async () => {
+      admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    });
+
+    /**
+     * @param {string} resource
+     * @param {Record<string, unknown>} body
+     */
+    const create = (resource, body) =>
+      admin.agent.post(`/api/v1/masters/${resource}`).set('x-csrf-token', admin.csrf).send(body);
+
+    it('maps the medical flag and writes a unit name to both legacy name columns', async () => {
+      const unit = await create('units-of-measure', { code: 'STR', name: 'Strip' });
+      expect(unit.status).toBe(201);
+      const [row] =
+        await db.select`SELECT MEASUREMENT_NAME AS name, MEASUREMENT_DESC AS description FROM unit_of_measurement WHERE UNIT_OF_MEASUREMENT_ID = ${unit.body.data.id}`;
+      expect(row).toEqual({ name: 'Strip', description: 'Strip' });
+
+      const form = await create('item-forms', {
+        code: 'GEL',
+        name: 'Gel',
+        productKind: 'nonMedical',
+      });
+      const [formRow] =
+        await db.select`SELECT MEDICAL_OR_NON_MEDICAL AS kind FROM items_forms WHERE ITEM_FORM_ID = ${form.body.data.id}`;
+      expect(formRow.kind).toBe('N');
+      expect(form.body.data.productKind).toBe('nonMedical');
+    });
+
+    it('shows a category without a name by its description', async () => {
+      await db.prisma
+        .$executeRaw`INSERT INTO items_categories (CATEGORIE_CD, CATEGORIE_DESC, ACTIVE_S) VALUES ('LEG', 'Legacy category', 'Y')`;
+      const response = await admin.agent.get('/api/v1/masters/item-categories?q=LEG');
+      expect(response.body.data[0]).toMatchObject({ code: 'LEG', name: 'Legacy category' });
+    });
+
+    it('filters generic names by group and shows the group name', async () => {
+      const group = await create('item-groups', {
+        code: 'MED',
+        name: 'Medicals',
+        productKind: 'medical',
+      });
+      await create('generic-names', {
+        code: 'GCC',
+        name: 'Paracetamol',
+        productKind: 'medical',
+        itemGroupId: group.body.data.id,
+      });
+      await create('generic-names', { code: 'GCC', name: 'Ibuprofen', productKind: 'medical' });
+      const response = await admin.agent.get(
+        `/api/v1/masters/generic-names?itemGroupId=${group.body.data.id}`,
+      );
+      expect(response.body.data).toEqual([
+        expect.objectContaining({ name: 'Paracetamol', code: 'GCC', itemGroupName: 'Medicals' }),
+      ]);
+    });
+
+    it('keeps legacy duplicates editable but refuses new ones', async () => {
+      await db.prisma
+        .$executeRaw`INSERT INTO specialization (SPECIALIZATION_CD, SPECIALIZATION_NAME, ACTIVE_S) VALUES ('S1', 'Cardiology', 'y'), ('S2', 'Cardiology', 'Y')`;
+      const { body } = await admin.agent.get('/api/v1/masters/specializations?q=Cardiology');
+      expect(body.data).toHaveLength(2);
+      const edit = await admin.agent
+        .patch(`/api/v1/masters/specializations/${body.data[0].id}`)
+        .set('x-csrf-token', admin.csrf)
+        .send({ code: 'S1', name: 'Cardiology', description: 'Heart' });
+      expect(edit.status).toBe(200);
+      expect((await create('specializations', { code: 'S3', name: 'cardiology' })).status).toBe(
+        409,
+      );
+    });
   });
 });
