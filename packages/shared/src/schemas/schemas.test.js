@@ -7,6 +7,7 @@ import {
   emailSchema,
   fromLegacyFlag,
   idParamsSchema,
+  itemSupplierInputSchema,
   kenyanPhoneSchema,
   MAX_PAGE_SIZE,
   optionalTextSchema,
@@ -80,5 +81,41 @@ describe('createListQuerySchema', () => {
       total: 51,
       totalPages: 3,
     });
+  });
+});
+
+describe('itemSupplierInputSchema', () => {
+  const valid = {
+    itemId: '4',
+    supplierId: 7,
+    priority: '1',
+    unitRate: '1250.5',
+    discountPercent: '2.25',
+    validUntil: '2026-12-31',
+  };
+
+  it('accepts a link and coerces form values', () => {
+    expect(itemSupplierInputSchema.parse(valid)).toEqual({
+      itemId: 4,
+      supplierId: 7,
+      priority: 1,
+      unitRate: 1250.5,
+      discountPercent: 2.25,
+      validUntil: '2026-12-31',
+    });
+  });
+
+  it('rejects other priorities, discounts above 100% and more than two decimals', () => {
+    const issues = (/** @type {Record<string, unknown>} */ change) =>
+      itemSupplierInputSchema
+        .safeParse({ ...valid, ...change })
+        .error?.issues.map((issue) => issue.message);
+    expect(issues({ priority: '4' })).toEqual(['Choose a priority']);
+    expect(issues({ priority: '' })).toEqual(['Choose a priority']);
+    expect(issues({ discountPercent: '100.5' })).toEqual(['Use at most 100']);
+    expect(issues({ unitRate: '1.005' })).toEqual(['Use at most two decimal places']);
+    expect(issues({ unitRate: '-1' })).toEqual(['Cannot be negative']);
+    expect(issues({ unitRate: '' })).toEqual(['Enter the rate per pack']);
+    expect(issues({ validUntil: '' })).toEqual(['Enter the validity date']);
   });
 });

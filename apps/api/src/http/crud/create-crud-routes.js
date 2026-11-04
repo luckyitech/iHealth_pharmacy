@@ -36,7 +36,9 @@ const sameText = (a, b) =>
 /**
  * @typedef {object} UniqueRule
  * @property {string} field API field the rule is about (used for the error's `path`).
+ * @property {string[]} [fields] All the fields that make a record unique together (default: `field`).
  * @property {(input: Record<string, any>) => Record<string, unknown> | null} where Prisma `where` that finds a clash, or null to skip.
+ *   On update it gets the stored record with the changes applied.
  * @property {string} message Shown on the field, e.g. "A manufacturer with this name already exists".
  */
 
@@ -56,8 +58,8 @@ const sameText = (a, b) =>
  * @property {readonly [string, ...string[]]} sortable API fields clients may sort by.
  * @property {Record<string, string>} sortColumns API sort field -> Prisma field.
  * @property {string} defaultSort e.g. `name` or `-createdAt`.
- * @property {(q: string) => Record<string, unknown>} [search] Prisma `where` for the `q` text filter.
- * @property {{ shape: import('zod').ZodRawShape, toWhere: (query: Record<string, any>) => Record<string, unknown> }} [filters]
+ * @property {(q: string, prisma: any) => Record<string, unknown> | Promise<Record<string, unknown>>} [search] Prisma `where` for the `q` text filter.
+ * @property {{ shape: import('zod').ZodRawShape, toWhere: (query: Record<string, any>, prisma: any) => Record<string, unknown> | Promise<Record<string, unknown>> }} [filters]
  * @property {string} [activeField] Prisma field of the legacy `ACTIVE_S` flag; enables deactivate/restore and the status filter.
  * @property {UniqueRule[]} [unique]
  * @property {{ createdBy?: string, updatedBy?: string, updatedAt?: string }} [stamps] Legacy audit columns to fill.
@@ -65,6 +67,8 @@ const sameText = (a, b) =>
  * @property {(tx: any) => Promise<Record<string, unknown>>} [createDefaults] Extra columns set only when a record is created.
  * @property {(tx: any, row: any) => Promise<any>} [afterCreate] Runs in the create transaction, e.g. to fill a code derived from the new id; returns the (updated) row.
  * @property {(client: any, id: number) => Promise<void>} [beforeDeactivate] Throws to refuse a deactivation.
+ * @property {(tx: any, input: Record<string, any>, current?: Record<string, unknown>) => Promise<void>} [beforeWrite]
+ *   Runs in the create/update transaction before the write; throws to refuse it (e.g. a linked record is missing).
  */
 
 /**
@@ -103,9 +107,9 @@ export function createCrudRoutes(config, { prisma, audit }) {
 
   /**
    * @param {Record<string, any>} query
-   * @returns {Record<string, unknown>}
+   * @returns {Promise<Record<string, unknown>>}
    */
-  function listWhere(query) {
+  async function listWhere(query) {
     /** @type {Record<string, unknown>[]} */
     const and = [];
     if (config.activeField && query.status !== STATUS_FILTER.ALL) {
@@ -115,8 +119,8 @@ export function createCrudRoutes(config, { prisma, audit }) {
           : { OR: [{ [config.activeField]: ACTIVE }, { [config.activeField]: null }] },
       );
     }
-    if (query.q && config.search) and.push(config.search(query.q));
-    if (config.filters) and.push(config.filters.toWhere(query));
+    if (query.q && config.search) and.push(await config.search(query.q, prisma));
+    if (config.filters) and.push(await config.filters.toWhere(query, prisma));
     return and.length ? { AND: and } : {};
   }
 
@@ -130,8 +134,11 @@ export function createCrudRoutes(config, { prisma, audit }) {
   async function assertUnique(client, input, excludeId, current) {
     for (const rule of config.unique ?? []) {
       // Legacy data has duplicates; only a changed value is checked, so old records stay editable.
-      if (current && sameText(current[rule.field], input[rule.field])) continue;
-      const where = rule.where(input);
+      const fields = rule.fields ?? [rule.field];
+      const unchanged = (/** @type {string} */ field) =>
+        !(field in input) || sameText(current?.[field], input[field]);
+      if (current && fields.every(unchanged)) continue;
+      const where = rule.where(current ? { ...current, ...input } : input);
       if (!where) continue;
       const clash = await config.delegate(client).findFirst({
         where:
@@ -247,7 +254,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
         },
       },
       handler: async ({ input }) => {
-        const where = listWhere(input.query);
+        const where = await listWhere(input.query);
         const page = await paginate(input.query, {
           count: () => config.delegate(prisma).count({ where }),
           findMany: ({ skip, take }) =>
@@ -285,6 +292,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
       handler: async ({ req, res, input }) => {
         const created = await prisma.$transaction(async (tx) => {
           await assertUnique(tx, input.body, undefined);
+          if (config.beforeWrite) await config.beforeWrite(tx, input.body);
           const row = await config.delegate(tx).create({
             data: {
               ...config.toData(input.body),
@@ -315,6 +323,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
         const current = config.toItem(await findOrFail(id));
         const updated = await prisma.$transaction(async (tx) => {
           await assertUnique(tx, input.body, id, current);
+          if (config.beforeWrite) await config.beforeWrite(tx, input.body, current);
           return config.delegate(tx).update({
             where: { [idField]: id },
             data: { ...config.toData(input.body), ...stampsFor(res, false) },
