@@ -4,6 +4,8 @@ import { expect, test } from '@playwright/test';
 const MASTERS = Object.freeze([
   { path: 'items', size: 'large' },
   { path: 'suppliers', size: 'large' },
+  // A link is named by its item and supplier.
+  { path: 'item-suppliers', size: 'large', title: 'Smoke Item from Smoke Supplier' },
   { path: 'customers', size: 'large' },
   { path: 'employees', size: 'large' },
   { path: 'hospitals', size: 'large' },
@@ -31,6 +33,13 @@ const RECORD = Object.freeze({
   productKind: 'medical',
   kind: 'individual',
   supplies: 'both',
+  itemName: 'Smoke Item',
+  supplierName: 'Smoke Supplier',
+  unitRate: 0,
+  discountPercent: 0,
+  duplicate: false,
+  itemMissing: false,
+  supplierMissing: false,
 });
 
 /**
@@ -129,4 +138,19 @@ test('asks before saving, lists the change, and saves only after confirming', as
   await question.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([expect.objectContaining({ phone: '0700000999' })]);
+});
+
+test("adds a supplier from an item's Suppliers tab, with the item already chosen", async ({
+  page,
+}) => {
+  await page.goto('/masters/items?edit=1');
+  const dialog = page.getByRole('dialog', { name: 'Smoke Record' });
+  await dialog.getByRole('tab', { name: 'Suppliers' }).click();
+  await expect(dialog.getByRole('link', { name: /Smoke Supplier/ })).toBeVisible();
+
+  await dialog.getByRole('link', { name: 'Add a supplier' }).click();
+  await expect(page).toHaveURL(/\/masters\/item-suppliers\?itemId=1&status=all&edit=new$/);
+  const editor = page.getByRole('dialog', { name: 'New item supplier' });
+  await expect(editor.getByRole('combobox', { name: 'Item' })).toHaveText(/Smoke Record/);
+  await expect(page.getByText('Showing the links of')).toBeVisible();
 });

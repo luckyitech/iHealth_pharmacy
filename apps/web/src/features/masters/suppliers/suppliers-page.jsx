@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePaymentTypes, useReturnCreditTypes } from '@/lib/lookups';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
+import { SUPPLIER_ITEMS_TAB } from '../item-suppliers/link-tabs.js';
 import { MasterResourcePage } from '../master-resource-page.jsx';
 
 const SUPPLIES_OPTIONS = Object.freeze([
@@ -228,6 +229,7 @@ const CONFIG = {
   recordCode: (item) => item.taxPin,
   writePermissions: POLICIES.suppliers.write,
   recordName: (item) => item.name || 'Unnamed supplier',
+  tabs: [SUPPLIER_ITEMS_TAB],
 };
 
 /**

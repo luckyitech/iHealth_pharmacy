@@ -46,6 +46,8 @@ const NEW_RECORD = 'new';
  * @property {string[]} [sections] Section titles of a large record, for the dialog's section links (match the FormSection titles).
  * @property {{ id: string, label: string, Component: (props: { item: any, canWrite: boolean }) => React.ReactNode, permissions: readonly import('@ihealth/shared/permissions').PermissionDefinition[] }[]} [tabs] Extra tabs (each shown to users with one of its permissions) of a saved record's dialog, beside "Details" (e.g. an employee's sign-in and access).
  * @property {(item: any) => string | null | undefined} [recordCode] A code shown under the record's name, e.g. the item code.
+ * @property {(props: { filters: Record<string, string>, setFilters: (filters: Record<string, string | undefined>) => void }) => React.ReactNode} [ListContext]
+ *   Shown above the search and filters, e.g. to say which item a list is narrowed to.
  * @property {(filters: Record<string, string>) => Record<string, unknown>} [newRecordDefaults] Values a new record takes
  *   from the list's filters, e.g. the item a list of its suppliers is filtered by.
  */
@@ -139,6 +141,13 @@ export function MasterResourcePage({ config }) {
           </Button>
         )}
       </div>
+
+      {config.ListContext && (
+        <config.ListContext
+          filters={params.filters}
+          setFilters={(filters) => setParams({ filters })}
+        />
+      )}
 
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-56 flex-1">
