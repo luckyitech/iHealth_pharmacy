@@ -15,6 +15,7 @@ import { createItemRoutes } from './features/masters/items.js';
 import { createManufacturerRoutes } from './features/masters/manufacturers.js';
 import { createPharmacyProfileRoutes } from './features/masters/pharmacy-profile.js';
 import { createProviderRoutes } from './features/masters/providers.js';
+import { createSupplierRoutes } from './features/masters/suppliers.js';
 import { createTermsRoutes } from './features/masters/terms.js';
 import { collectRoutes } from './routes.js';
 
@@ -57,6 +58,7 @@ const app = createApp({
         ...createItemLookupRoutes({ prisma, audit }),
         ...createItemRoutes({ prisma, audit, config }),
         ...createManufacturerRoutes({ prisma, audit }),
+        ...createSupplierRoutes({ prisma, audit }),
         ...createHospitalRoutes({ prisma, audit }),
         ...createProviderRoutes({ prisma, audit }),
         ...createTermsRoutes({ prisma, audit }),

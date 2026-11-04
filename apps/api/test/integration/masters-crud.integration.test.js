@@ -13,6 +13,7 @@ import { createItemRoutes } from '../../src/features/masters/items.js';
 import { createManufacturerRoutes } from '../../src/features/masters/manufacturers.js';
 import { createPharmacyProfileRoutes } from '../../src/features/masters/pharmacy-profile.js';
 import { createProviderRoutes } from '../../src/features/masters/providers.js';
+import { createSupplierRoutes } from '../../src/features/masters/suppliers.js';
 import { createTermsRoutes } from '../../src/features/masters/terms.js';
 import { collectRoutes } from '../../src/routes.js';
 import { buildTestApp, TEST_ENV } from '../helpers.js';
@@ -54,6 +55,7 @@ beforeAll(async () => {
           ...createTermsRoutes({ prisma: db.prisma, audit }),
           ...createPharmacyProfileRoutes({ prisma: db.prisma, audit, config }),
           ...createItemRoutes({ prisma: db.prisma, audit, config }),
+          ...createSupplierRoutes({ prisma: db.prisma, audit }),
         ],
       },
     }),
@@ -503,5 +505,112 @@ describe('item master', () => {
     ]);
     const nonMedical = await admin.agent.get('/api/v1/masters/items?productKind=nonMedical');
     expect(nonMedical.body.data).toEqual([]);
+  });
+});
+
+describe('suppliers', () => {
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let admin;
+  /** @type {{ countryId: number, provinceId: number, creditTypeId: number }} */
+  let ids;
+
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    await db.prisma.$executeRaw`INSERT INTO return_credit_type (TYPE) VALUES ('CREDIT NOTE')`;
+    await db.prisma.$executeRaw`INSERT INTO payment_types (TYPE) VALUES ('CHEQUE')`;
+    await db.prisma.$executeRaw`INSERT INTO country_lookup (COUNTRY_NM) VALUES ('Kenya')`;
+    const [country] =
+      await db.select`SELECT COUNTRY_ID AS id FROM country_lookup WHERE COUNTRY_NM = 'Kenya'`;
+    await db.prisma
+      .$executeRaw`INSERT INTO provinces_lookup (PROVINCES_NM, COUNTRY_ID) VALUES ('Nairobi', ${country.id})`;
+    const [province] =
+      await db.select`SELECT PROVINCES_ID AS id FROM provinces_lookup WHERE COUNTRY_ID = ${country.id}`;
+    const [credit] = await db.select`SELECT RETURN_CREDIT_TYPE_ID AS id FROM return_credit_type`;
+    ids = { countryId: country.id, provinceId: province.id, creditTypeId: credit.id };
+  });
+
+  const supplier = () => ({
+    name: 'Harleys Ltd',
+    taxPin: 'P000000009Z',
+    supplies: 'both',
+    addressLine1: 'Mombasa Road',
+    countryId: ids.countryId,
+    provinceId: ids.provinceId,
+    returnCreditTypeId: ids.creditTypeId,
+    creditDays: 30,
+    contactEmail2: 'orders@harleys.example',
+    alsoManufacturer: false,
+    allowOnlineOrders: true,
+    allowManualOrders: true,
+    allowPhoneOrders: false,
+    acceptExpiryReturns: true,
+    acceptDamagedReturns: false,
+    acceptGoodReturns: true,
+  });
+
+  it('creates a supplier, mapping the flags and the legacy columns', async () => {
+    const created = await admin.agent
+      .post('/api/v1/masters/suppliers')
+      .set('x-csrf-token', admin.csrf)
+      .send(supplier());
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      supplies: 'both',
+      creditDays: 30,
+      returnCreditTypeName: 'CREDIT NOTE',
+      allowPhoneOrders: false,
+      acceptExpiryReturns: true,
+    });
+    const [row] =
+      await db.select`SELECT LICENSE AS pin, SUPPLIES_MEDICAL_NON_MEDICAL_BOTH AS supplies, ALLOW_PHONE_ORDERS AS phone, CONTACT_PERSON_EMAIL_TWO AS email2 FROM supplier WHERE SUPPLIER_ID = ${created.body.data.id}`;
+    expect(row).toEqual({
+      pin: 'P000000009Z',
+      supplies: 'B',
+      phone: 'N',
+      email2: 'orders@harleys.example',
+    });
+  });
+
+  it('refuses a tax PIN already in use and requires the address and return terms', async () => {
+    const duplicate = await admin.agent
+      .post('/api/v1/masters/suppliers')
+      .set('x-csrf-token', admin.csrf)
+      .send({ ...supplier(), name: 'Other Ltd', taxPin: 'p000000009z' });
+    expect(duplicate.status).toBe(409);
+
+    const missing = await admin.agent
+      .post('/api/v1/masters/suppliers')
+      .set('x-csrf-token', admin.csrf)
+      .send({ name: 'Partial Ltd', taxPin: 'P1' });
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.details.map((/** @type {any} */ detail) => detail.path)).toEqual(
+      expect.arrayContaining(['body.addressLine1', 'body.countryId', 'body.returnCreditTypeId']),
+    );
+  });
+
+  it('lets "Update Supplier" change suppliers but not other masters', async () => {
+    await db.prisma
+      .$executeRaw`INSERT INTO employee_access (EMPLOYEE_ID, PHARMA_ACCESS_ID, ACTIVE_S, CREATION_USER_ID) VALUES (2, ${PERMISSIONS.MASTER_UPDATE_SUPPLIER.id}, 'Y', 'test')`;
+    const cashier = await signIn('test.cashier', 'Test-Cashier-Pass-1');
+    const list = await cashier.agent.get('/api/v1/masters/suppliers');
+    const id = list.body.data[0].id;
+    const updated = await cashier.agent
+      .patch(`/api/v1/masters/suppliers/${id}`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({ creditDays: 45 });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.creditDays).toBe(45);
+    const manufacturer = await cashier.agent
+      .post('/api/v1/masters/manufacturers')
+      .set('x-csrf-token', cashier.csrf)
+      .send({ name: 'Not allowed' });
+    expect(manufacturer.status).toBe(403);
+  });
+
+  it('serves the payment and return-credit types', async () => {
+    const payment = await admin.agent.get('/api/v1/lookups/payment-types');
+    expect(payment.body.data).toEqual([expect.objectContaining({ name: 'CHEQUE' })]);
+    const credit = await admin.agent.get('/api/v1/lookups/return-credit-types');
+    expect(credit.body.data).toEqual([expect.objectContaining({ name: 'CREDIT NOTE' })]);
   });
 });

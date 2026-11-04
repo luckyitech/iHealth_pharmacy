@@ -11,6 +11,7 @@ import {
   Ruler,
   Stethoscope,
   Tags,
+  Truck,
   UserRound,
 } from 'lucide-react';
 
@@ -26,17 +27,18 @@ import {
 
 /**
  * @param {string} group
- * @param {[id: string, label: string, icon: import('lucide-react').LucideIcon][]} entries
+ * @param {[id: string, label: string, icon: import('lucide-react').LucideIcon, permissions?: readonly import('@ihealth/shared/permissions').PermissionDefinition[]][]} entries
+ *   Permissions default to the masters read policy.
  * @returns {MasterSection[]}
  */
 const sections = (group, entries) =>
-  entries.map(([id, label, icon]) => ({
+  entries.map(([id, label, icon, permissions = POLICIES.masters.read]) => ({
     id,
     label,
     path: id,
     group,
     icon,
-    permissions: POLICIES.masters.read,
+    permissions,
   }));
 
 /** Master-data screens, in menu order. Each appears only for users with one of its permissions. */
@@ -54,7 +56,10 @@ export const MASTER_SECTIONS = Object.freeze([
     ['units-of-measure', 'Units of measure', Ruler],
     ['specializations', 'Specializations', Stethoscope],
   ]),
-  ...sections('Suppliers and makers', [['manufacturers', 'Manufacturers', Factory]]),
+  ...sections('Suppliers and makers', [
+    ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
+    ['manufacturers', 'Manufacturers', Factory],
+  ]),
   ...sections('Prescribers', [
     ['hospitals', 'Hospitals', Hospital],
     ['providers', 'Providers', UserRound],
