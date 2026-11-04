@@ -58,7 +58,7 @@ so a mistake is shown next to the field before anything is sent.
 
 What happens when someone saves a new item on the **Items** screen:
 
-1. **Screen**: the item's edit page (`/masters/items/new`, from `features/masters/items/items-page.jsx` and the shared `record-editor-page.jsx`) shows the form. When the user clicks _Create item_, the form
+1. **Screen**: the item's edit dialog (`/masters/items?edit=new`, from `features/masters/items/items-page.jsx` and the shared `record-dialog.jsx`) shows the form. When the user clicks _Create item_, the form
    checks the values with `itemInputSchema` (from `packages/shared`). If, for example, no manufacturer was chosen,
    the message appears under that field and nothing is sent.
 2. **API call**: `lib/resource-api.js` (`useSaveResource`) sends `POST /api/v1/masters/items` with the values.
@@ -77,7 +77,7 @@ What happens when someone saves a new item on the **Items** screen:
 6. **Response**: the new item comes back with the names of its group, manufacturer and so on, as
    `{ "data": { ... } }` with status `201`. Any error, at any step, goes through `src/middleware/error-handler.js`
    and comes back in one shape: `{ "error": { "code", "message", "details" } }`. Stack traces are never sent.
-7. **Screen again**: TanStack Query refreshes the items list, the edit page returns to the list (same search and page), and an "Item created" message
+7. **Screen again**: TanStack Query refreshes the items list, the dialog closes over the same list (same search and page), and an "Item created" message
    appears.
 
 ## Where to add things
@@ -93,9 +93,10 @@ What happens when someone saves a new item on the **Items** screen:
 
 ## How records are edited (web)
 
-- **Small records** (lookups, manufacturers, terms) open in a centred dialog: `features/masters/record-dialog.jsx`.
-- **Large records** (items, suppliers, customers, employees, hospitals, providers) open on their own page,
-  `/masters/<resource>/new` or `/masters/<resource>/<id>/edit`: `features/masters/record-editor-page.jsx`.
-  A master chooses with `editor: 'page'` in its config, and lists its `sections` for the section menu.
-- Both share `record-form.js` (saving, Ctrl+S, focus) and `record-actions.jsx` (the "More" menu with
-  deactivate or restore). Both warn before unsaved changes are lost.
+- Every record opens in a centred dialog over its list: `features/masters/record-dialog.jsx`.
+- Small records (lookups, manufacturers, terms) get a narrow dialog. Large records (items,
+  suppliers, customers, employees, hospitals, providers) set `dialogSize: 'large'`: a wide dialog
+  with their `sections` as cards and a row of section links. On phones the dialog fills the screen.
+- The open record is in the URL (`?edit=48`, `?edit=new`), beside the list's search, filters and page.
+- `record-form.js` holds saving, Ctrl+S and focus; `record-actions.jsx` the "More" menu with
+  deactivate or restore. Closing with unsaved changes asks first.

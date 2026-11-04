@@ -12,7 +12,6 @@ import { usePaymentTypes, useReturnCreditTypes } from '@/lib/lookups';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
-import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const SUPPLIES_OPTIONS = Object.freeze([
   { value: SUPPLIES_KINDS.BOTH, label: 'Medical and non-medical' },
@@ -216,7 +215,7 @@ const CONFIG = {
   schema: supplierInputSchema,
   toFormValues: formValuesFor(supplierInputSchema, NEW_SUPPLIER),
   Fields: SupplierFields,
-  editor: 'page',
+  dialogSize: 'large',
   sections: [
     'Supplier',
     'Contact person',
@@ -236,13 +235,4 @@ const CONFIG = {
  */
 export default function SuppliersPage() {
   return <MasterResourcePage config={CONFIG} />;
-}
-
-/**
- * The page to create or edit one supplier.
- *
- * @returns {React.JSX.Element}
- */
-export function EditorPage() {
-  return <RecordEditorPage config={CONFIG} />;
 }

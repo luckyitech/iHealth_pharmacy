@@ -1,7 +1,7 @@
 /* eslint-disable jsdoc/reject-any-type -- generic over every resource: row and form shapes come from each master's Zod schema */
 import { Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useSearchParams } from 'react-router';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { PageState } from '@/components/feedback/page-state';
@@ -11,7 +11,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { usePermissions } from '@/features/auth/use-permissions';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useListParams } from '@/hooks/use-list-params';
-import { useResourceList } from '@/lib/resource-api';
+import { useResource, useResourceList } from '@/lib/resource-api';
 
 import { RecordDialog } from './record-dialog.jsx';
 
@@ -22,6 +22,10 @@ const STATUS_OPTIONS = Object.freeze([
 ]);
 
 const DEFAULT_FILTERS = Object.freeze({ status: 'active' });
+
+/** URL parameter of the record open in the edit dialog, and its value for a new record. */
+const EDIT_PARAM = 'edit';
+const NEW_RECORD = 'new';
 
 /**
  * @typedef {object} MasterResourceConfig
@@ -38,8 +42,8 @@ const DEFAULT_FILTERS = Object.freeze({ status: 'active' });
  * @property {readonly import('@ihealth/shared/permissions').PermissionDefinition[]} writePermissions
  * @property {(item: any) => string} recordName How a record is named in dialogs, e.g. its name.
  * @property {ListFilter[]} [listFilters] Extra filters next to "Show".
- * @property {'dialog' | 'page'} [editor] Where records are edited: a dialog for a handful of fields (default), their own page for large records.
- * @property {string[]} [sections] Section titles of a page editor, for its section menu (match the FormSection titles).
+ * @property {'small' | 'large'} [dialogSize] The edit dialog: narrow for a handful of fields (default), wide for large records.
+ * @property {string[]} [sections] Section titles of a large record, for the dialog's section links (match the FormSection titles).
  * @property {(item: any) => string | null | undefined} [recordCode] A code shown under the record's name, e.g. the item code.
  */
 
@@ -53,8 +57,8 @@ const DEFAULT_FILTERS = Object.freeze({ status: 'active' });
 
 /**
  * The standard master-data screen: a searchable, sortable, paged list with an active/inactive filter.
- * Records open in a dialog, or on their own edit page for large records (`editor: 'page'`). Each master only declares its
- * columns, fields and schema.
+ * Records open in a centred dialog over the list; `?edit=<id>` (or `?edit=new`) in the URL opens one,
+ * so a record can be linked to. Each master only declares its columns, fields and schema.
  *
  * @param {{ config: MasterResourceConfig }} props
  * @returns {React.JSX.Element}
@@ -67,11 +71,8 @@ export function MasterResourcePage({ config }) {
   const [search, setSearch] = useState(params.q);
   const debouncedSearch = useDebouncedValue(search);
   const { hasAny } = usePermissions();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canWrite = hasAny(config.writePermissions);
-  /** @type {[any | null | undefined, (item: any | null | undefined) => void]} */
-  const [editing, setEditing] = useState(/** @type {any | null | undefined} */ (undefined));
 
   useEffect(() => {
     if (debouncedSearch !== params.q) setParams({ q: debouncedSearch });
@@ -87,21 +88,39 @@ export function MasterResourcePage({ config }) {
 
   const isMuted = (/** @type {any} */ item) => item.active === false;
 
+  // The record in the edit dialog lives in the URL (`?edit=48` or `?edit=new`), next to the list's
+  // own search, filters and page, which stay as they are.
+  const editParam = searchParams.get(EDIT_PARAM);
+  const editId = editParam && editParam !== NEW_RECORD ? Number(editParam) : undefined;
+  const rows = /** @type {any[] | undefined} */ (/** @type {any} */ (list.data)?.data);
+  const fromList = editId === undefined ? undefined : rows?.find((row) => row.id === editId);
+  // Opened from a link, the record may not be on this page of the list: load it.
+  const loaded = useResource(config.resource, fromList ? undefined : editId);
+  const editing =
+    editParam === NEW_RECORD
+      ? null
+      : (fromList ?? (editId === undefined ? undefined : loaded.data));
+
   /**
-   * Opens a record (null for a new one): in the dialog, or on its own page, keeping the list's
-   * search, filters and page in the URL to come back to.
-   *
-   * @param {any | null} row
+   * @param {string | null} value A record id, NEW_RECORD, or null to close.
+   * @returns {void}
    */
-  const openRecord = (row) => {
-    if (config.editor !== 'page') {
-      setEditing(row);
-      return;
-    }
-    /** @type {import('./record-editor-page.jsx').EditorLocationState} */
-    const state = { listSearch: location.search };
-    navigate(row ? `/${config.resource}/${row.id}/edit` : `/${config.resource}/new`, { state });
-  };
+  const setEditParam = (value) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === null) next.delete(EDIT_PARAM);
+        else next.set(EDIT_PARAM, value);
+        return next;
+      },
+      { replace: true },
+    );
+
+  /**
+   * @param {any | null} row The record, or null for a new one.
+   * @returns {void}
+   */
+  const openRecord = (row) => setEditParam(row ? String(row.id) : NEW_RECORD);
 
   return (
     <div className="grid gap-5">
@@ -197,11 +216,11 @@ export function MasterResourcePage({ config }) {
 
       {editing !== undefined && (
         <RecordDialog
-          key={editing?.id ?? 'new'}
+          key={editing?.id ?? NEW_RECORD}
           config={config}
           item={editing}
           canWrite={canWrite}
-          onClose={() => setEditing(undefined)}
+          onClose={() => setEditParam(null)}
         />
       )}
     </div>

@@ -1,11 +1,11 @@
 import { createContext } from 'react';
 
 /**
- * How form sections are drawn: as cards on a full edit page, as plain groups inside a dialog.
+ * How form sections are drawn: as cards in the large record dialog, as plain groups in a small one.
  *
- * @type {React.Context<'page' | 'dialog'>}
+ * @type {React.Context<'card' | 'plain'>}
  */
-export const FormLayoutContext = createContext(/** @type {'page' | 'dialog'} */ ('dialog'));
+export const FormLayoutContext = createContext(/** @type {'card' | 'plain'} */ ('plain'));
 
 /**
  * The id of a section, for links to it (e.g. "Units and tax" -> `section-units-and-tax`).

@@ -2,10 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, recordPageRoutes, renderRoutes, stubApi } from '@/test/render';
+import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
-import ItemsPage, { EditorPage } from './items-page.jsx';
+import ItemsPage from './items-page.jsx';
 
 const META = { page: 1, pageSize: 25, total: 1, totalPages: 1 };
 
@@ -58,10 +58,7 @@ function setup() {
     },
   });
   vi.stubGlobal('fetch', api.fetch);
-  const view = renderRoutes(
-    recordPageRoutes('/masters/items', <ItemsPage />, <EditorPage />),
-    '/masters/items',
-  );
+  const view = renderRoutes([{ path: '/masters/items', element: <ItemsPage /> }], '/masters/items');
   view.queryClient.setQueryData(CURRENT_USER_KEY, {
     employeeId: 1,
     firstName: 'A',
@@ -98,7 +95,7 @@ describe('ItemsPage', () => {
   it('creates an item, picking the manufacturer by searching', async () => {
     const { posted } = setup();
     await userEvent.click(await screen.findByRole('button', { name: /New item/ }));
-    const panel = await screen.findByRole('form');
+    const panel = await screen.findByRole('dialog');
 
     await userEvent.type(within(panel).getByLabelText('Name'), 'Ibuprofen 200mg');
     await userEvent.selectOptions(await within(panel).findByLabelText('Group'), 'Tablets');
@@ -129,7 +126,7 @@ describe('ItemsPage', () => {
   it("keeps showing a record's choice that is no longer offered", async () => {
     setup();
     await userEvent.click(await screen.findByText('Paracetamol 500mg'));
-    const panel = await screen.findByRole('form');
+    const panel = await screen.findByRole('dialog');
     await waitFor(() =>
       expect(within(panel).getByLabelText('Purchase unit')).toHaveDisplayValue(
         'STRIPS (no longer offered)',
@@ -140,7 +137,7 @@ describe('ItemsPage', () => {
   it('names the missing essentials before calling the API', async () => {
     const { api } = setup();
     await userEvent.click(await screen.findByRole('button', { name: /New item/ }));
-    const panel = await screen.findByRole('form');
+    const panel = await screen.findByRole('dialog');
     await userEvent.type(within(panel).getByLabelText('Name'), 'Incomplete');
     await userEvent.click(within(panel).getByRole('button', { name: 'Create item' }));
     expect(await within(panel).findByText('Choose a manufacturer')).toBeInTheDocument();

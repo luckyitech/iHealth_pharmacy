@@ -1,4 +1,3 @@
-import { RECORD_ID_PARAM } from '@/features/masters/record-params';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -51,20 +50,4 @@ export function stubApi(handlers) {
     return handler(request);
   };
   return { fetch, calls };
-}
-
-/**
- * The list, "new" and "edit" routes of a master edited on its own page, as the app's router has them.
- *
- * @param {string} path e.g. `/masters/items`
- * @param {React.ReactNode} list
- * @param {React.ReactNode} editor
- * @returns {import('react-router').RouteObject[]}
- */
-export function recordPageRoutes(path, list, editor) {
-  return [
-    { path, element: list },
-    { path: `${path}/new`, element: editor },
-    { path: `${path}/:${RECORD_ID_PARAM}/edit`, element: editor },
-  ];
 }

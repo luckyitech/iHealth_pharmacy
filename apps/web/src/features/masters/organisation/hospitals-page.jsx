@@ -7,7 +7,6 @@ import { TextField } from '@/components/form/text-field';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
-import { RecordEditorPage } from '../record-editor-page.jsx';
 
 /**
  * @param {{ form: import('react-hook-form').UseFormReturn<Record<string, unknown>> }} props
@@ -50,7 +49,7 @@ const CONFIG = {
   schema: hospitalInputSchema,
   toFormValues: formValuesFor(hospitalInputSchema),
   Fields: HospitalFields,
-  editor: 'page',
+  dialogSize: 'large',
   sections: ['Hospital', 'Address'],
   recordCode: (item) => item.license,
   writePermissions: POLICIES.masters.write,
@@ -62,13 +61,4 @@ const CONFIG = {
  */
 export default function HospitalsPage() {
   return <MasterResourcePage config={CONFIG} />;
-}
-
-/**
- * The page to create or edit one hospital.
- *
- * @returns {React.JSX.Element}
- */
-export function EditorPage() {
-  return <RecordEditorPage config={CONFIG} />;
 }

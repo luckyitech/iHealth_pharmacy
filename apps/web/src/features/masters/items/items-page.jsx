@@ -12,7 +12,6 @@ import { useResourceOptions } from '@/lib/resource-api';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
-import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const KIND_OPTIONS = Object.freeze([
   { value: PRODUCT_KINDS.MEDICAL, label: 'Medical' },
@@ -241,7 +240,7 @@ const CONFIG = {
   schema: itemInputSchema,
   toFormValues: formValuesFor(itemInputSchema, { productKind: PRODUCT_KINDS.MEDICAL }),
   Fields: ItemFields,
-  editor: 'page',
+  dialogSize: 'large',
   sections: ['Product', 'Classification', 'Units and tax', 'Clinical', 'Re-ordering'],
   recordCode: (item) => item.code,
   writePermissions: POLICIES.masters.write,
@@ -253,13 +252,4 @@ const CONFIG = {
  */
 export default function ItemsPage() {
   return <MasterResourcePage config={CONFIG} />;
-}
-
-/**
- * The page to create or edit one item.
- *
- * @returns {React.JSX.Element}
- */
-export function EditorPage() {
-  return <RecordEditorPage config={CONFIG} />;
 }

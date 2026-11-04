@@ -1,21 +1,22 @@
 import { expect, test } from '@playwright/test';
 
-/** Every masters list, and how its records open. */
+/** Every masters list, and the size of its edit dialog. */
 const MASTERS = Object.freeze([
-  { path: 'items', editor: 'page' },
-  { path: 'suppliers', editor: 'page' },
-  { path: 'customers', editor: 'page' },
-  { path: 'employees', editor: 'page' },
-  { path: 'hospitals', editor: 'page' },
-  { path: 'providers', editor: 'page' },
-  { path: 'manufacturers', editor: 'dialog' },
-  { path: 'terms', editor: 'dialog' },
-  { path: 'item-categories', editor: 'dialog' },
-  { path: 'item-groups', editor: 'dialog' },
-  { path: 'item-forms', editor: 'dialog' },
-  { path: 'generic-names', editor: 'dialog' },
-  { path: 'units-of-measure', editor: 'dialog' },
-  { path: 'specializations', editor: 'dialog' },
+  { path: 'items', size: 'large' },
+  { path: 'suppliers', size: 'large' },
+  { path: 'customers', size: 'large' },
+  { path: 'employees', size: 'large' },
+  { path: 'hospitals', size: 'large' },
+  { path: 'providers', size: 'large' },
+  { path: 'manufacturers', size: 'small' },
+  // A terms text is named by its first words.
+  { path: 'terms', size: 'small', title: 'Smoke terms' },
+  { path: 'item-categories', size: 'small' },
+  { path: 'item-groups', size: 'small' },
+  { path: 'item-forms', size: 'small' },
+  { path: 'generic-names', size: 'small' },
+  { path: 'units-of-measure', size: 'small' },
+  { path: 'specializations', size: 'small' },
 ]);
 
 /** One made-up record with the fields every list shows. */
@@ -72,24 +73,31 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const master of MASTERS) {
-  test(`opens records of ${master.path} for editing`, async ({ page }) => {
-    await page.goto(`/masters/${master.path}`);
+  test(`opens records of ${master.path} in a dialog over the list`, async ({ page }) => {
+    await page.goto(`/masters/${master.path}?q=smoke`);
     await page.locator('tbody tr').first().click();
 
-    if (master.editor === 'page') {
-      await expect(page).toHaveURL(new RegExp(`/masters/${master.path}/1/edit$`));
-      await expect(page.getByRole('form')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
+    const dialog = page.getByRole('dialog', { name: master.title ?? 'Smoke Record' });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/masters/${master.path}\\?q=smoke&edit=1$`));
+    await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeVisible();
+    // The list stays underneath.
+    await expect(page.locator('h1')).toBeAttached();
+    await expect(dialog.getByRole('navigation', { name: 'Sections' })).toHaveCount(
+      master.size === 'large' ? 1 : 0,
+    );
 
-      await page.getByRole('button', { name: 'Cancel' }).click();
-      await expect(page).toHaveURL(new RegExp(`/masters/${master.path}$`));
-      await page.getByRole('button', { name: /^New / }).click();
-      await expect(page).toHaveURL(new RegExp(`/masters/${master.path}/new$`));
-      await expect(page.getByRole('form')).toBeVisible();
-    } else {
-      await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
-    }
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/masters/${master.path}\\?q=smoke$`));
+
+    await page.getByRole('button', { name: /^New / }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByText(/page not found/i)).toHaveCount(0);
+  });
+
+  test(`opens a record of ${master.path} from a link`, async ({ page }) => {
+    await page.goto(`/masters/${master.path}?edit=1`);
+    await expect(page.getByRole('dialog', { name: master.title ?? 'Smoke Record' })).toBeVisible();
   });
 }

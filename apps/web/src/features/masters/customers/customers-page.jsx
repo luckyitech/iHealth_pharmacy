@@ -8,7 +8,6 @@ import { TextField } from '@/components/form/text-field';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
-import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const KIND_OPTIONS = Object.freeze([
   { value: CUSTOMER_KINDS.INDIVIDUAL, label: 'Individual' },
@@ -99,7 +98,7 @@ const CONFIG = {
   schema: customerInputSchema,
   toFormValues: formValuesFor(customerInputSchema, { kind: CUSTOMER_KINDS.INDIVIDUAL }),
   Fields: CustomerFields,
-  editor: 'page',
+  dialogSize: 'large',
   sections: ['Customer', 'Address'],
   writePermissions: POLICIES.masters.write,
   recordName: (item) => fullName(item) || 'Unnamed customer',
@@ -110,13 +109,4 @@ const CONFIG = {
  */
 export default function CustomersPage() {
   return <MasterResourcePage config={CONFIG} />;
-}
-
-/**
- * The page to create or edit one customer.
- *
- * @returns {React.JSX.Element}
- */
-export function EditorPage() {
-  return <RecordEditorPage config={CONFIG} />;
 }

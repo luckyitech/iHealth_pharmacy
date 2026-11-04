@@ -15,7 +15,6 @@ import { useEmployeeTypes } from '@/lib/lookups';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
-import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const TITLE_OPTIONS = Object.freeze(
   EMPLOYEE_TITLES.map((title) => ({ value: title, label: title })),
@@ -144,7 +143,7 @@ const CONFIG = {
   schema: employeeInputSchema,
   toFormValues: formValuesFor(employeeInputSchema, { worksShifts: false }),
   Fields: EmployeeFields,
-  editor: 'page',
+  dialogSize: 'large',
   sections: ['Personal', 'Job', 'Statutory numbers', 'Address'],
   recordCode: (item) => item.code,
   writePermissions: POLICIES.masters.write,
@@ -156,13 +155,4 @@ const CONFIG = {
  */
 export default function EmployeesPage() {
   return <MasterResourcePage config={CONFIG} />;
-}
-
-/**
- * The page to create or edit one employee.
- *
- * @returns {React.JSX.Element}
- */
-export function EditorPage() {
-  return <RecordEditorPage config={CONFIG} />;
 }

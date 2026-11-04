@@ -1,17 +1,13 @@
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { NavLink, Outlet } from 'react-router';
 
 import { usePermissions } from '@/features/auth/use-permissions';
 import { cn } from '@/lib/utils';
 
 import { MASTER_SECTIONS } from './sections.js';
 
-/** `/masters/<resource>/new` or `/masters/<resource>/<id>/edit`. */
-const EDITOR_PATH = /\/(new|\d+\/edit)$/;
-
 /**
  * Masters area: a list of the master screens the user may open, beside the selected screen.
- * On narrow screens the list becomes a horizontal, scrollable strip above it. While a record is
- * edited on its own page the list is hidden, to give the form the room (the breadcrumb leads back).
+ * On narrow screens the list becomes a horizontal, scrollable strip above it.
  *
  * @returns {React.JSX.Element}
  */
@@ -19,9 +15,6 @@ export default function MastersLayout() {
   const { hasAny } = usePermissions();
   const sections = MASTER_SECTIONS.filter((section) => hasAny(section.permissions));
   const groups = [...new Set(sections.map((section) => section.group))];
-  const editing = EDITOR_PATH.test(useLocation().pathname);
-
-  if (editing) return <Outlet />;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">

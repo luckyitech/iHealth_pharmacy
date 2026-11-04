@@ -10,7 +10,6 @@ import { useResourceOptions } from '@/lib/resource-api';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
-import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const GENDER_OPTIONS = Object.freeze([
   { value: GENDERS.FEMALE, label: 'Female' },
@@ -105,7 +104,7 @@ const CONFIG = {
   schema: providerInputSchema,
   toFormValues: formValuesFor(providerInputSchema),
   Fields: ProviderFields,
-  editor: 'page',
+  dialogSize: 'large',
   sections: ['Provider', 'Address'],
   recordCode: (item) => item.licenseNumber,
   writePermissions: POLICIES.masters.write,
@@ -117,13 +116,4 @@ const CONFIG = {
  */
 export default function ProvidersPage() {
   return <MasterResourcePage config={CONFIG} />;
-}
-
-/**
- * The page to create or edit one provider.
- *
- * @returns {React.JSX.Element}
- */
-export function EditorPage() {
-  return <RecordEditorPage config={CONFIG} />;
 }

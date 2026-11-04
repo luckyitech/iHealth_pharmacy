@@ -14,21 +14,21 @@ import { FormLayoutContext, sectionAnchor } from './form-layout.js';
 export function FormSection({ title, description, children, className }) {
   const layout = useContext(FormLayoutContext);
   const headingId = useId();
-  const page = layout === 'page';
+  const card = layout === 'card';
   return (
     <section
       aria-labelledby={headingId}
       id={sectionAnchor(title)}
       className={cn(
         'grid gap-4 scroll-mt-20',
-        page && 'rounded-xl border bg-card p-5 shadow-xs sm:p-6',
+        card && 'rounded-xl border bg-card p-5 shadow-xs sm:p-6',
         className,
       )}
     >
       <div className="grid gap-1">
         <h2
           id={headingId}
-          className={cn('font-semibold', page ? 'text-base' : 'text-sm text-muted-foreground')}
+          className={cn('font-semibold', card ? 'text-base' : 'text-sm text-muted-foreground')}
         >
           {title}
         </h2>
