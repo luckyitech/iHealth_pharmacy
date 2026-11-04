@@ -37,6 +37,10 @@ npm run db:test:load          # builds the test database from the schema file an
 
 `npm run db:dev-admin` creates or refreshes `dev.admin` (email `dev.admin@localhost`) in the Docker development database. It gets every legacy permission and no two-factor sign-in. The password is `DEV_ADMIN_PASSWORD` in `.env`: if that is empty, a random one is generated and saved there. The script refuses to run against anything but the Docker database, and it is safe to run again (for example after `npm run db:copy`, which replaces the database).
 
+## Shared test password
+
+`npm run db:dev-test-passwords` lets every account in the Docker development database sign in to the new app with one password, `DEV_TEST_PASSWORD` from `.env` (default `Test@2026pharm`). Use any real username or work email from the copy. It stores an argon2id hash per account in `ih_employee_password` and switches off two-factor sign-in, in the Docker copy only. The legacy password and PIN columns are not changed or read out. `dev.admin` keeps its own password. Run it again after `npm run db:copy`.
+
 ## Test database (`ihealthpharm_test`)
 
 - `packages/db/sql/schema/legacy-schema.sql` is the legacy schema with no data, AUTO_INCREMENT counters or definers. It is committed so tests and CI do not need the legacy server. To regenerate it, run `npm run db:schema:dump`.

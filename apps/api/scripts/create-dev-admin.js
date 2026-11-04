@@ -8,77 +8,20 @@
  * generated and saved there (.env is git-ignored). It is stored only as an argon2id hash.
  * The script refuses to run against anything but the Docker development database.
  */
-import { randomBytes, randomInt } from 'node:crypto';
-import { appendFileSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import { config as loadEnv } from 'dotenv';
-import mariadb from 'mariadb';
+import { randomBytes } from 'node:crypto';
 
 import { hashPassword, legacyFingerprint } from '../src/features/auth/password-hasher.js';
+import { connectToDevDatabase, passwordFromEnv } from './lib/dev-db.js';
 
 const USERNAME = 'dev.admin';
 const EMAIL = 'dev.admin@localhost';
 const CREATED_BY = 'dev-admin-script';
-const PASSWORD_LENGTH = 14;
-const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const envFile = path.join(repoRoot, '.env');
-loadEnv({ path: envFile, quiet: true });
-
-/**
- * @param {string} message
- * @returns {never}
- */
-function fail(message) {
-  process.stderr.write(`create-dev-admin: ${message}\n`);
-  process.exit(1);
-}
-
-const url = new URL(process.env.DATABASE_URL ?? fail('DATABASE_URL is not set'));
-const database = url.pathname.replace(/^\//, '');
-const devPort = process.env.DEV_DB_PORT ?? '3307';
-const devName = process.env.DEV_DB_NAME ?? 'ihealthpharm';
-// Never the legacy server: only a local host, on the Docker port, with the Docker database name.
-if (!LOCAL_HOSTS.has(url.hostname) || url.port !== devPort || database !== devName) {
-  fail(
-    `refusing to run: DATABASE_URL must point at the Docker dev database (localhost:${devPort}/${devName})`,
-  );
-}
-if (url.port === (process.env.LEGACY_DB_PORT ?? '3306'))
-  fail('refusing to run against the legacy server port');
-
-/** @returns {string} */
-function generatePassword() {
-  return Array.from(
-    { length: PASSWORD_LENGTH },
-    () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)],
-  ).join('');
-}
-
-let password = process.env.DEV_ADMIN_PASSWORD;
-let generated = false;
-if (!password) {
-  password = generatePassword();
-  generated = true;
-  const current = readFileSync(envFile, 'utf8');
-  appendFileSync(
-    envFile,
-    `${current.endsWith('\n') ? '' : '\n'}\n# Local admin created by npm run db:dev-admin\nDEV_ADMIN_PASSWORD=${password}\n`,
-  );
-}
-
-const connection = await mariadb.createConnection({
-  host: url.hostname,
-  port: Number(url.port),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database,
-  allowPublicKeyRetrieval: true,
-});
+const { password, generated } = passwordFromEnv(
+  'DEV_ADMIN_PASSWORD',
+  'Local admin created by npm run db:dev-admin',
+);
+const { connection, database } = await connectToDevDatabase();
 
 try {
   await connection.beginTransaction();
@@ -86,7 +29,7 @@ try {
   const [pharmacy] = await connection.query(
     "SELECT MIN(PHARMACY_ID) AS id FROM pharmacy WHERE ACTIVE_S = 'Y'",
   );
-  if (!pharmacy?.id) fail('no active pharmacy found');
+  if (!pharmacy?.id) throw new Error('No active pharmacy found');
 
   let [employee] = await connection.query(
     'SELECT EMPLOYEE_ID AS id FROM employee WHERE EMAIL_ID = ?',

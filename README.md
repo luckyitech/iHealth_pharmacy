@@ -24,6 +24,7 @@ npm run docker:up      # MySQL 9.7.1, Redis, Mailpit
 npm run db:copy        # read-only copy of the legacy database into Docker
 npm run db:test:load   # test database: schema + synthetic seed
 npm run db:dev-admin   # local admin "dev.admin" (password saved in .env)
+npm run db:dev-test-passwords  # every account in the copy: one test password (DEV_TEST_PASSWORD)
 npm run dev            # API on http://localhost:4000, web app on http://localhost:5180
 ```
 

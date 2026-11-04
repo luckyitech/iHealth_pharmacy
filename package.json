@@ -31,7 +31,8 @@
     "db:schema:dump": "scripts/db/dump-test-schema.sh",
     "db:test:load": "scripts/db/load-test-db.sh",
     "postinstall": "npm run build -w @ihealth/db",
-    "db:dev-admin": "node apps/api/scripts/create-dev-admin.js"
+    "db:dev-admin": "node apps/api/scripts/create-dev-admin.js",
+    "db:dev-test-passwords": "node apps/api/scripts/set-dev-test-passwords.js"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs}": [
