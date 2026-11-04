@@ -920,11 +920,8 @@ describe('item suppliers', () => {
     const duplicates = await admin.agent.get(`${RESOURCE_PATH}?issue=duplicate`);
     expect(duplicates.body.data).toHaveLength(2);
     expect(duplicates.body.data.every((/** @type {any} */ row) => row.duplicate)).toBe(true);
-    // A stored link without a priority or status is shown as it is, and counts as active.
-    expect(duplicates.body.data.map((/** @type {any} */ row) => row.priority).sort()).toEqual([
-      1,
-      null,
-    ]);
+    // A stored link without a priority or status is shown as it is, counts as active, and sorts last.
+    expect(duplicates.body.data.map((/** @type {any} */ row) => row.priority)).toEqual([1, null]);
 
     const missing = await admin.agent.get(`${RESOURCE_PATH}?issue=missingRecord`);
     expect(missing.body.data).toHaveLength(1);

@@ -58,6 +58,7 @@ const sameText = (a, b) =>
  * @property {readonly [string, ...string[]]} sortable API fields clients may sort by.
  * @property {Record<string, string>} sortColumns API sort field -> Prisma field.
  * @property {string} defaultSort e.g. `name` or `-createdAt`.
+ * @property {string[]} [nullsLast] Sort fields whose empty values go last, whichever the direction.
  * @property {(q: string, prisma: any) => Record<string, unknown> | Promise<Record<string, unknown>>} [search] Prisma `where` for the `q` text filter.
  * @property {{ shape: import('zod').ZodRawShape, toWhere: (query: Record<string, any>, prisma: any) => Record<string, unknown> | Promise<Record<string, unknown>> }} [filters]
  * @property {string} [activeField] Prisma field of the legacy `ACTIVE_S` flag; enables deactivate/restore and the status filter.
@@ -261,7 +262,10 @@ export function createCrudRoutes(config, { prisma, audit }) {
             config.delegate(prisma).findMany({
               where,
               select: config.select,
-              orderBy: [toOrderBy(input.query.sort, config.sortColumns), { [idField]: 'asc' }],
+              orderBy: [
+                toOrderBy(input.query.sort, config.sortColumns, config.nullsLast),
+                { [idField]: 'asc' },
+              ],
               skip,
               take,
             }),

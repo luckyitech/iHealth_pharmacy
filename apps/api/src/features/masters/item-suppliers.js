@@ -251,6 +251,8 @@ export function createItemSupplierRoutes(deps) {
         discountPercent: 'discountPercentage',
       },
       defaultSort: 'priority',
+      // Old links without a priority come after the ranked ones.
+      nullsLast: ['priority'],
       search: searchByNames,
       filters: {
         shape: {

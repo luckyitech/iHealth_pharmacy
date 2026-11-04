@@ -15,10 +15,14 @@ export function toPagination({ page, pageSize }) {
  * @template {string} Field
  * @param {{ field: Field, direction: 'asc' | 'desc' }} sort
  * @param {Record<Field, string>} columns
- * @returns {Record<string, 'asc' | 'desc'>}
+ * @param {readonly string[]} [nullsLast] Fields whose empty values sort last.
+ * @returns {Record<string, 'asc' | 'desc' | { sort: 'asc' | 'desc', nulls: 'last' }>}
  */
-export function toOrderBy(sort, columns) {
-  return { [columns[sort.field]]: sort.direction };
+export function toOrderBy(sort, columns, nullsLast = []) {
+  const column = columns[sort.field];
+  return nullsLast.includes(sort.field)
+    ? { [column]: { sort: sort.direction, nulls: 'last' } }
+    : { [column]: sort.direction };
 }
 
 /**
