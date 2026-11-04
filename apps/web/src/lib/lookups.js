@@ -8,16 +8,25 @@ import { api } from './api-client.js';
 const LOOKUP_STALE_MS = 60 * 60 * 1000;
 
 /**
+ * A read-only reference list from `/lookups/<path>`.
+ *
+ * @param {string} path e.g. `countries`
  * @returns {import('@tanstack/react-query').UseQueryResult<Option[]>}
  */
-export function useCountries() {
+function useLookup(path) {
   return useQuery({
-    queryKey: ['lookups', 'countries'],
+    queryKey: ['lookups', path],
     queryFn: async () =>
-      /** @type {{ data: Option[] }} */ (await api.get('lookups/countries').json()).data,
+      /** @type {{ data: Option[] }} */ (await api.get(`lookups/${path}`).json()).data,
     staleTime: LOOKUP_STALE_MS,
   });
 }
+
+export const useCountries = () => useLookup('countries');
+export const useProviderTypes = () => useLookup('provider-types');
+export const useTaxCategories = () => useLookup('tax-categories');
+export const useScheduleCodes = () => useLookup('schedule-codes');
+export const useLatinCodes = () => useLookup('latin-codes');
 
 /**
  * @param {number | null | undefined} countryId
@@ -33,18 +42,6 @@ export function useProvinces(countryId) {
           .json()
       ).data,
     enabled: Boolean(countryId),
-    staleTime: LOOKUP_STALE_MS,
-  });
-}
-
-/**
- * @returns {import('@tanstack/react-query').UseQueryResult<Option[]>}
- */
-export function useProviderTypes() {
-  return useQuery({
-    queryKey: ['lookups', 'provider-types'],
-    queryFn: async () =>
-      /** @type {{ data: Option[] }} */ (await api.get('lookups/provider-types').json()).data,
     staleTime: LOOKUP_STALE_MS,
   });
 }

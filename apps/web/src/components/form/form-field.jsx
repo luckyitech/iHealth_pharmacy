@@ -23,7 +23,7 @@ export function FormField({ label, error, hint, required = false, className, chi
   const describedBy =
     [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(' ') || undefined;
   return (
-    <div className={cn('grid gap-2', className)}>
+    <div className={cn('grid content-start gap-2', className)}>
       <Label htmlFor={id}>
         {label}
         {!required && <span className="font-normal text-muted-foreground"> (optional)</span>}

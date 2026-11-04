@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Hospital,
   Layers,
+  Package,
   Pill,
   Ruler,
   Stethoscope,
@@ -45,6 +46,7 @@ export const MASTER_SECTIONS = Object.freeze([
     ['terms', 'Terms and conditions', FileText],
   ]),
   ...sections('Products', [
+    ['items', 'Items', Package],
     ['item-categories', 'Categories', Tags],
     ['item-groups', 'Groups', Layers],
     ['item-forms', 'Dosage forms', Pill],

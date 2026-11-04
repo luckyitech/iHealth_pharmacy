@@ -14,6 +14,7 @@ import { defineRoute } from '../../http/define-route.js';
 import { AppError, notFound } from '../../lib/errors.js';
 import { getAuth } from '../auth/auth.guards.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
+import { currentPharmacyWhere } from './current-pharmacy.js';
 import { ADDRESS_COLUMNS, pickColumns, text } from './legacy-mapping.js';
 
 const RESOURCE = 'masters/pharmacy-profile';
@@ -98,7 +99,7 @@ function toProfile(row, hasLogo) {
  * @returns The pharmacy profile routes.
  */
 export function createPharmacyProfileRoutes({ prisma, audit, config }) {
-  const where = config.pharmacyId ? { pharmacyId: config.pharmacyId } : { activeS: FLAG_YES };
+  const where = currentPharmacyWhere(config);
 
   /** @returns {Promise<{ row: Record<string, any>, hasLogo: boolean }>} */
   async function load() {
