@@ -142,3 +142,37 @@ test('lists the sections and the current section’s pages in the phone menu', a
   await expect(page).toHaveURL(/\/masters\/manufacturers$/);
   await expect(drawer).toBeHidden();
 });
+
+test('finds any page with Ctrl+K and opens it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('heading', { level: 1 }).first().waitFor();
+  await page.keyboard.press('Control+k');
+  const search = page.getByRole('dialog', { name: 'Find a page' });
+  await expect(search).toBeVisible();
+  await search.getByRole('combobox').fill('manufact');
+  // The best match comes first.
+  await expect(search.getByRole('option').first()).toContainText('Manufacturers');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/masters\/manufacturers$/);
+  await expect(search).toBeHidden();
+
+  // The button in the account bar opens it too, and Escape closes it.
+  await page
+    .getByRole('button', { name: /Find a page/ })
+    .first()
+    .click();
+  await expect(search).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeHidden();
+});
+
+test('turns effects off from the account menu and remembers it', async ({ page }) => {
+  await page.goto('/');
+  const html = page.locator('html');
+  await expect(html).not.toHaveAttribute('data-reduce-effects');
+  await page.getByRole('button', { name: /Account menu for Smoke Admin/ }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Reduce effects' }).click();
+  await expect(html).toHaveAttribute('data-reduce-effects');
+  await page.reload();
+  await expect(html).toHaveAttribute('data-reduce-effects');
+});

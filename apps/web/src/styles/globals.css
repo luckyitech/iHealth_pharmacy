@@ -129,6 +129,16 @@
   }
 }
 
+/* "Reduce effects" in the account menu: no animations, slides or see-through blur. */
+[data-reduce-effects] *,
+[data-reduce-effects] *::before,
+[data-reduce-effects] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+  backdrop-filter: none !important;
+  scroll-behavior: auto !important;
+}
+
 /* The dialog backdrop's slight blur is dropped for people who ask the system for less transparency. */
 @media (prefers-reduced-transparency: reduce) {
   [data-slot='dialog-overlay'] {

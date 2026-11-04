@@ -1,9 +1,11 @@
 import { KeyRound, LogOut } from 'lucide-react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -13,6 +15,7 @@ import {
 import { CHANGE_PASSWORD_PATH } from '@/features/auth/route-guards';
 import { useCurrentUser, useLogout } from '@/features/auth/use-auth';
 import { notify } from '@/lib/notify';
+import { REDUCE_EFFECTS_ATTRIBUTE, useEffectsStore } from '@/stores/effects-store';
 
 /**
  * @param {{ firstName: string, lastName: string }} user
@@ -28,6 +31,15 @@ export function UserMenu() {
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const navigate = useNavigate();
+  const reduced = useEffectsStore((state) => (user ? state.reducedBy[user.employeeId] : false));
+  const setReduced = useEffectsStore((state) => state.setReduced);
+
+  // The signed-in person's choice applies to the whole page, and ends when they sign out.
+  useEffect(() => {
+    document.documentElement.toggleAttribute(REDUCE_EFFECTS_ATTRIBUTE, Boolean(reduced));
+    return () => document.documentElement.removeAttribute(REDUCE_EFFECTS_ATTRIBUTE);
+  }, [reduced]);
+
   if (!user) return null;
 
   const signOut = () =>
@@ -71,6 +83,13 @@ export function UserMenu() {
             </p>
           )}
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem
+          checked={Boolean(reduced)}
+          onCheckedChange={(checked) => setReduced(user.employeeId, checked)}
+        >
+          Reduce effects
+        </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate(CHANGE_PASSWORD_PATH)}>
           <KeyRound aria-hidden="true" />

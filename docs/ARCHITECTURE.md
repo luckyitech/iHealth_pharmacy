@@ -144,4 +144,6 @@ The layout follows the old system's pattern (`components/layout/app-shell.jsx`):
   - It is an icon rail (64px) with a tooltip on each icon, and slides out to 240px over the page on hover or keyboard focus. It opens after 150ms and closes 250ms after the mouse leaves. On a touch screen the first tap opens it and a tap outside closes it.
   - "Keep the panel open" pins it (remembered in `stores/sidebar-store.js`); the page then starts after it.
 - **Phones:** one bar with a menu button; the drawer lists the sections with the current section's pages (`MobileNav`).
+- **Find a page:** Ctrl+K (⌘K on a Mac), or the search button in the account bar, opens a quick search over every page the user may open (`command-palette.jsx`, built on [cmdk](https://cmdk.paco.me)).
+- **Reduce effects:** a switch in the account menu turns off animations, slides and see-through blur, remembered per person on this device (`stores/effects-store.js`, the `data-reduce-effects` rule in `styles/globals.css`). The system's reduce-motion setting is respected anyway.
 - **Content width:** pages start right after the rail or panel, with a 16px gutter on phones and 24px from the `sm` breakpoint, and use the full width.
