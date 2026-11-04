@@ -18,6 +18,8 @@ import { FormField } from './form-field.jsx';
  * @param {boolean} [props.required]
  * @param {boolean} [props.loading]
  * @param {React.ReactNode} [props.hint]
+ * @param {(value: string) => void} [props.onValueChange] Runs after the value changes (e.g. to clear a dependent field).
+ * @param {boolean} [props.disabled]
  * @param {string | null} [props.selectedLabel] Name of the stored choice, shown even when it is no longer offered (e.g. inactive).
  * @returns {React.JSX.Element}
  */
@@ -31,6 +33,8 @@ export function SelectField({
   loading = false,
   hint,
   selectedLabel,
+  onValueChange,
+  disabled = false,
 }) {
   const { field, fieldState } = useController({ name, control: form.control });
   const value = field.value ?? '';
@@ -45,9 +49,12 @@ export function SelectField({
           name={field.name}
           ref={field.ref}
           value={value}
-          onChange={field.onChange}
+          onChange={(event) => {
+            field.onChange(event);
+            onValueChange?.(event.target.value);
+          }}
           onBlur={field.onBlur}
-          disabled={loading || field.disabled}
+          disabled={loading || disabled || field.disabled}
         >
           {emptyLabel !== undefined && (
             <option value="">{loading ? 'Loading…' : emptyLabel}</option>
