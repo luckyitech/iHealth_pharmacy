@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/reject-any-type -- the record comes from the generic master dialog */
-import { groupPermissions } from '@ihealth/shared/permissions';
+import { getPermissionById, groupPermissions } from '@ihealth/shared/permissions';
 import {
   employeePasswordFormSchema,
   employeeRoleBodySchema,
@@ -9,8 +9,7 @@ import {
   usernameSchema,
 } from '@ihealth/shared/schemas';
 import { Loader2, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { z } from 'zod';
 
 import { FormLayoutContext } from '@/components/form/form-layout';
@@ -19,7 +18,6 @@ import { FormSection } from '@/components/form/form-section';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { applyServerErrors, useZodForm } from '@/components/form/use-zod-form';
-import { ConfirmDialog } from '@/components/feedback/confirm-dialog';
 import { PageState } from '@/components/feedback/page-state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -27,7 +25,8 @@ import { CheckboxField } from '@/components/ui/checkbox-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useCurrentUser } from '@/features/auth/use-auth';
-import { errorMessage } from '@/lib/api-error';
+import { useConfirm } from '@/hooks/use-confirm';
+import { notify } from '@/lib/notify';
 
 import { useAccessAction, useEmployeeAccess, useRoles } from './access-api.js';
 
@@ -35,19 +34,56 @@ const PERMISSION_GROUPS = [...groupPermissions()].filter(([, permissions]) =>
   permissions.some((permission) => permission.active),
 );
 
+/**
+ * @param {number[]} ids
+ * @returns {string} e.g. "Masters View, Sales Billing Submission"
+ */
+const permissionNames = (ids) =>
+  ids.map((id) => getPermissionById(id)?.name ?? `#${id}`).join(', ');
+
 const PASSWORD_HINT = `At least ${MIN_NEW_PASSWORD_LENGTH} characters, not their username or email.`;
 
 /**
- * Shows a failed action next to its fields when it is about them, as a message otherwise.
+ * Every access action asks first (it can be clicked by mistake); the panel provides the question.
  *
- * @param {unknown} error
- * @param {import('react-hook-form').UseFormSetError<any>} [setError]
- * @returns {void}
+ * @type {React.Context<(request: import('@/components/feedback/save-confirm-dialog').ConfirmRequest) => void>}
  */
-function reportError(error, setError) {
-  if (setError && applyServerErrors(error, setError)) return;
-  toast.error(errorMessage(error));
-}
+const AskContext = createContext(
+  /** @type {(request: import('@/components/feedback/save-confirm-dialog').ConfirmRequest) => void} */ (
+    () => {}
+  ),
+);
+
+/**
+ * The confirmation's action: runs the request, puts a field error on its field (and closes the
+ * question), and lets any other error show in the question.
+ *
+ * @param {ReturnType<typeof useAccessAction>} action
+ * @param {Record<string, unknown> | void} body
+ * @param {{ success: string, setError?: import('react-hook-form').UseFormSetError<any>, after?: () => void }} options
+ * @returns {() => Promise<void>}
+ */
+const run =
+  (action, body, { success, setError, after }) =>
+  async () => {
+    try {
+      await action.mutateAsync(body);
+    } catch (error) {
+      if (setError && applyServerErrors(error, setError)) return;
+      throw error;
+    }
+    notify.success(success);
+    after?.();
+  };
+
+/** How a password appears in a confirmation. */
+const MASKED_PASSWORD = '••••••••';
+
+/**
+ * @param {boolean} value
+ * @returns {string}
+ */
+const yesNo = (value) => (value ? 'Yes' : 'No');
 
 /**
  * @param {{ label: string, tone?: 'default' | 'warning' }} props
@@ -79,6 +115,7 @@ export function EmployeeAccessPanel({ item, canWrite }) {
   const { data: user } = useCurrentUser();
   const self = user?.employeeId === item.id;
   const editable = canWrite && !self;
+  const confirmation = useConfirm();
 
   if (access.isPending) return <PageState state="loading" title="Loading sign-in and access…" />;
   if (access.isError)
@@ -87,21 +124,24 @@ export function EmployeeAccessPanel({ item, canWrite }) {
   const data = access.data;
   return (
     <FormLayoutContext.Provider value="card">
-      <div className="grid gap-5">
-        {self && (
-          <Alert>
-            <AlertDescription>
-              This is your own account. Another administrator has to change your sign-in, role or
-              permissions; you can change your password from your profile.
-            </AlertDescription>
-          </Alert>
-        )}
-        <SignInSection employeeId={item.id} access={data} editable={editable} />
-        {data.hasLogin && <PasswordSection employeeId={item.id} editable={editable} />}
-        {data.twoFactorEnabled && <TwoFactorSection employeeId={item.id} editable={editable} />}
-        <RoleSection employeeId={item.id} access={data} editable={editable} />
-        <PermissionsSection employeeId={item.id} access={data} editable={editable} />
-      </div>
+      <AskContext.Provider value={confirmation.ask}>
+        <div className="grid gap-5">
+          {self && (
+            <Alert>
+              <AlertDescription>
+                This is your own account. Another administrator has to change your sign-in, role or
+                permissions; you can change your password from your profile.
+              </AlertDescription>
+            </Alert>
+          )}
+          <SignInSection employeeId={item.id} access={data} editable={editable} />
+          {data.hasLogin && <PasswordSection employeeId={item.id} editable={editable} />}
+          {data.twoFactorEnabled && <TwoFactorSection employeeId={item.id} editable={editable} />}
+          <RoleSection employeeId={item.id} access={data} editable={editable} />
+          <PermissionsSection employeeId={item.id} access={data} editable={editable} />
+        </div>
+        {confirmation.dialog}
+      </AskContext.Provider>
     </FormLayoutContext.Provider>
   );
 }
@@ -114,7 +154,7 @@ function SignInSection({ employeeId, access, editable }) {
   const saveLogin = useAccessAction(employeeId, 'put', 'login');
   const setStatus = useAccessAction(employeeId, 'put', 'status');
   const unlock = useAccessAction(employeeId, 'post', 'unlock');
-  const [confirmingOff, setConfirmingOff] = useState(false);
+  const ask = useContext(AskContext);
   const renameForm = useZodForm(z.object({ username: usernameSchema }), {
     defaultValues: { username: access.username ?? '' },
   });
@@ -124,13 +164,20 @@ function SignInSection({ employeeId, access, editable }) {
 
   if (!access.hasLogin) {
     const onCreate = createForm.handleSubmit(({ username, password, mustChangePassword }) =>
-      saveLogin.mutate(
-        { username, password, mustChangePassword },
-        {
-          onSuccess: () => toast.success('Sign-in created'),
-          onError: (error) => reportError(error, createForm.setError),
-        },
-      ),
+      ask({
+        title: 'Create this sign-in?',
+        changes: [
+          { label: 'Username', to: username },
+          { label: 'First password', to: MASKED_PASSWORD },
+          { label: 'Must choose their own password', to: yesNo(mustChangePassword) },
+        ],
+        confirmLabel: 'Create sign-in',
+        onConfirm: run(
+          saveLogin,
+          { username, password, mustChangePassword },
+          { success: 'Sign-in created', setError: createForm.setError },
+        ),
+      }),
     );
     return (
       <FormSection
@@ -174,13 +221,17 @@ function SignInSection({ employeeId, access, editable }) {
   }
 
   const onRename = renameForm.handleSubmit(({ username }) =>
-    saveLogin.mutate(
-      { username },
-      {
-        onSuccess: () => toast.success('Username changed'),
-        onError: (error) => reportError(error, renameForm.setError),
-      },
-    ),
+    ask({
+      title: 'Change the username?',
+      description: 'They sign in with the new username from now on.',
+      changes: [{ label: 'Username', from: access.username ?? '', to: username }],
+      confirmLabel: 'Change username',
+      onConfirm: run(
+        saveLogin,
+        { username },
+        { success: 'Username changed', setError: renameForm.setError },
+      ),
+    }),
   );
   const lockedUntil = access.lockedUntil ? new Date(access.lockedUntil) : null;
 
@@ -218,9 +269,11 @@ function SignInSection({ employeeId, access, editable }) {
               variant="outline"
               disabled={unlock.isPending}
               onClick={() =>
-                unlock.mutate(undefined, {
-                  onSuccess: () => toast.success('Unlocked'),
-                  onError: (error) => reportError(error),
+                ask({
+                  title: 'Unlock this account?',
+                  description: 'They can try their password again straight away.',
+                  confirmLabel: 'Unlock',
+                  onConfirm: run(unlock, undefined, { success: 'Unlocked' }),
                 })
               }
             >
@@ -228,7 +281,20 @@ function SignInSection({ employeeId, access, editable }) {
             </Button>
           )}
           {access.loginEnabled ? (
-            <Button type="button" variant="outline" onClick={() => setConfirmingOff(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                ask({
+                  title: 'Turn sign-in off?',
+                  description:
+                    'They are signed out everywhere at once and cannot sign in until it is turned on again. Their records stay.',
+                  destructive: true,
+                  confirmLabel: 'Turn sign-in off',
+                  onConfirm: run(setStatus, { enabled: false }, { success: 'Sign-in turned off' }),
+                })
+              }
+            >
               Turn sign-in off
             </Button>
           ) : (
@@ -237,13 +303,12 @@ function SignInSection({ employeeId, access, editable }) {
               variant="outline"
               disabled={setStatus.isPending}
               onClick={() =>
-                setStatus.mutate(
-                  { enabled: true },
-                  {
-                    onSuccess: () => toast.success('Sign-in turned on'),
-                    onError: (error) => reportError(error),
-                  },
-                )
+                ask({
+                  title: 'Turn sign-in on?',
+                  description: 'They can sign in again with their password.',
+                  confirmLabel: 'Turn sign-in on',
+                  onConfirm: run(setStatus, { enabled: true }, { success: 'Sign-in turned on' }),
+                })
               }
             >
               Turn sign-in on
@@ -251,18 +316,6 @@ function SignInSection({ employeeId, access, editable }) {
           )}
         </div>
       )}
-      <ConfirmDialog
-        open={confirmingOff}
-        onOpenChange={setConfirmingOff}
-        destructive
-        title="Turn sign-in off?"
-        description="They are signed out everywhere at once and cannot sign in until it is turned on again. Their records stay."
-        confirmLabel="Turn sign-in off"
-        onConfirm={async () => {
-          await setStatus.mutateAsync({ enabled: false });
-          toast.success('Sign-in turned off');
-        }}
-      />
     </FormSection>
   );
 }
@@ -276,17 +329,26 @@ function PasswordSection({ employeeId, editable }) {
   const form = useZodForm(employeePasswordFormSchema, {
     defaultValues: { password: '', confirmPassword: '', mustChangePassword: true },
   });
+  const ask = useContext(AskContext);
   const onSubmit = form.handleSubmit(({ password, mustChangePassword }) =>
-    setPassword.mutate(
-      { password, mustChangePassword },
-      {
-        onSuccess: () => {
-          toast.success('Password set. They have been signed out everywhere.');
-          form.reset();
+    ask({
+      title: 'Set a new password?',
+      description: 'They are signed out everywhere and sign in with the new password.',
+      changes: [
+        { label: 'Password', to: MASKED_PASSWORD },
+        { label: 'Must choose their own at next sign-in', to: yesNo(mustChangePassword) },
+      ],
+      confirmLabel: 'Set password',
+      onConfirm: run(
+        setPassword,
+        { password, mustChangePassword },
+        {
+          success: 'Password set. They have been signed out everywhere.',
+          setError: form.setError,
+          after: () => form.reset(),
         },
-        onError: (error) => reportError(error, form.setError),
-      },
-    ),
+      ),
+    }),
   );
   return (
     <FormSection
@@ -335,10 +397,18 @@ function PasswordSection({ employeeId, editable }) {
 function TwoFactorSection({ employeeId, editable }) {
   const reset = useAccessAction(employeeId, 'post', 'reset-two-factor');
   const form = useZodForm(twoFactorResetBodySchema, { defaultValues: { reason: '' } });
+  const ask = useContext(AskContext);
   const onSubmit = form.handleSubmit((values) =>
-    reset.mutate(values, {
-      onSuccess: () => toast.success('Two-factor sign-in turned off'),
-      onError: (error) => reportError(error, form.setError),
+    ask({
+      title: 'Reset two-factor sign-in?',
+      description: 'It is turned off and their trusted devices are forgotten.',
+      changes: [{ label: 'Reason', to: values.reason }],
+      destructive: true,
+      confirmLabel: 'Reset two-factor sign-in',
+      onConfirm: run(reset, values, {
+        success: 'Two-factor sign-in turned off',
+        setError: form.setError,
+      }),
     }),
   );
   return (
@@ -377,12 +447,24 @@ function RoleSection({ employeeId, access, editable }) {
   const form = useZodForm(employeeRoleBodySchema, {
     defaultValues: { roleId: /** @type {any} */ (access.roleId ?? '') },
   });
-  const onSubmit = form.handleSubmit((values) =>
-    setRole.mutate(values, {
-      onSuccess: () => toast.success('Role saved'),
-      onError: (error) => reportError(error, form.setError),
-    }),
-  );
+  const ask = useContext(AskContext);
+  const onSubmit = form.handleSubmit((values) => {
+    const name = (/** @type {number} */ id) =>
+      roles.data?.find((role) => role.id === id)?.name ?? `#${id}`;
+    ask({
+      title: 'Change the role?',
+      description: 'Their permissions change with it.',
+      changes: [
+        {
+          label: 'Role',
+          from: access.roleId ? (access.roleName ?? name(access.roleId)) : '(none)',
+          to: name(values.roleId),
+        },
+      ],
+      confirmLabel: 'Save role',
+      onConfirm: run(setRole, values, { success: 'Role saved', setError: form.setError }),
+    });
+  });
   return (
     <FormSection
       title="Role"
@@ -416,6 +498,7 @@ function RoleSection({ employeeId, access, editable }) {
  */
 function PermissionsSection({ employeeId, access, editable }) {
   const save = useAccessAction(employeeId, 'put', 'permissions');
+  const ask = useContext(AskContext);
   const [selected, setSelected] = useState(() => new Set(access.permissionIds));
   const [filter, setFilter] = useState('');
   const fromRole = useMemo(() => new Set(access.rolePermissionIds), [access.rolePermissionIds]);
@@ -496,15 +579,27 @@ function PermissionsSection({ employeeId, access, editable }) {
           <Button
             type="button"
             disabled={!changed || save.isPending}
-            onClick={() =>
-              save.mutate(
-                { permissionIds: [...selected] },
-                {
-                  onSuccess: () => toast.success('Permissions saved'),
-                  onError: (error) => reportError(error),
-                },
-              )
-            }
+            onClick={() => {
+              const added = [...selected].filter((id) => !saved.has(id));
+              const removed = [...saved].filter((id) => !selected.has(id));
+              ask({
+                title: 'Save these permission changes?',
+                changes: [
+                  ...(added.length
+                    ? [{ label: `Added (${added.length})`, to: permissionNames(added) }]
+                    : []),
+                  ...(removed.length
+                    ? [{ label: `Removed (${removed.length})`, to: permissionNames(removed) }]
+                    : []),
+                ],
+                confirmLabel: 'Save permissions',
+                onConfirm: run(
+                  save,
+                  { permissionIds: [...selected] },
+                  { success: 'Permissions saved' },
+                ),
+              });
+            }}
           >
             {save.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
             Save permissions

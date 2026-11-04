@@ -1,9 +1,9 @@
 /* eslint-disable jsdoc/reject-any-type -- generic over every resource: row and form shapes come from each master's Zod schema */
 import { useEffect } from 'react';
-import { toast } from 'sonner';
 
 import { applyServerErrors, useZodForm } from '@/components/form/use-zod-form';
 import { useSaveResource } from '@/lib/resource-api';
+import { notify } from '@/lib/notify';
 
 /**
  * @param {string} text
@@ -31,33 +31,44 @@ export function isFieldError(error) {
  * @param {import('./master-resource-page.jsx').MasterResourceConfig} config
  * @param {any | null} item The record, or null for a new one.
  * @param {{ onSaved: () => void }} options
- * @returns The form, the save mutation, whether the record is new, the submit handler and any error that is not about a field.
+ * @returns The form, the save mutation, whether the record is new, `saveValues` and any error that is not about a field.
  */
 export function useRecordForm(config, item, { onSaved }) {
   const isNew = item === null;
   const save = useSaveResource(config.resource);
   const form = useZodForm(config.schema, { defaultValues: config.toFormValues(item) });
 
-  const onSubmit = form.handleSubmit((values) =>
-    save.mutate(
-      { id: isNew ? undefined : item.id, values },
-      {
-        onSuccess: () => {
-          toast.success(isNew ? `${capitalise(config.singular)} created` : 'Changes saved');
-          // Saved values are no longer "unsaved changes" (lets the page leave without a warning).
-          form.reset(values);
-          onSaved();
-        },
-        onError: (error) => applyServerErrors(error, form.setError),
-      },
-    ),
-  );
+  /**
+   * Saves validated values. A field error from the API goes on its field (the promise resolves
+   * with false); any other error is thrown, for the confirmation dialog to show.
+   *
+   * @param {Record<string, unknown>} values
+   * @returns {Promise<boolean>} Whether it was saved.
+   */
+  const saveValues = async (values) => {
+    try {
+      await save.mutateAsync({ id: isNew ? undefined : item.id, values });
+    } catch (error) {
+      if (applyServerErrors(error, form.setError)) return false;
+      throw error;
+    }
+    const name = config.recordName({ ...(item ?? {}), ...values });
+    notify.success(
+      isNew
+        ? `${capitalise(config.singular)} "${name}" created`
+        : `${capitalise(config.singular)} "${name}" saved`,
+    );
+    // Saved values are no longer "unsaved changes" (closing then asks nothing).
+    form.reset(values);
+    onSaved();
+    return true;
+  };
 
   return {
     form,
     save,
     isNew,
-    onSubmit,
+    saveValues,
     formError: save.isError && !isFieldError(save.error) ? save.error : null,
   };
 }

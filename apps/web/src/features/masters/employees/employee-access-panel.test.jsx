@@ -1,10 +1,10 @@
 import { PERMISSIONS } from '@ihealth/shared/permissions';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { confirmChange, jsonResponse, renderRoutes, stubApi } from '@/test/render';
 
 import { EmployeeAccessPanel } from './employee-access-panel.jsx';
 
@@ -65,6 +65,12 @@ describe('EmployeeAccessPanel', () => {
     await userEvent.type(await screen.findByLabelText('New password'), 'Temporary-Pass-1');
     await userEvent.type(screen.getAllByLabelText('Confirm password')[0], 'Temporary-Pass-1');
     await userEvent.click(screen.getByRole('button', { name: 'Set password' }));
+    expect(writes).toHaveLength(0);
+    const question = await screen.findByRole('alertdialog');
+    // The password itself is never shown.
+    expect(within(question).queryByText('Temporary-Pass-1')).not.toBeInTheDocument();
+    expect(within(question).getByText('••••••••')).toBeInTheDocument();
+    await confirmChange();
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]).toEqual({
       path: 'password',
@@ -79,6 +85,10 @@ describe('EmployeeAccessPanel', () => {
     expect(fromRole).toBeDisabled();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Masters View' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save permissions' }));
+    const question = await screen.findByRole('alertdialog');
+    expect(within(question).getByText('Added (1)')).toBeInTheDocument();
+    expect(within(question).getByText('Masters View')).toBeInTheDocument();
+    await confirmChange();
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0].body).toEqual({ permissionIds: [PERMISSIONS.MASTER_MASTERS_VIEW.id] });
   });
@@ -86,6 +96,7 @@ describe('EmployeeAccessPanel', () => {
   it('offers to unlock an account locked after wrong passwords', async () => {
     const { writes } = setup({ access: { lockedUntil: '2026-11-04T12:00:00.000Z' } });
     await userEvent.click(await screen.findByRole('button', { name: 'Unlock now' }));
+    await confirmChange();
     await waitFor(() => expect(writes.map((write) => write.path)).toEqual(['unlock']));
   });
 
