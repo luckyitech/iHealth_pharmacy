@@ -8,6 +8,7 @@ export { Prisma, PrismaClient } from '@prisma/client';
  * @property {string} url MySQL connection URL, e.g. `mysql://user:pass@host:3306/ihealthpharm`.
  *   Add `?allowPublicKeyRetrieval=true` for local, non-TLS MySQL 9 servers.
  * @property {number} [connectionLimit] Maximum pooled connections.
+ * @property {string} timezone Offset the data is stored in, e.g. `+03:00` (config DB_TIME_ZONE).
  * @property {import('@prisma/client').Prisma.LogLevel[]} [log] Prisma log levels to emit.
  */
 
@@ -19,7 +20,12 @@ const DEFAULT_CONNECTION_LIMIT = 10;
  * @param {CreatePrismaClientOptions} options
  * @returns {PrismaClient}
  */
-export function createPrismaClient({ url, connectionLimit = DEFAULT_CONNECTION_LIMIT, log = [] }) {
+export function createPrismaClient({
+  url,
+  timezone,
+  connectionLimit = DEFAULT_CONNECTION_LIMIT,
+  log = [],
+}) {
   const parsed = new URL(url);
   const adapter = new PrismaMariaDb({
     host: parsed.hostname,
@@ -28,8 +34,7 @@ export function createPrismaClient({ url, connectionLimit = DEFAULT_CONNECTION_L
     password: decodeURIComponent(parsed.password),
     database: parsed.pathname.replace(/^\//, ''),
     connectionLimit,
-    // The legacy data is stored in Africa/Nairobi local time.
-    timezone: '+03:00',
+    timezone,
     // MySQL 9 authenticates with caching_sha2_password. Without TLS, the driver must fetch the server's
     // RSA key to send the password. Only enable this (?allowPublicKeyRetrieval=true) on trusted networks
     // such as local Docker; elsewhere connect over TLS.

@@ -43,7 +43,7 @@ export const kenyanPhoneSchema = z
   )
   .transform((value) => `+254${/** @type {RegExpExecArray} */ (KENYAN_PHONE.exec(value))[1]}`);
 
-/** Calendar date without time (`YYYY-MM-DD`), interpreted in Africa/Nairobi. */
+/** Calendar date without time (`YYYY-MM-DD`), interpreted in the installation's time zone. */
 export const dateOnlySchema = z.iso.date('Use the format YYYY-MM-DD');
 
 /** Legacy `char(1)` flags store `'Y'` / `'N'`. */

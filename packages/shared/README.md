@@ -8,7 +8,6 @@ Plain JavaScript shared by `apps/api` and `apps/web`. No Node-only or browser-on
 | `@ihealth/shared/permissions` | `PERMISSIONS` constants mirroring the legacy `pharma_access` table, plus helpers                              |
 | `@ihealth/shared/errors`      | Error codes, their HTTP statuses and safe messages, the error response schema                                 |
 | `@ihealth/shared/money`       | `decimal.js` money helpers (half-up rounding to cents), KES formatting, `moneySchema`                         |
-| `@ihealth/shared/locale`      | `Africa/Nairobi`, `KES`, `en-KE`                                                                              |
 
 ## Permissions
 

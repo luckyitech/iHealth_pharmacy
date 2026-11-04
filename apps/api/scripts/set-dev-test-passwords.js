@@ -11,12 +11,9 @@
 import { hashPassword, legacyFingerprint } from '../src/features/auth/password-hasher.js';
 import { connectToDevDatabase, passwordFromEnv } from './lib/dev-db.js';
 
-const DEFAULT_TEST_PASSWORD = 'Test@2026pharm';
-
 const { password } = passwordFromEnv(
   'DEV_TEST_PASSWORD',
   'Shared test password for every account (npm run db:dev-test-passwords)',
-  DEFAULT_TEST_PASSWORD,
 );
 
 const { connection, database } = await connectToDevDatabase();

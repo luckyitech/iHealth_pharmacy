@@ -39,7 +39,7 @@ npm run db:test:load          # builds the test database from the schema file an
 
 ## Shared test password
 
-`npm run db:dev-test-passwords` lets every account in the Docker development database sign in to the new app with one password, `DEV_TEST_PASSWORD` from `.env` (default `Test@2026pharm`). Use any real username or work email from the copy. It stores an argon2id hash per account in `ih_employee_password` and switches off two-factor sign-in, in the Docker copy only. The legacy password and PIN columns are not changed or read out. `dev.admin` keeps its own password. Run it again after `npm run db:copy`.
+`npm run db:dev-test-passwords` lets every account in the Docker development database sign in to the new app with one password, `DEV_TEST_PASSWORD` from `.env` (generated and saved there if empty). Use any real username or work email from the copy. It stores an argon2id hash per account in `ih_employee_password` and switches off two-factor sign-in, in the Docker copy only. The legacy password and PIN columns are not changed or read out. `dev.admin` keeps its own password. Run it again after `npm run db:copy`.
 
 ## Test database (`ihealthpharm_test`)
 

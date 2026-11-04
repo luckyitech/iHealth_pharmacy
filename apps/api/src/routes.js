@@ -3,9 +3,9 @@
 /**
  * Every API route, in one place. Each feature module contributes its route list.
  *
- * @param {{ auth: { routes: readonly Route[] } }} modules
+ * @param {Record<string, { routes: readonly Route[] }>} modules
  * @returns {readonly Route[]}
  */
-export function collectRoutes({ auth }) {
-  return Object.freeze([...auth.routes]);
+export function collectRoutes(modules) {
+  return Object.freeze(Object.values(modules).flatMap((module) => module.routes));
 }

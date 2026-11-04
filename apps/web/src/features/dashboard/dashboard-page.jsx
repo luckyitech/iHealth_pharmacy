@@ -2,24 +2,25 @@ import { ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { visibleNavItems } from '@/app/navigation';
+import { useAppInfo } from '@/app/use-app-info';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCurrentUser } from '@/features/auth/use-auth';
 import { usePermissions } from '@/features/auth/use-permissions';
-import { LOCALE, TIME_ZONE } from '@ihealth/shared/locale';
 
 const NOON = 12;
 const EVENING = 17;
 
 /**
  * @param {Date} date
+ * @param {{ locale: string, timeZone: string } | undefined} region Browser defaults until app info loads.
  * @returns {string}
  */
-function greeting(date) {
+function greeting(date, region) {
   const hour = Number(
-    new Intl.DateTimeFormat(LOCALE, {
+    new Intl.DateTimeFormat(region?.locale, {
       hour: 'numeric',
       hourCycle: 'h23',
-      timeZone: TIME_ZONE,
+      timeZone: region?.timeZone,
     }).format(date),
   );
   if (hour < NOON) return 'Good morning';
@@ -37,15 +38,19 @@ export default function DashboardPage() {
   const { hasAny } = usePermissions();
   const modules = visibleNavItems(hasAny).filter((item) => item.id !== 'dashboard');
   const now = new Date();
+  const region = useAppInfo().data?.region;
 
   return (
     <div className="grid gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {greeting(now)}, {user?.firstName}
+          {greeting(now, region)}, {user?.firstName}
         </h1>
         <p className="text-muted-foreground">
-          {new Intl.DateTimeFormat(LOCALE, { dateStyle: 'full', timeZone: TIME_ZONE }).format(now)}
+          {new Intl.DateTimeFormat(region?.locale, {
+            dateStyle: 'full',
+            timeZone: region?.timeZone,
+          }).format(now)}
         </p>
       </div>
 

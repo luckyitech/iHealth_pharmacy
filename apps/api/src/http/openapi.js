@@ -80,7 +80,7 @@ export function buildOpenApiDocument(routes) {
       title: 'iHealth Pharmacy API',
       version: '1.0.0',
       description:
-        'REST API of the iHealth Pharmacy system. All amounts are KES strings; all times are Africa/Nairobi.',
+        'REST API of the iHealth Pharmacy system. Amounts are decimal strings in the currency and times in the time zone given by GET /api/v1/app-info.',
     },
     servers: [{ url: '/' }],
   });

@@ -13,6 +13,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 
 const JSON_BODY_LIMIT = '1mb';
 const DOCS_PATH = '/api/docs';
+const DOCS_CDN_ORIGIN = 'https://cdn.jsdelivr.net'; // hardcode-ok: where the Scalar docs UI is published
 const CLIENT_ERROR_STATUS = 400;
 const SERVER_ERROR_STATUS = 500;
 
@@ -72,8 +73,8 @@ export function createApp({ config, logger, prisma, redis, routes = [], guards, 
       helmet({
         contentSecurityPolicy: {
           directives: {
-            scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-            connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+            scriptSrc: ["'self'", "'unsafe-inline'", DOCS_CDN_ORIGIN],
+            connectSrc: ["'self'", DOCS_CDN_ORIGIN],
           },
         },
       }),

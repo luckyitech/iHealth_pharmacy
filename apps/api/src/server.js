@@ -5,6 +5,7 @@ import { loadConfig } from './config/env.js';
 import { createMailer } from './infra/mailer.js';
 import { createRedis } from './infra/redis.js';
 import { createLogger } from './lib/logger.js';
+import { createAppInfoRoutes } from './features/app-info/app-info.routes.js';
 import { createAuthModule } from './features/auth/auth.module.js';
 import { collectRoutes } from './routes.js';
 
@@ -12,7 +13,7 @@ const SHUTDOWN_GRACE_MS = 10_000;
 
 const config = loadConfig(process.env);
 const logger = createLogger({ level: config.logLevel, pretty: config.env === 'development' });
-const prisma = createPrismaClient({ url: config.databaseUrl });
+const prisma = createPrismaClient({ url: config.databaseUrl, timezone: config.region.dbTimeZone });
 const redis = createRedis(config.redisUrl, logger);
 
 try {
@@ -35,7 +36,7 @@ const app = createApp({
   logger,
   prisma,
   redis,
-  routes: collectRoutes({ auth }),
+  routes: collectRoutes({ auth, appInfo: { routes: createAppInfoRoutes({ prisma, config }) } }),
   guards: auth.guards,
   apiRateLimit: auth.apiRateLimit,
 });
