@@ -2,13 +2,13 @@ import { changePasswordFormSchema, MIN_NEW_PASSWORD_LENGTH } from '@ihealth/shar
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { toast } from 'sonner';
 
 import { TextField } from '@/components/form/text-field';
 import { applyServerErrors, useZodForm } from '@/components/form/use-zod-form';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { errorMessage } from '@/lib/api-error';
+import { notify } from '@/lib/notify';
 
 import { changePassword } from './auth-api.js';
 import { AuthLayout } from './auth-layout.jsx';
@@ -35,7 +35,7 @@ export default function ChangePasswordPage() {
     mutationFn: changePassword,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY });
-      toast.success('Password changed');
+      notify.success('Password changed');
       navigate(searchParams.get('redirect') || '/', { replace: true });
     },
     onError: (error) => applyServerErrors(error, form.setError),

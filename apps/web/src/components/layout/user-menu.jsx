@@ -1,6 +1,5 @@
 import { KeyRound, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CHANGE_PASSWORD_PATH } from '@/features/auth/route-guards';
 import { useCurrentUser, useLogout } from '@/features/auth/use-auth';
-import { errorMessage } from '@/lib/api-error';
+import { notify } from '@/lib/notify';
 
 /**
  * @param {{ firstName: string, lastName: string }} user
@@ -35,7 +34,7 @@ export function UserMenu() {
     logout.mutate(undefined, {
       onSuccess: () => navigate('/login', { replace: true }),
       onError: (error) => {
-        toast.error(errorMessage(error));
+        notify.error(error);
         navigate('/login', { replace: true });
       },
     });

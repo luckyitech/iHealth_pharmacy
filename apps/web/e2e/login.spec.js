@@ -94,5 +94,5 @@ test('requests a reset link and sets a new password', async ({ page }) => {
   await page.getByLabel('Confirm new password').fill('a-brand-new-password');
   await page.getByRole('button', { name: 'Change password' }).click();
   await expect(page).toHaveURL(/\/login\?reset=done$/);
-  await expect(page.getByRole('status')).toContainText('Your password has been changed.');
+  await expect(page.getByText('Your password has been changed.', { exact: false })).toBeVisible();
 });

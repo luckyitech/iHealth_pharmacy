@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { confirmChange, jsonResponse, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
 import SuppliersPage from './suppliers-page.jsx';
@@ -102,6 +102,7 @@ describe('SuppliersPage', () => {
     );
     await userEvent.click(within(panel).getByLabelText('Phone orders'));
     await userEvent.click(within(panel).getByRole('button', { name: 'Create supplier' }));
+    await confirmChange();
 
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toMatchObject({

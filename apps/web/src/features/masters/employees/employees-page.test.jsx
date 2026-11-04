@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { confirmChange, jsonResponse, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
 import EmployeesPage from './employees-page.jsx';
@@ -96,6 +96,7 @@ describe('EmployeesPage', () => {
       'Nairobi',
     );
     await userEvent.click(within(panel).getByRole('button', { name: 'Create employee' }));
+    await confirmChange();
 
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toMatchObject({

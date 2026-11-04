@@ -100,3 +100,19 @@ What happens when someone saves a new item on the **Items** screen:
 - The open record is in the URL (`?edit=48`, `?edit=new`), beside the list's search, filters and page.
 - `record-form.js` holds saving, Ctrl+S and focus; `record-actions.jsx` the "More" menu with
   deactivate or restore. Closing with unsaved changes asks first.
+
+## Asking before saving, and notifications (web)
+
+- **Every change asks first.** Saving an edited record shows "Save these changes?" with each change as
+  "Field: before → after" (passwords are never shown). A new record gets a short "Create this …?". The
+  sign-in and access actions, and deactivate or restore, ask the same way. "Go back" has the focus, so
+  Enter never confirms by accident, and Ctrl+S opens the question rather than saving. Save stays off
+  until something has changed. The question is `components/feedback/save-confirm-dialog.jsx`, asked
+  with `hooks/use-confirm.jsx`; `lib/form-changes.js` reads the changes from the form.
+- **Notifications** use [Sonner](https://sonner.emilkowal.ski), through one helper, `lib/notify.js`
+  (`notify.success`, `notify.error`, `notify.info`, `notify.promise`), and one styled `Toaster`
+  (`components/ui/sonner.jsx`): bottom right (top centre on phones), with a close button. Successes go after
+  4 seconds and errors after 8. Messages name the record ("Supplier "Dawa Ltd" saved"), and a deactivation
+  offers Undo. The API client reports a lost connection once, and an ended session says so.
+- Errors about a field stay under that field. A page's main result, like the forgot-password answer,
+  stays on the page. Neither is a notification.

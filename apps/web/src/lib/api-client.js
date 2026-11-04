@@ -3,6 +3,7 @@ import ky, { isHTTPError } from 'ky';
 
 import { ApiError } from './api-error.js';
 import { getCsrfToken, setCsrfToken } from './csrf-token.js';
+import { notify } from './notify.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -37,6 +38,9 @@ function refreshSession() {
     });
   return refreshInFlight;
 }
+
+/** One network-error notification at a time, however many requests fail. */
+const NETWORK_ERROR_ID = 'network-error';
 
 /** Listeners told when the session ends (refresh failed), so the app can return to the sign-in page. */
 const sessionEndedListeners = new Set();
@@ -140,7 +144,14 @@ export const api = ky.create({
       },
     ],
     beforeError: [
-      async ({ error }) => (isHTTPError(error) ? toApiError(error.response, error.data) : error),
+      async ({ error }) => {
+        if (isHTTPError(error)) return toApiError(error.response, error.data);
+        // No answer at all (offline, server down, timeout): say so once, whatever the screen.
+        notify.error('Cannot reach the server. Check the connection and try again.', {
+          id: NETWORK_ERROR_ID,
+        });
+        return error;
+      },
     ],
   },
 });

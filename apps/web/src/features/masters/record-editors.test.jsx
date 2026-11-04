@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { confirmChange, jsonResponse, renderRoutes, stubApi } from '@/test/render';
 
 import ManufacturersPage from './manufacturers/manufacturers-page.jsx';
 import HospitalsPage from './organisation/hospitals-page.jsx';
@@ -35,6 +35,14 @@ function setup(path) {
       return jsonResponse(200, { data: { ...HOSPITAL, ...body } });
     },
     'GET masters/manufacturers': () => jsonResponse(200, { data: [MANUFACTURER], meta: META }),
+    'DELETE masters/manufacturers/2': () => {
+      writes.push('deactivate');
+      return new Response(null, { status: 204 });
+    },
+    'POST masters/manufacturers/2/restore': () => {
+      writes.push('restore');
+      return jsonResponse(200, { data: MANUFACTURER });
+    },
     'GET lookups/countries': () => jsonResponse(200, { data: [] }),
   });
   vi.stubGlobal('fetch', api.fetch);
@@ -85,9 +93,36 @@ describe('large record dialog', () => {
     expect(screen.getByRole('dialog', { name: 'Test Clinic' })).toBeInTheDocument();
 
     await userEvent.keyboard('{Control>}s{/Control}');
+
+    await confirmChange();
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]).toMatchObject({ phone: '0700000505' });
+    expect(await screen.findByText('Hospital "Test Clinic" saved')).toBeInTheDocument();
     await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+});
+
+describe('saving asks first', () => {
+  it('lists what changed, keeps Save off until something changes, and Enter goes back', async () => {
+    const { writes } = setup('/masters/hospitals?edit=5');
+    const dialog = await screen.findByRole('dialog', { name: 'Test Clinic' });
+    const save = within(dialog).getByRole('button', { name: 'Save changes' });
+    expect(save).toBeDisabled();
+
+    await userEvent.type(within(dialog).getByLabelText('Phone'), '0700000505');
+    expect(save).toBeEnabled();
+    await userEvent.click(save);
+    const question = await screen.findByRole('alertdialog', { name: 'Save these changes?' });
+    const changes = within(question).getByRole('list', { name: 'Changes' });
+    expect(within(changes).getByText('Phone')).toBeInTheDocument();
+    expect(within(changes).getByText('(empty)')).toBeInTheDocument();
+    expect(within(changes).getByText('0700000505')).toBeInTheDocument();
+
+    expect(within(question).getByRole('button', { name: 'Go back' })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(writes).toHaveLength(0);
+    expect(screen.getByRole('dialog', { name: 'Test Clinic' })).toBeInTheDocument();
   });
 });
 
@@ -107,5 +142,20 @@ describe('small record dialog', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Test Maker' })).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe('notifications', () => {
+  it('offers Undo after a deactivation, which restores the record', async () => {
+    const { writes } = setup('/masters/manufacturers?edit=2');
+    const dialog = await screen.findByRole('dialog', { name: 'Test Maker' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Deactivate manufacturer' }));
+    const question = await screen.findByRole('dialog', { name: 'Deactivate Test Maker?' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Deactivate' }));
+
+    expect(await screen.findByText('"Test Maker" deactivated')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(writes).toEqual(['deactivate', 'restore']));
   });
 });

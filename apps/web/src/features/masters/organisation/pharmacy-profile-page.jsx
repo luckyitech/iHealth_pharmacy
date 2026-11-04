@@ -5,7 +5,6 @@ import { LOGO_TYPES, MAX_LOGO_BYTES, pharmacyProfileInputSchema } from '@ihealth
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ImageUp, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 
 import { APP_INFO_KEY } from '@/app/use-app-info';
 import { AddressFields } from '@/components/form/address-fields';
@@ -20,6 +19,7 @@ import { RequiredLegend } from '@/components/ui/label';
 import { usePermissions } from '@/features/auth/use-permissions';
 import { api } from '@/lib/api-client';
 import { errorMessage } from '@/lib/api-error';
+import { notify } from '@/lib/notify';
 
 import { formValuesFor } from '../master-columns.jsx';
 
@@ -59,7 +59,7 @@ export default function PharmacyProfilePage() {
     onSuccess: (data) => {
       queryClient.setQueryData(PROFILE_KEY, data);
       void queryClient.invalidateQueries({ queryKey: APP_INFO_KEY });
-      toast.success('Pharmacy details saved');
+      notify.success('Pharmacy details saved');
     },
     onError: (error) => applyServerErrors(error, setError),
   });
@@ -179,7 +179,7 @@ function LogoCard({ hasLogo, canWrite, onSaved }) {
     onSuccess: () => {
       setVersion((current) => current + 1);
       onSaved();
-      toast.success('Logo updated');
+      notify.success('Logo updated');
     },
   });
 
@@ -188,7 +188,7 @@ function LogoCard({ hasLogo, canWrite, onSaved }) {
     event.target.value = '';
     if (!file) return;
     if (!LOGO_TYPES.includes(file.type) || file.size > MAX_LOGO_BYTES) {
-      toast.error(`Choose a PNG, JPEG or WebP image of at most ${MAX_LOGO_BYTES / 1024} kB.`);
+      notify.error(`Choose a PNG, JPEG or WebP image of at most ${MAX_LOGO_BYTES / 1024} kB.`);
       return;
     }
     upload.mutate(file);

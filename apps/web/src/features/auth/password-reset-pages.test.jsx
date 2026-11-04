@@ -87,7 +87,7 @@ describe('ResetPasswordPage', () => {
       },
     });
     await fill('a-brand-new-password');
-    expect(await screen.findByRole('status')).toHaveTextContent('Your password has been changed.');
+    expect(await screen.findByText(/Your password has been changed\./)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
   });
 
