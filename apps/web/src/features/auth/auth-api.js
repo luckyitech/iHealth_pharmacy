@@ -48,3 +48,21 @@ export async function logout() {
     setCsrfToken(null);
   }
 }
+
+/**
+ * @param {{ identifier: string }} body
+ * @returns {Promise<string>} The API's message, identical whether or not the account exists.
+ */
+export async function requestPasswordReset(body) {
+  /** @type {{ data: { message: string } }} */
+  const response = await api.post('auth/forgot-password', { json: body }).json();
+  return response.data.message;
+}
+
+/**
+ * @param {{ token: string, password: string }} body
+ * @returns {Promise<void>}
+ */
+export async function resetPassword(body) {
+  await api.post('auth/reset-password', { json: body });
+}

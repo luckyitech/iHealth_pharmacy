@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { CASHIER, mockApi } from './api-mock.js';
+import { CASHIER, FORGOT_PASSWORD_MESSAGE, mockApi, RESET_TOKEN } from './api-mock.js';
 
 test.beforeEach(async ({ page }) => {
   await mockApi(page);
@@ -71,4 +71,28 @@ test('switches between light and dark themes', async ({ page }) => {
   await page.getByRole('button', { name: 'Change theme' }).click();
   await page.getByRole('menuitemradio', { name: 'Light' }).click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
+});
+
+test('signs in with the work email', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Email or username', { exact: true }).fill(CASHIER.email.toUpperCase());
+  await page.getByLabel('Password', { exact: true }).fill(CASHIER.password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Carl');
+});
+
+test('requests a reset link and sets a new password', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByRole('link', { name: 'Forgot your password?' }).click();
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await page.getByLabel('Email or username', { exact: true }).fill(CASHIER.email);
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByRole('status')).toHaveText(FORGOT_PASSWORD_MESSAGE);
+
+  await page.goto(`/reset-password?token=${RESET_TOKEN}`);
+  await page.getByLabel('New password', { exact: true }).fill('a-brand-new-password');
+  await page.getByLabel('Confirm new password').fill('a-brand-new-password');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page).toHaveURL(/\/login\?reset=done$/);
+  await expect(page.getByRole('status')).toContainText('Your password has been changed.');
 });

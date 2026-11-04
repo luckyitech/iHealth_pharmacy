@@ -34,6 +34,20 @@ export function createAppRouter() {
       lazy: async () => ({ Component: (await import('@/features/auth/login-page')).default }),
     },
     {
+      path: '/forgot-password',
+      errorElement: <RouteErrorFallback />,
+      lazy: async () => ({
+        Component: (await import('@/features/auth/forgot-password-page')).default,
+      }),
+    },
+    {
+      path: '/reset-password',
+      errorElement: <RouteErrorFallback />,
+      lazy: async () => ({
+        Component: (await import('@/features/auth/reset-password-page')).default,
+      }),
+    },
+    {
       element: <RequireAuth />,
       errorElement: <RouteErrorFallback />,
       children: [

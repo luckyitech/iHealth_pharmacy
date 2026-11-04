@@ -17,6 +17,9 @@ export const CASHIER = Object.freeze({
 });
 
 const CSRF_TOKEN = 'smoke-csrf-token';
+export const RESET_TOKEN = 'smoke-reset-token';
+export const FORGOT_PASSWORD_MESSAGE =
+  'If that account exists and has a work email, we have sent it a reset link. It expires in 30 minutes.';
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -48,7 +51,10 @@ export async function mockApi(page) {
 
     if (key === 'POST auth/login') {
       const body = request.postDataJSON();
-      if (body.identifier === CASHIER.username && body.password === password) {
+      const knownIdentifier = [CASHIER.username, CASHIER.email].includes(
+        String(body.identifier).trim().toLowerCase(),
+      );
+      if (knownIdentifier && body.password === password) {
         signedIn = true;
         return reply(route, 200, { data: { user, csrfToken: CSRF_TOKEN } });
       }
@@ -58,6 +64,19 @@ export async function mockApi(page) {
           message: 'The username or password is incorrect. Check them and try again.',
         },
       });
+    }
+    if (key === 'POST auth/forgot-password') {
+      return reply(route, 200, { data: { message: FORGOT_PASSWORD_MESSAGE } });
+    }
+    if (key === 'POST auth/reset-password') {
+      return request.postDataJSON().token === RESET_TOKEN
+        ? reply(route, 204)
+        : reply(route, 400, {
+            error: {
+              code: 'RESET_TOKEN_INVALID',
+              message: 'This reset link is invalid or has expired. Request a new one.',
+            },
+          });
     }
     if (key === 'GET auth/me')
       return signedIn ? reply(route, 200, { data: user }) : reply(route, 401, unauthenticated);
