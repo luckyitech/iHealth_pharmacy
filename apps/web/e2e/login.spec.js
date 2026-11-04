@@ -11,7 +11,7 @@ test('signs in, shows only permitted modules, and signs out', async ({ page, isM
 
   // Not signed in: sent to the sign-in page, which remembers where to go next.
   await expect(page).toHaveURL(/\/login\?redirect=%2Fsales/);
-  await expect(page.getByRole('heading', { name: 'Sign in to iHealth Pharmacy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in', level: 1 })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByText('Enter your username')).toBeVisible();

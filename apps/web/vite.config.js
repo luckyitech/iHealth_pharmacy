@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,12 +7,18 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const { version } = JSON.parse(readFileSync(path.join(here, 'package.json'), 'utf8'));
 const API_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:4000';
 // 5180 rather than Vite's 5173, which other local projects on this machine already use.
 const DEV_PORT = Number(process.env.WEB_PORT ?? 5180);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // One .env for the whole repository (only VITE_* variables reach the browser).
+  envDir: path.join(here, '../..'),
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
+  },
   resolve: {
     alias: { '@': path.join(here, 'src') },
   },

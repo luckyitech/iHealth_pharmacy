@@ -1,6 +1,6 @@
 {
   "name": "@ihealth/web",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "iHealth Pharmacy web app (React 19 + Vite).",
   "type": "module",
@@ -12,7 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/geist": "5.3.0",
     "@hookform/resolvers": "7.0.1",
     "@ihealth/shared": "0.0.0",
     "@tanstack/react-query": "5.105.3",

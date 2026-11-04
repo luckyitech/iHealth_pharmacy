@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router';
 
 import { visibleNavItems } from '@/app/navigation';
+import { Wordmark } from '@/components/layout/wordmark';
 import { usePermissions } from '@/features/auth/use-permissions';
 import { cn } from '@/lib/utils';
 
@@ -40,9 +41,8 @@ export function SidebarNav({ onNavigate }) {
  */
 export function Brand() {
   return (
-    <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-5">
-      <img src="/favicon.svg" alt="" className="size-7" />
-      <span className="font-semibold tracking-tight">iHealth Pharmacy</span>
+    <div className="flex h-14 items-center border-b border-sidebar-border px-5">
+      <Wordmark />
     </div>
   );
 }
