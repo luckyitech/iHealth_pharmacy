@@ -33,6 +33,10 @@ npm run db:test:load          # builds the test database from the schema file an
 - `--keep-dump` also keeps a gzipped dump in `packages/db/dumps/` (git-ignored). Dumps hold real patient and business data: never commit or share them.
 - `LEGACY_DB_PASSWORD` can be exported in the shell instead of written in `.env`.
 
+## Local admin account
+
+`npm run db:dev-admin` creates or refreshes `dev.admin` (email `dev.admin@localhost`) in the Docker development database. It gets every legacy permission and no two-factor sign-in. The password is `DEV_ADMIN_PASSWORD` in `.env`: if that is empty, a random one is generated and saved there. The script refuses to run against anything but the Docker database, and it is safe to run again (for example after `npm run db:copy`, which replaces the database).
+
 ## Test database (`ihealthpharm_test`)
 
 - `packages/db/sql/schema/legacy-schema.sql` is the legacy schema with no data, AUTO_INCREMENT counters or definers. It is committed so tests and CI do not need the legacy server. To regenerate it, run `npm run db:schema:dump`.

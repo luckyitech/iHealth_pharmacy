@@ -30,7 +30,8 @@
     "db:copy": "scripts/db/copy-dev-db.sh",
     "db:schema:dump": "scripts/db/dump-test-schema.sh",
     "db:test:load": "scripts/db/load-test-db.sh",
-    "postinstall": "npm run build -w @ihealth/db"
+    "postinstall": "npm run build -w @ihealth/db",
+    "db:dev-admin": "node apps/api/scripts/create-dev-admin.js"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs}": [
