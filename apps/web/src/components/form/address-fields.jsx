@@ -15,11 +15,12 @@ const toOptions = (query) =>
  * Address lines, city, postal code, country and province. Provinces follow the chosen country.
  * Field names: addressLine1, addressLine2, city, zip, countryId, provinceId.
  *
- * @param {{ form: import('react-hook-form').UseFormReturn<any>, required?: boolean }} props
- *   `required` marks the first line, the country and the province as required.
+ * Which of them are required comes from the form's schema.
+ *
+ * @param {{ form: import('react-hook-form').UseFormReturn<any> }} props
  * @returns {React.JSX.Element}
  */
-export function AddressFields({ form, required = false }) {
+export function AddressFields({ form }) {
   const countryId = form.watch('countryId');
   const countries = useCountries();
   const provinces = useProvinces(countryId ? Number(countryId) : null);
@@ -32,7 +33,6 @@ export function AddressFields({ form, required = false }) {
         name="addressLine1"
         label="Address line 1"
         autoComplete="address-line1"
-        required={required}
       />
       <TextField
         form={form}
@@ -49,7 +49,6 @@ export function AddressFields({ form, required = false }) {
           form={form}
           name="countryId"
           label="Country"
-          required={required}
           emptyLabel="Choose a country"
           loading={countries.isPending}
           options={toOptions(countries)}
@@ -59,7 +58,6 @@ export function AddressFields({ form, required = false }) {
           form={form}
           name="provinceId"
           label="Province or county"
-          required={required}
           emptyLabel={countryId ? 'Choose' : 'Choose a country first'}
           loading={Boolean(countryId) && provinces.isPending}
           disabled={!countryId}

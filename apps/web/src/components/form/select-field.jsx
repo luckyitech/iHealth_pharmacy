@@ -15,7 +15,6 @@ import { FormField } from './form-field.jsx';
  * @param {string} props.label
  * @param {readonly { value: string | number, label: string }[]} props.options
  * @param {string} [props.emptyLabel] Shown for "nothing chosen"; omit to force a choice.
- * @param {boolean} [props.required]
  * @param {boolean} [props.loading]
  * @param {React.ReactNode} [props.hint]
  * @param {(value: string) => void} [props.onValueChange] Runs after the value changes (e.g. to clear a dependent field).
@@ -29,7 +28,6 @@ export function SelectField({
   label,
   options,
   emptyLabel,
-  required,
   loading = false,
   hint,
   selectedLabel,
@@ -42,7 +40,7 @@ export function SelectField({
   const missing =
     value !== '' && !loading && !options.some((option) => String(option.value) === String(value));
   return (
-    <FormField label={label} required={required} error={fieldState.error?.message} hint={hint}>
+    <FormField form={form} name={name} label={label} error={fieldState.error?.message} hint={hint}>
       {(control) => (
         <NativeSelect
           {...control}

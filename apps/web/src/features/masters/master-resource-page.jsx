@@ -10,6 +10,7 @@ import { PageState } from '@/components/feedback/page-state';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Input } from '@/components/ui/input';
+import { RequiredLegend } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { usePermissions } from '@/features/auth/use-permissions';
@@ -240,6 +241,7 @@ function RecordSheet({ config, item, canWrite, onClose }) {
             disabled={!canWrite || save.isPending}
             className="grid flex-1 content-start gap-5 overflow-y-auto px-6 py-6"
           >
+            {canWrite && <RequiredLegend />}
             {formError && <FormError>{errorMessage(save.error)}</FormError>}
             {open && <config.Fields form={form} item={item ?? null} />}
           </fieldset>

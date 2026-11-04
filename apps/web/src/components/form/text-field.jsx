@@ -10,7 +10,6 @@ import { FormField } from './form-field.jsx';
  * @param {import('react-hook-form').UseFormReturn<any>} props.form
  * @param {string} props.name
  * @param {string} props.label
- * @param {boolean} [props.required]
  * @param {string} [props.type]
  * @param {string} [props.autoComplete]
  * @param {string} [props.inputMode]
@@ -22,7 +21,6 @@ export function TextField({
   form,
   name,
   label,
-  required,
   type = 'text',
   autoComplete = 'off',
   inputMode,
@@ -32,7 +30,14 @@ export function TextField({
   const error = /** @type {{ message?: string } | undefined} */ (form.formState.errors[name])
     ?.message;
   return (
-    <FormField label={label} required={required} error={error} hint={hint} className={className}>
+    <FormField
+      form={form}
+      name={name}
+      label={label}
+      error={error}
+      hint={hint}
+      className={className}
+    >
       {(control) => (
         <Input
           {...control}

@@ -87,23 +87,11 @@ function SupplierFields({ form, item }) {
   return (
     <>
       <Section title="Supplier">
-        <TextField form={form} name="name" label="Name" required />
+        <TextField form={form} name="name" label="Name" />
         <div className="grid gap-4 sm:grid-cols-3">
-          <TextField
-            form={form}
-            name="taxPin"
-            label="Tax PIN"
-            required
-            hint="KRA PIN, e.g. P051234567X"
-          />
+          <TextField form={form} name="taxPin" label="Tax PIN" hint="KRA PIN, e.g. P051234567X" />
           <TextField form={form} name="registrationNumber" label="SL number" />
-          <SelectField
-            form={form}
-            name="supplies"
-            label="Supplies"
-            required
-            options={SUPPLIES_OPTIONS}
-          />
+          <SelectField form={form} name="supplies" label="Supplies" options={SUPPLIES_OPTIONS} />
         </div>
         <CheckboxField
           label={FLAG_LABELS.alsoManufacturer}
@@ -140,7 +128,7 @@ function SupplierFields({ form, item }) {
         </div>
       </Section>
 
-      <AddressFields form={form} required />
+      <AddressFields form={form} />
 
       <Section title="Payment">
         <div className="grid gap-4 sm:grid-cols-3">
@@ -167,7 +155,12 @@ function SupplierFields({ form, item }) {
             inputMode="numeric"
           />
         </div>
-        <FormField label="Payment terms" error={form.formState.errors.paymentTerms?.message}>
+        <FormField
+          form={form}
+          name="paymentTerms"
+          label="Payment terms"
+          error={form.formState.errors.paymentTerms?.message}
+        >
           {(control) => <Textarea {...control} rows={2} {...form.register('paymentTerms')} />}
         </FormField>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -185,7 +178,6 @@ function SupplierFields({ form, item }) {
           form={form}
           name="returnCreditTypeId"
           label="Returns are credited as"
-          required
           emptyLabel="Choose"
           loading={creditTypes.isPending}
           options={lookupOptions(creditTypes)}

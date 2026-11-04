@@ -5,6 +5,8 @@ import { useMutation } from '@tanstack/react-query';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+
+import { requiredFieldsOf } from '@/components/form/use-zod-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { Button } from '@/components/ui/button';
@@ -18,6 +20,7 @@ import { AUTH_LINK_CLASS, AuthLayout } from './auth-layout.jsx';
 
 const PASSWORD_HINT_ID = 'password-hint';
 
+const REQUIRED = requiredFieldsOf(resetPasswordFormSchema);
 /**
  * @param {unknown} error
  * @returns {boolean}
@@ -92,10 +95,13 @@ export default function ResetPasswordPage() {
         )}
 
         <div className="grid gap-2">
-          <Label htmlFor="password">New password</Label>
+          <Label htmlFor="password" required={REQUIRED.has('password')}>
+            New password
+          </Label>
           <div className="relative">
             <Input
               id="password"
+              aria-required={REQUIRED.has('password') || undefined}
               type={showPasswords ? 'text' : 'password'}
               autoComplete="new-password"
               className="pr-11"
@@ -127,9 +133,12 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="confirmPassword">Confirm new password</Label>
+          <Label htmlFor="confirmPassword" required={REQUIRED.has('confirmPassword')}>
+            Confirm new password
+          </Label>
           <Input
             id="confirmPassword"
+            aria-required={REQUIRED.has('confirmPassword') || undefined}
             type={showPasswords ? 'text' : 'password'}
             autoComplete="new-password"
             aria-invalid={errors.confirmPassword ? true : undefined}

@@ -18,8 +18,9 @@ function TermsFields({ form }) {
     ?.message;
   return (
     <FormField
+      form={form}
+      name="text"
       label="Terms and conditions"
-      required
       error={error}
       hint="Printed on quotations, invoices and orders."
     >
