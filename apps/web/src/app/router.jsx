@@ -102,6 +102,37 @@ export function createAppRouter() {
                           },
                         })),
                         {
+                          path: 'pharmacy-profile',
+                          lazy: async () => ({
+                            Component: (
+                              await import('@/features/masters/organisation/pharmacy-profile-page')
+                            ).default,
+                          }),
+                        },
+                        {
+                          path: 'terms',
+                          lazy: async () => ({
+                            Component: (await import('@/features/masters/organisation/terms-page'))
+                              .default,
+                          }),
+                        },
+                        {
+                          path: 'hospitals',
+                          lazy: async () => ({
+                            Component: (
+                              await import('@/features/masters/organisation/hospitals-page')
+                            ).default,
+                          }),
+                        },
+                        {
+                          path: 'providers',
+                          lazy: async () => ({
+                            Component: (
+                              await import('@/features/masters/organisation/providers-page')
+                            ).default,
+                          }),
+                        },
+                        {
                           path: 'manufacturers',
                           lazy: async () => ({
                             Component: (

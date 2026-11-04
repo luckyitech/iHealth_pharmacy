@@ -1,5 +1,17 @@
 import { POLICIES } from '@ihealth/shared/permissions';
-import { Factory, FlaskConical, Layers, Pill, Ruler, Stethoscope, Tags } from 'lucide-react';
+import {
+  Building2,
+  Factory,
+  FileText,
+  FlaskConical,
+  Hospital,
+  Layers,
+  Pill,
+  Ruler,
+  Stethoscope,
+  Tags,
+  UserRound,
+} from 'lucide-react';
 
 /**
  * @typedef {object} MasterSection
@@ -7,79 +19,45 @@ import { Factory, FlaskConical, Layers, Pill, Ruler, Stethoscope, Tags } from 'l
  * @property {string} label
  * @property {string} path Relative to /masters.
  * @property {string} group Heading in the Masters menu.
- * @property {string} description
  * @property {import('lucide-react').LucideIcon} icon
  * @property {readonly import('@ihealth/shared/permissions').PermissionDefinition[]} permissions To see it (any one).
  */
 
+/**
+ * @param {string} group
+ * @param {[id: string, label: string, icon: import('lucide-react').LucideIcon][]} entries
+ * @returns {MasterSection[]}
+ */
+const sections = (group, entries) =>
+  entries.map(([id, label, icon]) => ({
+    id,
+    label,
+    path: id,
+    group,
+    icon,
+    permissions: POLICIES.masters.read,
+  }));
+
 /** Master-data screens, in menu order. Each appears only for users with one of its permissions. */
-export const MASTER_SECTIONS = Object.freeze(
-  /** @type {MasterSection[]} */ ([
-    {
-      id: 'item-categories',
-      label: 'Categories',
-      path: 'item-categories',
-      group: 'Products',
-      description: 'Product categories',
-      icon: Tags,
-      permissions: POLICIES.masters.read,
-    },
-    {
-      id: 'item-groups',
-      label: 'Groups',
-      path: 'item-groups',
-      group: 'Products',
-      description: 'Item groups',
-      icon: Layers,
-      permissions: POLICIES.masters.read,
-    },
-    {
-      id: 'item-forms',
-      label: 'Dosage forms',
-      path: 'item-forms',
-      group: 'Products',
-      description: 'Dosage forms',
-      icon: Pill,
-      permissions: POLICIES.masters.read,
-    },
-    {
-      id: 'generic-names',
-      label: 'Generic names',
-      path: 'generic-names',
-      group: 'Products',
-      description: 'Active ingredients',
-      icon: FlaskConical,
-      permissions: POLICIES.masters.read,
-    },
-    {
-      id: 'units-of-measure',
-      label: 'Units of measure',
-      path: 'units-of-measure',
-      group: 'Products',
-      description: 'Units',
-      icon: Ruler,
-      permissions: POLICIES.masters.read,
-    },
-    {
-      id: 'specializations',
-      label: 'Specializations',
-      path: 'specializations',
-      group: 'Products',
-      description: 'Specialties',
-      icon: Stethoscope,
-      permissions: POLICIES.masters.read,
-    },
-    {
-      id: 'manufacturers',
-      label: 'Manufacturers',
-      path: 'manufacturers',
-      group: 'Suppliers and makers',
-      description: 'Companies that make the products you stock',
-      icon: Factory,
-      permissions: POLICIES.masters.read,
-    },
+export const MASTER_SECTIONS = Object.freeze([
+  ...sections('Organisation', [
+    ['pharmacy-profile', 'Pharmacy profile', Building2],
+    ['terms', 'Terms and conditions', FileText],
   ]),
-);
+  ...sections('Products', [
+    ['item-categories', 'Categories', Tags],
+    ['item-groups', 'Groups', Layers],
+    ['item-forms', 'Dosage forms', Pill],
+    ['generic-names', 'Generic names', FlaskConical],
+    ['units-of-measure', 'Units of measure', Ruler],
+    ['specializations', 'Specializations', Stethoscope],
+  ]),
+  ...sections('Suppliers and makers', [['manufacturers', 'Manufacturers', Factory]]),
+  ...sections('Prescribers', [
+    ['hospitals', 'Hospitals', Hospital],
+    ['providers', 'Providers', UserRound],
+  ]),
+]);
 
 /** Everyone who can see at least one master screen can open the Masters area. */
 export const MASTERS_AREA_PERMISSIONS = Object.freeze([

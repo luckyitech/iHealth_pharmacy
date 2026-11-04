@@ -20,7 +20,7 @@ const options = (rows) =>
     .map((row) => ({ id: row.id, name: /** @type {string} */ (row.name).trim() }));
 
 /**
- * Read-only reference lists used by forms (countries, provinces). They come from the legacy lookup tables.
+ * Read-only reference lists used by forms (countries, provinces, provider types), from the legacy lookup tables.
  *
  * @param {{ prisma: import('#db').PrismaClient }} deps
  * @returns The lookup routes.
@@ -58,6 +58,25 @@ export function createLookupRoutes({ prisma }) {
         });
         return {
           data: options(rows.map((row) => ({ id: row.provincesId, name: row.provincesNm }))),
+        };
+      },
+    }),
+    defineRoute({
+      method: 'get',
+      path: '/lookups/provider-types',
+      summary: 'Provider (prescriber) types',
+      tags: ['Lookups'],
+      permissions: LOOKUP_PERMISSIONS,
+      responses: { 200: { description: 'Provider types', schema: optionsResponse } },
+      handler: async () => {
+        const rows = await prisma.providerTypeLookup.findMany({
+          select: { providerTypeLookupId: true, providerTypeDesc: true },
+          orderBy: { providerTypeDesc: 'asc' },
+        });
+        return {
+          data: options(
+            rows.map((row) => ({ id: row.providerTypeLookupId, name: row.providerTypeDesc })),
+          ),
         };
       },
     }),

@@ -7,8 +7,12 @@ import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createLookupRoutes } from '../../src/features/lookups/lookup-routes.js';
+import { createHospitalRoutes } from '../../src/features/masters/hospitals.js';
 import { createItemLookupRoutes } from '../../src/features/masters/item-lookups.js';
 import { createManufacturerRoutes } from '../../src/features/masters/manufacturers.js';
+import { createPharmacyProfileRoutes } from '../../src/features/masters/pharmacy-profile.js';
+import { createProviderRoutes } from '../../src/features/masters/providers.js';
+import { createTermsRoutes } from '../../src/features/masters/terms.js';
 import { collectRoutes } from '../../src/routes.js';
 import { buildTestApp, TEST_ENV } from '../helpers.js';
 import { startTestDatabase } from './database.js';
@@ -44,6 +48,10 @@ beforeAll(async () => {
         routes: [
           ...createManufacturerRoutes({ prisma: db.prisma, audit }),
           ...createItemLookupRoutes({ prisma: db.prisma, audit }),
+          ...createHospitalRoutes({ prisma: db.prisma, audit }),
+          ...createProviderRoutes({ prisma: db.prisma, audit }),
+          ...createTermsRoutes({ prisma: db.prisma, audit }),
+          ...createPharmacyProfileRoutes({ prisma: db.prisma, audit, config }),
         ],
       },
     }),
@@ -265,5 +273,113 @@ describe('master data CRUD against the legacy manufacturer table', () => {
         409,
       );
     });
+  });
+});
+
+describe('organisation masters', () => {
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let admin;
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+  });
+
+  it('reads hospitals even when legacy rows hold zero dates', async () => {
+    // A zero date can only be written with strict mode off, on the same connection (one transaction).
+    await db.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SET SESSION sql_mode = ''`;
+      await tx.$executeRaw`INSERT INTO hospital (NAME, ACTIVE_S, CREATION_TS, LAST_UPDATE_TS) VALUES ('Legacy Hospital', 'Y', NOW(), '0000-00-00 00:00:00')`;
+      await tx.$executeRaw`SET SESSION sql_mode = DEFAULT`;
+    });
+    const response = await admin.agent.get('/api/v1/masters/hospitals?q=Legacy');
+    expect(response.status).toBe(200);
+    expect(response.body.data[0]).toMatchObject({ name: 'Legacy Hospital', active: true });
+  });
+
+  it("shows a provider's hospital and type, and checks licence numbers only when given", async () => {
+    const hospital = await admin.agent
+      .post('/api/v1/masters/hospitals')
+      .set('x-csrf-token', admin.csrf)
+      .send({ name: 'City Clinic' });
+    await db.prisma
+      .$executeRaw`INSERT INTO provider_type_lookup (PROVIDER_TYPE_CD, PROVIDER_TYPE_DESC, CREATION_USER_ID) VALUES ('PD', 'PHYSICIAN', 'test')`;
+    const [type] =
+      await db.select`SELECT PROVIDER_TYPE_LOOKUP_ID AS id FROM provider_type_lookup WHERE PROVIDER_TYPE_CD = 'PD'`;
+    const created = await admin.agent
+      .post('/api/v1/masters/providers')
+      .set('x-csrf-token', admin.csrf)
+      .send({
+        firstName: 'Amina',
+        lastName: 'Otieno',
+        gender: 'F',
+        licenseNumber: 'A123',
+        providerTypeId: type.id,
+        hospitalId: hospital.body.data.id,
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      hospitalName: 'City Clinic',
+      providerTypeName: 'PHYSICIAN',
+      gender: 'F',
+    });
+
+    const noLicence = await admin.agent
+      .post('/api/v1/masters/providers')
+      .set('x-csrf-token', admin.csrf)
+      .send({ firstName: 'Peter', lastName: 'Kamau', licenseNumber: '' });
+    expect(noLicence.status).toBe(201);
+    const duplicate = await admin.agent
+      .post('/api/v1/masters/providers')
+      .set('x-csrf-token', admin.csrf)
+      .send({ firstName: 'Other', lastName: 'Person', licenseNumber: 'a123' });
+    expect(duplicate.status).toBe(409);
+  });
+
+  it('edits the pharmacy profile and stores a validated logo', async () => {
+    const profile = await admin.agent.get('/api/v1/masters/pharmacy-profile');
+    expect(profile.status).toBe(200);
+    expect(profile.body.data).toMatchObject({ name: 'Test Pharmacy', hasLogo: false });
+
+    const updated = await admin.agent
+      .patch('/api/v1/masters/pharmacy-profile')
+      .set('x-csrf-token', admin.csrf)
+      .send({ phone: '+254700111222', openAllHours: true });
+    expect(updated.body.data).toMatchObject({
+      phone: '+254700111222',
+      openAllHours: true,
+      name: 'Test Pharmacy',
+    });
+    const [row] = await db.select`SELECT 24_HOURS AS allHours FROM pharmacy WHERE PHARMACY_ID = 1`;
+    expect(row.allHours).toBe('Y');
+
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    const fake = await admin.agent
+      .put('/api/v1/masters/pharmacy-profile/logo')
+      .set('x-csrf-token', admin.csrf)
+      .set('content-type', 'image/png')
+      .send(Buffer.from('not an image'));
+    expect(fake.status).toBe(400);
+    const saved = await admin.agent
+      .put('/api/v1/masters/pharmacy-profile/logo')
+      .set('x-csrf-token', admin.csrf)
+      .set('content-type', 'image/png')
+      .send(png);
+    expect(saved.status).toBe(204);
+    const logo = await request(app).get('/api/v1/masters/pharmacy-profile/logo');
+    expect(logo.status).toBe(200);
+    expect(logo.headers['content-type']).toBe('image/png');
+    expect((await admin.agent.get('/api/v1/masters/pharmacy-profile')).body.data.hasLogo).toBe(
+      true,
+    );
+  });
+
+  it('manages terms texts', async () => {
+    const created = await admin.agent
+      .post('/api/v1/masters/terms')
+      .set('x-csrf-token', admin.csrf)
+      .send({ text: 'Goods once sold cannot be returned.' });
+    expect(created.status).toBe(201);
+    expect((await admin.agent.get('/api/v1/masters/terms')).body.data[0].text).toBe(
+      'Goods once sold cannot be returned.',
+    );
   });
 });
