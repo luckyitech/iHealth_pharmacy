@@ -1,3 +1,4 @@
+import { BYTES_PER_MB } from '../../units/index.js';
 import { z } from 'zod';
 
 import { optionalEmail, optionalIdSchema, optionalText, requiredText } from '../common.js';
@@ -145,4 +146,4 @@ export const pharmacyProfileSchema = z.object({
 
 /** Logo upload: the image types browsers display, up to 1 MB. */
 export const LOGO_TYPES = Object.freeze(['image/png', 'image/jpeg', 'image/webp']);
-export const MAX_LOGO_BYTES = 1024 * 1024;
+export const MAX_LOGO_BYTES = BYTES_PER_MB;

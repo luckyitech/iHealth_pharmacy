@@ -1,10 +1,9 @@
+import { MS_PER_MINUTE as MINUTE_MS } from '@ihealth/shared/units';
 import { ERROR_CODES } from '@ihealth/shared/errors';
 import { rateLimit } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 
 import { AppError } from '../../lib/errors.js';
-
-const MINUTE_MS = 60_000;
 
 export const RATE_LIMITS = Object.freeze({
   // Generous: protects the API from runaway clients without getting in the way of a busy till.

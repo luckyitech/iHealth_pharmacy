@@ -1,3 +1,4 @@
+import { BYTES_PER_KB } from '@ihealth/shared/units';
 import { POLICIES } from '@ihealth/shared/permissions';
 import { LOGO_TYPES, MAX_LOGO_BYTES, pharmacyProfileInputSchema } from '@ihealth/shared/schemas';
 
@@ -188,7 +189,9 @@ function LogoCard({ hasLogo, canWrite, onSaved }) {
     event.target.value = '';
     if (!file) return;
     if (!LOGO_TYPES.includes(file.type) || file.size > MAX_LOGO_BYTES) {
-      notify.error(`Choose a PNG, JPEG or WebP image of at most ${MAX_LOGO_BYTES / 1024} kB.`);
+      notify.error(
+        `Choose a PNG, JPEG or WebP image of at most ${MAX_LOGO_BYTES / BYTES_PER_KB} kB.`,
+      );
       return;
     }
     upload.mutate(file);
@@ -211,7 +214,7 @@ function LogoCard({ hasLogo, canWrite, onSaved }) {
         <div className="grid flex-1 gap-1">
           <p className="font-medium">Logo</p>
           <p className="text-sm text-muted-foreground">
-            PNG, JPEG or WebP, up to {MAX_LOGO_BYTES / 1024} kB. A square image works best.
+            PNG, JPEG or WebP, up to {MAX_LOGO_BYTES / BYTES_PER_KB} kB. A square image works best.
           </p>
           {upload.isError && <FormError className="mt-2">{errorMessage(upload.error)}</FormError>}
         </div>
