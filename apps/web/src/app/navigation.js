@@ -1,4 +1,4 @@
-import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
+import { MASTER_SECTIONS, MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
 import { PERMISSION_LIST } from '@ihealth/shared/permissions';
 import {
   BarChart3,
@@ -20,6 +20,17 @@ import {
  * @property {import('lucide-react').LucideIcon} icon
  * @property {string} description
  * @property {readonly PermissionDefinition[]} permissions Shown when the user has any of these (none = everyone).
+ * @property {readonly NavSubItem[]} [children] Pages inside the module, listed under it in the sidebar.
+ */
+
+/**
+ * @typedef {object} NavSubItem
+ * @property {string} id
+ * @property {string} label
+ * @property {string} path Absolute.
+ * @property {string} group Heading the page is listed under.
+ * @property {import('lucide-react').LucideIcon} icon
+ * @property {readonly PermissionDefinition[]} permissions
  */
 
 /**
@@ -90,6 +101,7 @@ export const NAV_ITEMS = Object.freeze([
     icon: UsersRound,
     description: 'Employees, suppliers, items and settings',
     permissions: MASTERS_AREA_PERMISSIONS,
+    children: MASTER_SECTIONS.map((section) => ({ ...section, path: `/masters/${section.path}` })),
   },
 ]);
 
@@ -98,5 +110,9 @@ export const NAV_ITEMS = Object.freeze([
  * @returns {NavItem[]}
  */
 export function visibleNavItems(hasAny) {
-  return NAV_ITEMS.filter((item) => hasAny(item.permissions));
+  return NAV_ITEMS.filter((item) => hasAny(item.permissions)).map((item) =>
+    item.children
+      ? { ...item, children: item.children.filter((child) => hasAny(child.permissions)) }
+      : item,
+  );
 }

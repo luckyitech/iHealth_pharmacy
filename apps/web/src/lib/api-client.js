@@ -5,7 +5,7 @@ import { ApiError } from './api-error.js';
 import { getCsrfToken, setCsrfToken } from './csrf-token.js';
 import { notify } from './notify.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const REQUEST_TIMEOUT_MS = 30_000;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const REFRESH_PATH = 'auth/refresh';

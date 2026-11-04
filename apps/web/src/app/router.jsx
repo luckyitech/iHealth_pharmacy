@@ -89,100 +89,90 @@ export function createAppRouter() {
                   element: <RequirePermission permissions={MASTERS_AREA_PERMISSIONS} />,
                   children: [
                     {
+                      index: true,
                       lazy: async () => ({
-                        Component: (await import('@/features/masters/masters-layout')).default,
+                        Component: (await import('@/features/masters/masters-index')).default,
                       }),
-                      children: [
-                        {
-                          index: true,
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/masters-index')).default,
-                          }),
-                        },
-                        {
-                          path: 'items',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/items/items-page'))
-                              .default,
-                          }),
-                        },
-                        ...ITEM_LOOKUP_ROUTES.map((lookup) => ({
-                          path: lookup,
-                          lazy: async () => {
-                            const { default: ItemLookupPage } =
-                              await import('@/features/masters/item-lookups/item-lookup-pages');
-                            return { Component: () => <ItemLookupPage lookup={lookup} /> };
-                          },
-                        })),
-                        {
-                          path: 'pharmacy-profile',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/organisation/pharmacy-profile-page')
-                            ).default,
-                          }),
-                        },
-                        {
-                          path: 'terms',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/organisation/terms-page'))
-                              .default,
-                          }),
-                        },
-                        {
-                          path: 'hospitals',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/organisation/hospitals-page')
-                            ).default,
-                          }),
-                        },
-                        {
-                          path: 'providers',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/organisation/providers-page')
-                            ).default,
-                          }),
-                        },
-                        {
-                          path: 'employees',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/employees/employees-page'))
-                              .default,
-                          }),
-                        },
-                        {
-                          path: 'customers',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/customers/customers-page'))
-                              .default,
-                          }),
-                        },
-                        {
-                          path: 'suppliers',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/suppliers/suppliers-page'))
-                              .default,
-                          }),
-                        },
-                        {
-                          path: 'item-suppliers',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/item-suppliers/item-suppliers-page')
-                            ).default,
-                          }),
-                        },
-                        {
-                          path: 'manufacturers',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/manufacturers/manufacturers-page')
-                            ).default,
-                          }),
-                        },
-                      ],
+                    },
+                    {
+                      path: 'items',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/items/items-page')).default,
+                      }),
+                    },
+                    ...ITEM_LOOKUP_ROUTES.map((lookup) => ({
+                      path: lookup,
+                      lazy: async () => {
+                        const { default: ItemLookupPage } =
+                          await import('@/features/masters/item-lookups/item-lookup-pages');
+                        return { Component: () => <ItemLookupPage lookup={lookup} /> };
+                      },
+                    })),
+                    {
+                      path: 'pharmacy-profile',
+                      lazy: async () => ({
+                        Component: (
+                          await import('@/features/masters/organisation/pharmacy-profile-page')
+                        ).default,
+                      }),
+                    },
+                    {
+                      path: 'terms',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/organisation/terms-page'))
+                          .default,
+                      }),
+                    },
+                    {
+                      path: 'hospitals',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/organisation/hospitals-page'))
+                          .default,
+                      }),
+                    },
+                    {
+                      path: 'providers',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/organisation/providers-page'))
+                          .default,
+                      }),
+                    },
+                    {
+                      path: 'employees',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/employees/employees-page'))
+                          .default,
+                      }),
+                    },
+                    {
+                      path: 'customers',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/customers/customers-page'))
+                          .default,
+                      }),
+                    },
+                    {
+                      path: 'suppliers',
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/suppliers/suppliers-page'))
+                          .default,
+                      }),
+                    },
+                    {
+                      path: 'item-suppliers',
+                      lazy: async () => ({
+                        Component: (
+                          await import('@/features/masters/item-suppliers/item-suppliers-page')
+                        ).default,
+                      }),
+                    },
+                    {
+                      path: 'manufacturers',
+                      lazy: async () => ({
+                        Component: (
+                          await import('@/features/masters/manufacturers/manufacturers-page')
+                        ).default,
+                      }),
                     },
                   ],
                 },

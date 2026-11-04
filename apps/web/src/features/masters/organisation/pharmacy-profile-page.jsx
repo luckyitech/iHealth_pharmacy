@@ -18,7 +18,7 @@ import { CheckboxField } from '@/components/ui/checkbox-field';
 import { FormError } from '@/components/ui/form-error';
 import { RequiredLegend } from '@/components/ui/label';
 import { usePermissions } from '@/features/auth/use-permissions';
-import { api } from '@/lib/api-client';
+import { api, API_BASE_URL } from '@/lib/api-client';
 import { errorMessage } from '@/lib/api-error';
 import { notify } from '@/lib/notify';
 
@@ -26,7 +26,7 @@ import { formValuesFor } from '../master-columns.jsx';
 
 const RESOURCE = 'masters/pharmacy-profile';
 const PROFILE_KEY = ['resource', RESOURCE];
-const LOGO_URL = `${import.meta.env.VITE_API_BASE_URL ?? '/api/v1'}/${RESOURCE}/logo`;
+const LOGO_URL = `${API_BASE_URL}/${RESOURCE}/logo`;
 const toFormValues = formValuesFor(pharmacyProfileInputSchema, {
   openAllHours: false,
   purchaseOrderApproval: false,

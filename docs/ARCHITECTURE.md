@@ -133,3 +133,15 @@ What happens when someone saves a new item on the **Items** screen:
   offers Undo. The API client reports a lost connection once, and an ended session says so.
 - Errors about a field stay under that field. A page's main result, like the forgot-password answer,
   stays on the page. Neither is a notification.
+
+## Navigation (web)
+
+The layout follows the old system's pattern (`components/layout/app-shell.jsx`):
+
+- **Account bar:** the pharmacy's logo and name from its profile (`pharmacy-brand.jsx`, from `/app-info` and the public logo), the theme and the account menu.
+- **Menu bar:** the main sections from `app/navigation.js`, only those the user may open, the current one highlighted (`SectionTabs`).
+- **Side panel:** for a section with pages of its own (`children`, e.g. Masters from `features/masters/sections.js`), its pages under small group headings (`side-panel.jsx`, `SectionNav`).
+  - It is an icon rail (64px) with a tooltip on each icon, and slides out to 240px over the page on hover or keyboard focus. It opens after 150ms and closes 250ms after the mouse leaves. On a touch screen the first tap opens it and a tap outside closes it.
+  - "Keep the panel open" pins it (remembered in `stores/sidebar-store.js`); the page then starts after it.
+- **Phones:** one bar with a menu button; the drawer lists the sections with the current section's pages (`MobileNav`).
+- **Content width:** pages start right after the rail or panel, with a 16px gutter on phones and 24px from the `sm` breakpoint, and use the full width.
