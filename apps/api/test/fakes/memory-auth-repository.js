@@ -40,6 +40,13 @@ export function createMemoryAuthRepository() {
     async findCredentialsByUsername(/** @type {string} */ username) {
       return state.credentials.find((row) => row.username === username) ?? null;
     },
+    async findCredentialsByEmail(/** @type {string} */ email) {
+      const wanted = email.trim().toLowerCase();
+      const employeeIds = state.employees
+        .filter((row) => row.email?.trim().toLowerCase() === wanted)
+        .map((row) => row.employeeId);
+      return state.credentials.filter((row) => employeeIds.includes(row.employeeId));
+    },
     async findCredentialsById(/** @type {number} */ id) {
       return state.credentials.find((row) => row.credentialsId === id) ?? null;
     },
@@ -88,6 +95,24 @@ export function createMemoryAuthRepository() {
       for (const token of state.tokens) {
         if (token.familyId === familyId && !token.revokedAt)
           Object.assign(token, { revokedAt: new Date(), revokedReason: reason });
+      }
+    },
+    async revokeAllForEmployee(/** @type {number} */ employeeId, /** @type {string} */ reason) {
+      for (const token of state.tokens) {
+        if (token.employeeId === employeeId && !token.revokedAt) {
+          Object.assign(token, { revokedAt: new Date(), revokedReason: reason });
+        }
+      }
+    },
+    async insertPasswordReset(/** @type {any} */ reset) {
+      state.resets.push({ id: BigInt(state.resets.length + 1), ...reset, usedAt: null });
+    },
+    async findPasswordReset(/** @type {string} */ tokenHash) {
+      return state.resets.find((reset) => reset.tokenHash === tokenHash) ?? null;
+    },
+    async closePasswordResets(/** @type {number} */ credentialsId) {
+      for (const reset of state.resets) {
+        if (reset.credentialsId === credentialsId && !reset.usedAt) reset.usedAt = new Date();
       }
     },
     async transaction(/** @type {(tx: any) => Promise<any>} */ work) {
@@ -164,5 +189,7 @@ function initialState() {
     upgraded: new Map(),
     /** @type {any[]} */
     tokens: [],
+    /** @type {any[]} */
+    resets: [],
   };
 }

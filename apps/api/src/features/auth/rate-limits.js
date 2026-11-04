@@ -12,6 +12,7 @@ export const RATE_LIMITS = Object.freeze({
   // Per IP, on top of the per-username lockout.
   login: { windowMs: 15 * MINUTE_MS, limit: 30 },
   approvalPin: { windowMs: 15 * MINUTE_MS, limit: 30 },
+  passwordReset: { windowMs: 15 * MINUTE_MS, limit: 10 },
 });
 
 /**

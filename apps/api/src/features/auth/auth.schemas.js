@@ -1,7 +1,15 @@
 import { dataResponseSchema } from '@ihealth/shared/schemas';
 import { z } from 'zod';
 
-export { approvalPinBodySchema, loginBodySchema } from '@ihealth/shared/schemas';
+export {
+  approvalPinBodySchema,
+  forgotPasswordBodySchema,
+  loginBodySchema,
+  resetPasswordBodySchema,
+} from '@ihealth/shared/schemas';
+
+/** Same body whatever happened, so the endpoint cannot be used to discover accounts. */
+export const forgotPasswordResponseSchema = dataResponseSchema(z.object({ message: z.string() }));
 
 export const currentUserSchema = z.object({
   employeeId: z.number().int(),

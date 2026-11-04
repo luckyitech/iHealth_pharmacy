@@ -46,20 +46,23 @@ describe('LoginPage', () => {
   it('shows inline validation messages and does not call the API', async () => {
     const { api } = setup({});
     await userEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByText('Enter your username')).toBeInTheDocument();
+    expect(await screen.findByText('Enter your email or username')).toBeInTheDocument();
     expect(screen.getByText('Enter your password')).toBeInTheDocument();
-    expect(screen.getByLabelText('Username')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Email or username')).toHaveAttribute('aria-invalid', 'true');
     expect(api.calls.some((request) => request.url.endsWith('auth/login'))).toBe(false);
   });
 
   it('signs in and continues to the page the user asked for', async () => {
     setup({
       'POST auth/login': async (request) => {
-        expect(await request.json()).toEqual({ username: 'test.cashier', password: 'secret pass' });
+        expect(await request.json()).toEqual({
+          identifier: 'test.cashier',
+          password: 'secret pass',
+        });
         return jsonResponse(200, { data: { user: USER, csrfToken: 'csrf-1' } });
       },
     });
-    await userEvent.type(await screen.findByLabelText('Username'), '  test.cashier ');
+    await userEvent.type(await screen.findByLabelText('Email or username'), '  test.cashier ');
     await userEvent.type(screen.getByLabelText('Password'), 'secret pass');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Sales page')).toBeInTheDocument();
@@ -75,14 +78,14 @@ describe('LoginPage', () => {
           },
         }),
     });
-    await userEvent.type(await screen.findByLabelText('Username'), 'test.admin');
+    await userEvent.type(await screen.findByLabelText('Email or username'), 'test.admin');
     await userEvent.type(screen.getByLabelText('Password'), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
       'The username or password is incorrect. Check them and try again.',
     );
-    for (const label of ['Username', 'Password']) {
+    for (const label of ['Email or username', 'Password']) {
       const field = screen.getByLabelText(label);
       expect(field).toHaveAttribute('aria-invalid', 'true');
       expect(field.getAttribute('aria-describedby')).toContain(alert.id);
@@ -99,11 +102,11 @@ describe('LoginPage', () => {
           },
         }),
     });
-    await userEvent.type(await screen.findByLabelText('Username'), 'test.admin');
+    await userEvent.type(await screen.findByLabelText('Email or username'), 'test.admin');
     await userEvent.type(screen.getByLabelText('Password'), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Too many failed sign-in attempts');
-    expect(screen.getByLabelText('Username')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('Email or username')).not.toHaveAttribute('aria-invalid');
   });
 
   it('lets the user reveal the password', async () => {

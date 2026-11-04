@@ -38,12 +38,15 @@ const mastersRoute = defineRoute({
 let repository;
 /** @type {{ action: string, outcome: string }[]} */
 let auditEntries;
+/** @type {import('../src/infra/mailer.js').MailMessage[]} */
+let sentMail;
 /** @type {import('express').Express} */
 let app;
 
 beforeEach(() => {
   repository = createMemoryAuthRepository();
   auditEntries = [];
+  sentMail = [];
   const prisma = /** @type {import('@ihealth/db').PrismaClient} */ (
     /** @type {unknown} */ ({
       $queryRaw: async () => [{ 1: 1 }],
@@ -61,6 +64,7 @@ beforeEach(() => {
     prisma,
     counters: createMemoryCounters(),
     logger: pino({ level: 'silent' }),
+    mailer: { send: async (message) => void sentMail.push(message) },
     repository,
   });
   app = buildTestApp({
@@ -78,7 +82,7 @@ async function signIn(account) {
   const agent = request.agent(app);
   const response = await agent
     .post('/api/v1/auth/login')
-    .send({ username: account.username, password: account.password });
+    .send({ identifier: account.username, password: account.password });
   return { agent, response, csrfToken: /** @type {string} */ (response.body.data?.csrfToken) };
 }
 
@@ -177,10 +181,10 @@ describe('POST /auth/login', () => {
   });
 
   it('validates the body', async () => {
-    const response = await request(app).post('/api/v1/auth/login').send({ username: ' ' });
+    const response = await request(app).post('/api/v1/auth/login').send({ identifier: ' ' });
     expect(response.status).toBe(400);
     expect(response.body.error.details.map((/** @type {{ path: string }} */ d) => d.path)).toEqual([
-      'body.username',
+      'body.identifier',
       'body.password',
     ]);
   });
@@ -364,5 +368,138 @@ describe('POST /auth/approval-pin/verify', () => {
       .send({ username: SEED.cashier.username, pin: '1234' });
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe('APPROVAL_PIN_INVALID');
+  });
+});
+
+describe('sign in with a work email', () => {
+  it('accepts the work email instead of the username, in any case', async () => {
+    const { response } = await signIn({
+      username: '  Admin@Example.TEST ',
+      password: SEED.admin.password,
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.data.user.username).toBe('test.admin');
+  });
+
+  it('refuses an email shared by several active accounts', async () => {
+    repository.state.employees[1].email = 'admin@example.test';
+    const { response } = await signIn({
+      username: 'admin@example.test',
+      password: SEED.admin.password,
+    });
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('LOGIN_AMBIGUOUS');
+  });
+
+  it('uses the only active account when an email is shared with an inactive one', async () => {
+    repository.state.employees[2].email = 'admin@example.test';
+    const { response } = await signIn({
+      username: 'admin@example.test',
+      password: SEED.admin.password,
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it('counts failures per account, whichever identifier is typed', async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1)
+      await signIn({ ...SEED.admin, password: 'wrong' });
+    await signIn({ username: 'admin@example.test', password: 'wrong' });
+    const fifth = await signIn({ username: 'admin@example.test', password: 'wrong' });
+    expect(fifth.response.status).toBe(423);
+  });
+});
+
+describe('forgot and reset password', () => {
+  const FORGOT = '/api/v1/auth/forgot-password';
+  const RESET = '/api/v1/auth/reset-password';
+
+  /** @param {string} identifier */
+  const forgot = (identifier) => request(app).post(FORGOT).send({ identifier });
+
+  /** @returns {string} */
+  const tokenFromMail = () => {
+    const match = /token=([^\s]+)/.exec(sentMail.at(-1)?.text ?? '');
+    return decodeURIComponent(match?.[1] ?? '');
+  };
+
+  it('emails a one-time link to the work email on file', async () => {
+    const response = await forgot('test.admin');
+    expect(response.status).toBe(200);
+    expect(sentMail).toHaveLength(1);
+    expect(sentMail[0].to).toBe('admin@example.test');
+    expect(sentMail[0].text).toContain('http://localhost:5180/reset-password?token=');
+    expect(sentMail[0].text).toContain('30 minutes');
+    expect(repository.state.resets[0].tokenHash).not.toBe(tokenFromMail());
+  });
+
+  it('answers the same way for unknown, inactive and email-less accounts, and sends nothing', async () => {
+    const known = await forgot('test.admin');
+    repository.state.employees[1].email = /** @type {string} */ (/** @type {unknown} */ (null));
+    for (const identifier of ['nobody', 'nobody@example.test', 'test.inactive', 'test.cashier']) {
+      const response = await forgot(identifier);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(known.body);
+    }
+    expect(sentMail).toHaveLength(1);
+  });
+
+  it('limits reset emails per account', async () => {
+    for (let i = 0; i < 7; i += 1) await forgot(i % 2 ? 'test.admin' : 'admin@example.test');
+    expect(sentMail).toHaveLength(5);
+  });
+
+  it('sets the new password, ends every session and makes the link single-use', async () => {
+    const { agent } = await signIn(SEED.admin);
+    await forgot('test.admin');
+    const token = tokenFromMail();
+
+    const reset = await request(app).post(RESET).send({ token, password: 'a-brand-new-password' });
+    expect(reset.status).toBe(204);
+    expect(repository.state.tokens.every((row) => row.revokedReason === 'PASSWORD_RESET')).toBe(
+      true,
+    );
+    expect((await agent.post('/api/v1/auth/refresh')).status).toBe(401);
+    expect(auditEntries).toContainEqual({
+      action: 'auth.password_reset_completed',
+      outcome: 'success',
+    });
+
+    expect((await signIn(SEED.admin)).response.status).toBe(401);
+    expect(
+      (await signIn({ ...SEED.admin, password: 'a-brand-new-password' })).response.status,
+    ).toBe(200);
+
+    const again = await request(app).post(RESET).send({ token, password: 'another-new-password' });
+    expect(again.status).toBe(400);
+    expect(again.body.error.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('rejects an expired link', async () => {
+    await forgot('test.admin');
+    repository.state.resets[0].expiresAt = new Date(Date.now() - 1000);
+    const response = await request(app)
+      .post(RESET)
+      .send({ token: tokenFromMail(), password: 'a-brand-new-password' });
+    expect(response.body.error.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('rejects an unknown link', async () => {
+    const response = await request(app)
+      .post(RESET)
+      .send({ token: 'made-up', password: 'a-brand-new-password' });
+    expect(response.body.error.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('enforces the password rules', async () => {
+    await forgot('test.admin');
+    const token = tokenFromMail();
+    const short = await request(app).post(RESET).send({ token, password: 'short' });
+    expect(short.status).toBe(400);
+    expect(short.body.error.details[0].path).toBe('body.password');
+    const sameAsEmail = await request(app)
+      .post(RESET)
+      .send({ token, password: 'ADMIN@example.test' });
+    expect(sameAsEmail.status).toBe(400);
+    expect(sameAsEmail.body.error.details[0].message).toMatch(/not your username or email/);
   });
 });

@@ -31,6 +31,14 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: secret,
   CSRF_SECRET: secret,
   COOKIE_SECURE: booleanString,
+  // Public address of the web app, used in links sent by email.
+  APP_URL: z.url().default('http://localhost:5180'),
+  SMTP_HOST: z.string().min(1).default('localhost'),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+  SMTP_SECURE: booleanString,
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().min(3).default('iHealth Pharmacy <no-reply@ihealth.local>'),
 });
 
 /**
@@ -43,6 +51,8 @@ const envSchema = z.object({
  * @property {string} databaseUrl
  * @property {string} redisUrl
  * @property {{ accessSecret: string, refreshSecret: string, csrfSecret: string, cookieSecure: boolean }} auth
+ * @property {string} appUrl
+ * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  */
 
 /**
@@ -77,6 +87,15 @@ export function loadConfig(env) {
       refreshSecret: values.JWT_REFRESH_SECRET,
       csrfSecret: values.CSRF_SECRET,
       cookieSecure: values.COOKIE_SECURE,
+    }),
+    appUrl: values.APP_URL.replace(/\/$/, ''),
+    mail: Object.freeze({
+      host: values.SMTP_HOST,
+      port: values.SMTP_PORT,
+      secure: values.SMTP_SECURE,
+      user: values.SMTP_USER || undefined,
+      pass: values.SMTP_PASS || undefined,
+      from: values.MAIL_FROM,
     }),
   });
 }

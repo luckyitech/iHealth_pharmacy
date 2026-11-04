@@ -66,6 +66,10 @@ See each workspace's README for details: [web](apps/web/README.md), [api](apps/a
 - Every deviation from the legacy behaviour is documented in an ADR or in the pull request that makes it.
 - Secrets live only in `.env` files, which are git-ignored. Database dumps and real data are never committed.
 
+## Differences from the legacy system
+
+See [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
+
 ## Architecture decisions
 
 See [docs/adr](docs/adr/README.md).

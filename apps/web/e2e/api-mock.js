@@ -48,7 +48,7 @@ export async function mockApi(page) {
 
     if (key === 'POST auth/login') {
       const body = request.postDataJSON();
-      if (body.username === CASHIER.username && body.password === password) {
+      if (body.identifier === CASHIER.username && body.password === password) {
         signedIn = true;
         return reply(route, 200, { data: { user, csrfToken: CSRF_TOKEN } });
       }

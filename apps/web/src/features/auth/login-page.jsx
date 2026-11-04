@@ -44,7 +44,7 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(loginBodySchema),
-    defaultValues: { username: '', password: '' },
+    defaultValues: { identifier: '', password: '' },
   });
 
   if (user) return <Navigate to={redirectTo} replace />;
@@ -80,9 +80,7 @@ export default function LoginPage() {
         <div className="flex flex-1 items-start lg:items-center">
           <div className="w-full max-w-sm">
             <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Use your iHealth username and password.
-            </p>
+            <p className="mt-1.5 text-sm text-muted-foreground">Use your work email or username.</p>
 
             <form className="mt-8 grid gap-5" noValidate onSubmit={onSubmit}>
               {login.isError && (
@@ -90,22 +88,22 @@ export default function LoginPage() {
               )}
 
               <div className="grid gap-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="identifier">Email or username</Label>
                 <Input
-                  id="username"
+                  id="identifier"
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
-                  aria-invalid={errors.username || credentialsRejected ? true : undefined}
+                  aria-invalid={errors.identifier || credentialsRejected ? true : undefined}
                   aria-describedby={describedBy(
-                    errors.username && 'username-error',
+                    errors.identifier && 'identifier-error',
                     credentialsRejected,
                   )}
-                  {...register('username')}
+                  {...register('identifier')}
                 />
-                {errors.username && (
-                  <p id="username-error" className="text-sm text-destructive">
-                    {errors.username.message}
+                {errors.identifier && (
+                  <p id="identifier-error" className="text-sm text-destructive">
+                    {errors.identifier.message}
                   </p>
                 )}
               </div>

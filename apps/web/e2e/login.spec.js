@@ -14,15 +14,15 @@ test('signs in, shows only permitted modules, and signs out', async ({ page, isM
   await expect(page.getByRole('heading', { name: 'Sign in', level: 1 })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByText('Enter your username')).toBeVisible();
+  await expect(page.getByText('Enter your email or username')).toBeVisible();
 
-  await page.getByLabel('Username', { exact: true }).fill(CASHIER.username);
+  await page.getByLabel('Email or username', { exact: true }).fill(CASHIER.username);
   await page.getByLabel('Password', { exact: true }).fill('wrong-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toHaveText(
     'The username or password is incorrect. Check them and try again.',
   );
-  await expect(page.getByLabel('Username', { exact: true })).toHaveAttribute(
+  await expect(page.getByLabel('Email or username', { exact: true })).toHaveAttribute(
     'aria-invalid',
     'true',
   );
@@ -59,7 +59,7 @@ test('signs in, shows only permitted modules, and signs out', async ({ page, isM
 
 test('switches between light and dark themes', async ({ page }) => {
   await page.goto('/login');
-  await page.getByLabel('Username', { exact: true }).fill(CASHIER.username);
+  await page.getByLabel('Email or username', { exact: true }).fill(CASHIER.username);
   await page.getByLabel('Password', { exact: true }).fill(CASHIER.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Carl');
