@@ -181,3 +181,7 @@ export function createAppRouter() {
     },
   ]);
 }
+
+// The route list is read once, when the app starts. In development a change to it (for example
+// after switching branches) reloads the page, so an open tab never keeps routing with old routes.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());
