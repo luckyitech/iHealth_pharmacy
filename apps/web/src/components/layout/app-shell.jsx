@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
+import { CommandPalette } from './command-palette.jsx';
 import { PharmacyBrand } from './pharmacy-brand.jsx';
 import { SidePanel } from './side-panel.jsx';
 import { MobileNav, SectionTabs } from './sidebar-nav.jsx';
@@ -59,6 +60,7 @@ export function AppShell() {
             <PharmacyBrand />
           </Link>
           <div className="ml-auto flex items-center gap-1">
+            <CommandPalette />
             <ThemeMenu />
             <UserMenu />
           </div>
