@@ -14,8 +14,6 @@ const DEV_PORT = Number(process.env.WEB_PORT ?? 5180);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // One .env for the whole repository (only VITE_* variables reach the browser).
-  envDir: path.join(here, '../..'),
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
   },
