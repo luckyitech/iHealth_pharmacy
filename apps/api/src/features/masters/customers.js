@@ -1,19 +1,15 @@
 /* eslint-disable jsdoc/reject-any-type -- items come from the generic CRUD factory */
 import { POLICIES } from '@ihealth/shared/permissions';
 import { CUSTOMER_KINDS, customerInputSchema, customerSchema } from '@ihealth/shared/schemas';
-import { Prisma } from '#db';
 import { z } from 'zod';
 
 import { createCrudRoutes } from '../../http/crud/create-crud-routes.js';
 import { currentPharmacyId } from './current-pharmacy.js';
-import { columnMapping, LEGACY_STAMPS } from './legacy-mapping.js';
+import { columnMapping, LEGACY_STAMPS, legacyDates, toLegacyDate } from './legacy-mapping.js';
 
 /** Legacy `CORPORATE` flag. Other stored values (a few 'S') count as individual customers. */
 const CORPORATE_YES = 'Y';
 const CORPORATE_NO = 'N';
-
-/** A zero date as MySQL prints it. */
-const ZERO_DATE = '0000-00-00';
 
 /** API field -> `customer` column (Prisma field), for text and id fields. */
 const COLUMNS = Object.freeze({
@@ -82,34 +78,9 @@ function toData(input) {
     if (!corporate) for (const field of CORPORATE_FIELDS) data[COLUMNS[field]] = null;
   }
   if ('birthDate' in input) {
-    // A calendar date: stored as midnight UTC so the DATE column keeps the same day.
-    data.dobDt = input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null;
+    data.dobDt = toLegacyDate(input.birthDate);
   }
   return data;
-}
-
-/**
- * Adds the dates of birth, read as text: a zero date in a DATE column would fail the whole query
- * if it went through the model.
- *
- * @param {Record<string, any>[]} items
- * @param {any} prisma
- * @returns {Promise<Record<string, any>[]>}
- */
-async function withBirthDates(items, prisma) {
-  if (!items.length) return items;
-  /** @type {{ id: number, birthDate: string | null }[]} */
-  const rows = await prisma.$queryRaw`
-    SELECT CUSTOMER_ID AS id, CAST(DOB_DT AS CHAR) AS birthDate
-    FROM customer
-    WHERE CUSTOMER_ID IN (${Prisma.join(items.map((item) => item.id))})`;
-  const dates = new Map(
-    rows.map((row) => [
-      row.id,
-      row.birthDate && row.birthDate !== ZERO_DATE ? row.birthDate : null,
-    ]),
-  );
-  return items.map((item) => ({ ...item, birthDate: dates.get(item.id) ?? null }));
 }
 
 /**
@@ -133,7 +104,8 @@ export function createCustomerRoutes({ prisma, audit, config }) {
       select: SELECT,
       toItem,
       toData,
-      enrich: withBirthDates,
+      // Read as text: a zero date in a DATE column would fail the whole query through the model.
+      enrich: legacyDates('customer', 'CUSTOMER_ID', { birthDate: 'DOB_DT' }),
       sortable: ['firstName', 'lastName', 'phone'],
       sortColumns: { firstName: 'firstNm', lastName: 'lastNm', phone: 'phoneNbr' },
       defaultSort: 'firstName',

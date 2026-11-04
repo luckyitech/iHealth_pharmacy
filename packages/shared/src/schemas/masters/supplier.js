@@ -76,7 +76,7 @@ export const SUPPLIER_FLAGS = Object.freeze([
 
 const flagShape = Object.fromEntries(SUPPLIER_FLAGS.map((flag) => [flag, z.boolean()]));
 
-// Required here: what the legacy form required and nearly every stored supplier has (95% or more).
+// Required here: what the legacy form required and nearly every stored supplier has (90% or more).
 // Phone, post code and contact person were also required there but are missing on a third of the
 // records, so requiring them would block editing those suppliers.
 export const supplierInputSchema = z.object({

@@ -29,6 +29,7 @@ export const useScheduleCodes = () => useLookup('schedule-codes');
 export const useLatinCodes = () => useLookup('latin-codes');
 export const usePaymentTypes = () => useLookup('payment-types');
 export const useReturnCreditTypes = () => useLookup('return-credit-types');
+export const useEmployeeTypes = () => useLookup('employee-types');
 
 /**
  * @param {number | null | undefined} countryId

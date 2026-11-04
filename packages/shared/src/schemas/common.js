@@ -101,6 +101,48 @@ export const kenyanPhoneSchema = z
 /** Calendar date without time (`YYYY-MM-DD`), interpreted in the installation's time zone. */
 export const dateOnlySchema = z.iso.date('Use the format YYYY-MM-DD');
 
+/** Oldest calendar date accepted in forms (birth or joining dates). */
+export const EARLIEST_DATE = '1900-01-01';
+
+/**
+ * A calendar date field (`YYYY-MM-DD`); empty becomes `null` when optional.
+ *
+ * @param {{ label: string, required?: boolean, notInFuture?: boolean }} options `label` names it in messages, e.g. "date of birth".
+ * @returns The Zod schema.
+ */
+export function calendarDateSchema({ label, required = false, notInFuture = false }) {
+  let date = dateOnlySchema.refine((value) => value >= EARLIEST_DATE, `Enter a real ${label}`);
+  if (notInFuture)
+    date = date.refine(
+      (value) => new Date(value) <= new Date(),
+      `The ${label} cannot be in the future`,
+    );
+  if (required) {
+    return z
+      .preprocess((value) => (value === '' || value === null ? undefined : value), date.optional())
+      .pipe(z.string({ error: `Enter the ${label}` }));
+  }
+  return z.preprocess(
+    (value) => (value === '' || value === undefined ? null : value),
+    date.nullable(),
+  );
+}
+
+/** Digits, spaces, dashes and an optional leading +, as phone numbers are typed. */
+const PHONE_PATTERN = /^\+?[\d\s-]{6,20}$/;
+
+/**
+ * Required phone number, saved without spaces or dashes (like the stored numbers), so a search by
+ * number finds it.
+ *
+ * @param {number} max Length of the legacy column.
+ * @returns The Zod schema.
+ */
+export const requiredPhone = (max) =>
+  requiredText(max)
+    .regex(PHONE_PATTERN, 'Enter a phone number, e.g. 0712 345 678')
+    .transform((value) => value.replace(/[\s-]/g, ''));
+
 /** Legacy `char(1)` flags store `'Y'` / `'N'`. */
 export const legacyFlagSchema = z.enum(['Y', 'N']);
 
