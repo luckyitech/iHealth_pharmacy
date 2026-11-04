@@ -12,6 +12,7 @@ export const ERROR_CODES = Object.freeze({
   TWO_FACTOR_REQUIRED: 'TWO_FACTOR_REQUIRED',
   LOGIN_AMBIGUOUS: 'LOGIN_AMBIGUOUS',
   RESET_TOKEN_INVALID: 'RESET_TOKEN_INVALID',
+  PASSWORD_CHANGE_REQUIRED: 'PASSWORD_CHANGE_REQUIRED',
   CSRF_INVALID: 'CSRF_INVALID',
   FORBIDDEN: 'FORBIDDEN',
   APPROVAL_PIN_INVALID: 'APPROVAL_PIN_INVALID',
@@ -34,6 +35,7 @@ export const ERROR_HTTP_STATUS = Object.freeze({
   TWO_FACTOR_REQUIRED: 403,
   LOGIN_AMBIGUOUS: 409,
   RESET_TOKEN_INVALID: 400,
+  PASSWORD_CHANGE_REQUIRED: 403,
   CSRF_INVALID: 403,
   FORBIDDEN: 403,
   APPROVAL_PIN_INVALID: 403,
@@ -57,6 +59,7 @@ export const ERROR_MESSAGES = Object.freeze({
   LOGIN_AMBIGUOUS:
     'This email belongs to more than one account. Sign in with your username instead.',
   RESET_TOKEN_INVALID: 'This reset link is invalid or has expired. Request a new one.',
+  PASSWORD_CHANGE_REQUIRED: 'Choose a new password to continue.',
   CSRF_INVALID: 'Your session could not be verified. Refresh the page and try again.',
   FORBIDDEN: 'You do not have permission to do this.',
   APPROVAL_PIN_INVALID: 'The approval PIN is incorrect.',

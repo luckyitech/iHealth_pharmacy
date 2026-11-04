@@ -86,10 +86,26 @@ export function createAuthGuards({ accessTokens, repository, csrf, audit }) {
     throw new AppError(ERROR_CODES.FORBIDDEN);
   };
 
+  /**
+   * Until a user who must change their password has done so, only the few routes that let them do
+   * it answer; everything else is refused, on the server.
+   *
+   * @param {import('express').Request} _req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   * @returns {Promise<void>}
+   */
+  const requireCurrentPassword = async (_req, res, next) => {
+    if (await repository.isPasswordChangeRequired(getAuth(res).credentialsId))
+      throw new AppError(ERROR_CODES.PASSWORD_CHANGE_REQUIRED);
+    next();
+  };
+
   return (route) => {
     if (route.access === 'public') return [];
     /** @type {import('express').RequestHandler[]} */
     const chain = [authenticate];
+    if (!route.allowWhilePasswordChangeRequired) chain.push(requireCurrentPassword);
     if (route.csrf !== false) chain.push(csrf.protect);
     if (route.permissions?.length) chain.push(requirePermissions(route.permissions));
     return chain;

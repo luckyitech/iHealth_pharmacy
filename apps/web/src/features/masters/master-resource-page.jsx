@@ -44,6 +44,7 @@ const NEW_RECORD = 'new';
  * @property {ListFilter[]} [listFilters] Extra filters next to "Show".
  * @property {'small' | 'large'} [dialogSize] The edit dialog: narrow for a handful of fields (default), wide for large records.
  * @property {string[]} [sections] Section titles of a large record, for the dialog's section links (match the FormSection titles).
+ * @property {{ id: string, label: string, Component: (props: { item: any, canWrite: boolean }) => React.ReactNode, permissions: readonly import('@ihealth/shared/permissions').PermissionDefinition[] }[]} [tabs] Extra tabs (each shown to users with one of its permissions) of a saved record's dialog, beside "Details" (e.g. an employee's sign-in and access).
  * @property {(item: any) => string | null | undefined} [recordCode] A code shown under the record's name, e.g. the item code.
  */
 

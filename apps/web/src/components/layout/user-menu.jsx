@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react';
+import { KeyRound, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { CHANGE_PASSWORD_PATH } from '@/features/auth/route-guards';
 import { useCurrentUser, useLogout } from '@/features/auth/use-auth';
 import { errorMessage } from '@/lib/api-error';
 
@@ -72,6 +73,10 @@ export function UserMenu() {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate(CHANGE_PASSWORD_PATH)}>
+          <KeyRound aria-hidden="true" />
+          Change password
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={signOut} disabled={logout.isPending}>
           <LogOut aria-hidden="true" />
           Sign out

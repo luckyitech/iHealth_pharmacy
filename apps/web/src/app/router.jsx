@@ -2,7 +2,7 @@ import { createBrowserRouter } from 'react-router';
 
 import { NotFoundPage, RouteErrorFallback } from '@/components/feedback/error-fallbacks';
 import { AppShell } from '@/components/layout/app-shell';
-import { RequireAuth, RequirePermission } from '@/features/auth/route-guards';
+import { CHANGE_PASSWORD_PATH, RequireAuth, RequirePermission } from '@/features/auth/route-guards';
 
 import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
 
@@ -65,6 +65,12 @@ export function createAppRouter() {
       element: <RequireAuth />,
       errorElement: <RouteErrorFallback />,
       children: [
+        {
+          path: CHANGE_PASSWORD_PATH,
+          lazy: async () => ({
+            Component: (await import('@/features/auth/change-password-page')).default,
+          }),
+        },
         {
           element: <AppShell />,
           children: [

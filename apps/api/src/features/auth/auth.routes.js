@@ -1,3 +1,5 @@
+import { changePasswordBodySchema } from '@ihealth/shared/schemas';
+
 import { defineRoute } from '../../http/define-route.js';
 import { COOKIES } from './auth.constants.js';
 import { getAuth } from './auth.guards.js';
@@ -131,6 +133,7 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
     defineRoute({
       method: 'post',
       path: '/auth/logout',
+      allowWhilePasswordChangeRequired: true,
       summary: 'Sign out',
       description: 'Revokes every refresh token of this sign-in and clears the cookies.',
       tags: TAGS,
@@ -144,6 +147,7 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
     defineRoute({
       method: 'get',
       path: '/auth/me',
+      allowWhilePasswordChangeRequired: true,
       summary: 'The signed-in user, with roles and effective permissions',
       tags: TAGS,
       responses: { 200: { description: 'Current user', schema: currentUserResponseSchema } },
@@ -156,6 +160,7 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
     defineRoute({
       method: 'get',
       path: '/auth/csrf',
+      allowWhilePasswordChangeRequired: true,
       summary: 'A fresh CSRF token for this session',
       description:
         'For a page reload: the token is kept in memory only, so the app asks for a new one.',
@@ -164,6 +169,28 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
       handler: ({ req, res }) => ({
         data: { csrfToken: issueCsrf(req, res, getAuth(res).familyId) },
       }),
+    }),
+
+    defineRoute({
+      method: 'post',
+      path: '/auth/change-password',
+      summary: 'Change your own password',
+      description:
+        'Needs the current password. Signs out every other session of the account and renews this one. Also how a password change required by an administrator is done.',
+      tags: TAGS,
+      allowWhilePasswordChangeRequired: true,
+      before: [limiters.login],
+      request: { body: changePasswordBodySchema },
+      responses: { 200: { description: 'Password changed', schema: csrfResponseSchema } },
+      handler: async ({ req, res, input }) => {
+        const auth = getAuth(res);
+        const session = await service.changePassword(
+          { employeeId: auth.employeeId, credentialsId: auth.credentialsId, ...input.body },
+          clientInfo(req),
+        );
+        setSessionCookies(res, session, secureCookies);
+        return { data: { csrfToken: issueCsrf(req, res, session.familyId) } };
+      },
     }),
 
     defineRoute({

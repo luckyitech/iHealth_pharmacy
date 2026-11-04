@@ -6,6 +6,7 @@ import { isEmailIdentifier } from '@ihealth/shared/schemas';
 import { AppError } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import {
+  accountThrottleKey,
   AUDIT_ACTIONS,
   PASSWORD_RESET_TTL_MS,
   REFRESH_TOKEN_TTL_MS,
@@ -145,7 +146,9 @@ export function createAuthService({
    * @returns {string}
    */
   const throttleKey = (identifier, credentials) =>
-    credentials ? `account-${credentials.credentialsId}` : `unknown-${identifier.toLowerCase()}`;
+    credentials
+      ? accountThrottleKey(credentials.credentialsId)
+      : `unknown-${identifier.toLowerCase()}`;
 
   /**
    * @param {number} employeeId
@@ -333,11 +336,12 @@ export function createAuthService({
      * @returns The approver.
      */
     async currentUser(employeeId, credentialsId) {
-      const [employee, credentials, roles, permissionIds] = await Promise.all([
+      const [employee, credentials, roles, permissionIds, mustChangePassword] = await Promise.all([
         repository.findEmployee(employeeId),
         repository.findCredentialsById(credentialsId),
         repository.findRoles(employeeId),
         repository.findEffectivePermissionIds(employeeId),
+        repository.isPasswordChangeRequired(credentialsId),
       ]);
       if (!employee || !credentials) throw new AppError(ERROR_CODES.UNAUTHENTICATED);
       return {
@@ -349,7 +353,54 @@ export function createAuthService({
         pharmacyId: employee.pharmacyId,
         roles,
         permissionIds,
+        mustChangePassword,
       };
+    },
+
+    /**
+     * The signed-in user changes their own password (also how a required change is done). Every
+     * other session of the account is signed out; this one gets new tokens.
+     *
+     * @param {{ employeeId: number, credentialsId: number, currentPassword: string, newPassword: string }} input
+     * @param {ClientInfo} client
+     * @returns {Promise<IssuedSession>}
+     */
+    async changePassword({ employeeId, credentialsId, currentPassword, newPassword }, client) {
+      const credentials = await repository.findCredentialsById(credentialsId);
+      const employee = await repository.findEmployee(employeeId);
+      if (!credentials || !employee) throw new AppError(ERROR_CODES.UNAUTHENTICATED);
+      if (!(await checkPassword(credentials, currentPassword))) {
+        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+          details: [{ path: 'body.currentPassword', message: 'This is not your current password' }],
+        });
+      }
+      assertNotPersonal(newPassword, credentials, employee, 'body.newPassword');
+      if (currentPassword === newPassword) {
+        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+          details: [
+            { path: 'body.newPassword', message: 'Choose a password you have not just used' },
+          ],
+        });
+      }
+      const hash = await hashPassword(newPassword);
+      const session = await repository.transaction(async (tx) => {
+        await repository.saveUpgradedPassword(
+          credentialsId,
+          hash,
+          legacyFingerprint(credentials.legacyPassword),
+          tx,
+        );
+        await repository.setPasswordChangeRequired(credentialsId, false, null, tx);
+        await repository.revokeAllForEmployee(employeeId, REVOKE_REASONS.PASSWORD_CHANGED, tx);
+        return issueSession(employeeId, credentialsId, randomUUID(), client, tx);
+      });
+      await audit.record({
+        action: AUDIT_ACTIONS.PASSWORD_CHANGED,
+        outcome: AUDIT_OUTCOMES.SUCCESS,
+        employeeId,
+        ...client,
+      });
+      return session;
     },
 
     /**
@@ -483,20 +534,7 @@ export function createAuthService({
       const employee = credentials ? await repository.findEmployee(credentials.employeeId) : null;
       if (!credentials?.active || !employee?.active) throw invalid();
 
-      const lowered = password.toLowerCase();
-      if (
-        lowered === credentials.username.toLowerCase() ||
-        lowered === employee.email?.trim().toLowerCase()
-      ) {
-        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
-          details: [
-            {
-              path: 'body.password',
-              message: 'Choose a password that is not your username or email',
-            },
-          ],
-        });
-      }
+      assertNotPersonal(password, credentials, employee, 'body.password');
 
       const hash = await hashPassword(password);
       await repository.transaction(async (tx) => {
@@ -525,6 +563,28 @@ export function createAuthService({
       });
     },
   };
+}
+
+/**
+ * Refuses a password equal to the account's username or email.
+ *
+ * @param {string} password
+ * @param {{ username: string }} credentials
+ * @param {{ email: string | null }} employee
+ * @param {string} path Field the error belongs to, e.g. `body.password`.
+ * @param {'your' | 'their'} [whose] "your" when people choose their own password, "their" for an administrator.
+ * @returns {void}
+ */
+export function assertNotPersonal(password, credentials, employee, path, whose = 'your') {
+  const lowered = password.toLowerCase();
+  if (
+    lowered === credentials.username.toLowerCase() ||
+    lowered === employee.email?.trim().toLowerCase()
+  ) {
+    throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+      details: [{ path, message: `Choose a password that is not ${whose} username or email` }],
+    });
+  }
 }
 
 /** @typedef {ReturnType<typeof createAuthService>} AuthService */

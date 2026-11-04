@@ -61,6 +61,20 @@ export const resetPasswordBodySchema = z.object({
   password: newPasswordSchema,
 });
 
+/** `POST /auth/change-password` body: the signed-in user changes their own password. */
+export const changePasswordBodySchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password').max(MAX_PASSWORD_LENGTH),
+  newPassword: newPasswordSchema,
+});
+
+/** Change-password form. The API body is the same without `confirmPassword`. */
+export const changePasswordFormSchema = changePasswordBodySchema
+  .extend({ confirmPassword: z.string() })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'The passwords do not match',
+  });
+
 /** @typedef {z.infer<typeof loginBodySchema>} LoginBody */
 
 /** Supervisor approval: `POST /auth/approval-pin/verify` body. */

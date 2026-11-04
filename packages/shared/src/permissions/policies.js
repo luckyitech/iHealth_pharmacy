@@ -21,6 +21,11 @@ export const POLICIES = Object.freeze({
     ]),
     write: Object.freeze([PERMISSIONS.MASTER_MASTERS_ENTRY, PERMISSIONS.MASTER_UPDATE_SUPPLIER]),
   }),
+  // Sign-in, role and permissions of staff: changing who can do what is a "Masters Entry" task.
+  employeeAccess: Object.freeze({
+    read: Object.freeze([PERMISSIONS.MASTER_MASTERS_ENTRY]),
+    write: Object.freeze([PERMISSIONS.MASTER_MASTERS_ENTRY]),
+  }),
   employeePasswords: Object.freeze({
     write: Object.freeze([
       PERMISSIONS.MASTER_MASTERS_ENTRY,
