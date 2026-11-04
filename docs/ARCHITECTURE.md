@@ -116,3 +116,10 @@ What happens when someone saves a new item on the **Items** screen:
   offers Undo. The API client reports a lost connection once, and an ended session says so.
 - Errors about a field stay under that field. A page's main result, like the forgot-password answer,
   stays on the page. Neither is a notification.
+
+## Navigation (web)
+
+- **One sidebar:** `app/navigation.js` lists the modules. A module with pages of its own (Masters) has `children`, which the sidebar shows as a group that opens in place, under the headings from `features/masters/sections.js`. A user sees only the pages their permissions allow.
+- **Group state:** the group opens by itself on its own pages. When the user opens or closes it, that choice is remembered (`stores/sidebar-store.js`, in local storage).
+- **Icon rail:** on desktop the sidebar can collapse to icons. A group's pages then open in a menu beside its icon. Phones use the drawer, with the same groups.
+- **Content width:** pages start right after the sidebar, with a 16px gutter on phones and 24px from the `sm` breakpoint. They are not centred in a fixed width, so wide screens show more of a table instead of an empty margin.

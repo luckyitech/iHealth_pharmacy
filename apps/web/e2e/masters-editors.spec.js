@@ -130,3 +130,61 @@ test('asks before saving, lists the change, and saves only after confirming', as
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([expect.objectContaining({ phone: '0700000999' })]);
 });
+
+test('lists the masters pages inside the main sidebar, open on masters pages', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/masters/suppliers');
+  await expect(page.getByRole('navigation', { name: 'Masters' })).toHaveCount(0);
+
+  if (isMobile) await page.getByRole('button', { name: 'Open navigation' }).click();
+  const nav = page.getByRole('navigation', { name: 'Main' }).last();
+  const group = nav.getByRole('button', { name: 'Masters' });
+  await expect(group).toHaveAttribute('aria-expanded', 'true');
+  await expect(nav.getByRole('link', { name: 'Suppliers' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  await nav.getByRole('link', { name: 'Manufacturers' }).click();
+  await expect(page).toHaveURL(/\/masters\/manufacturers$/);
+  if (isMobile) {
+    // The drawer closes after choosing a page.
+    await expect(page.getByRole('dialog', { name: 'Navigation' })).toHaveCount(0);
+    return;
+  }
+  await expect(nav.getByRole('link', { name: 'Manufacturers' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  // Closed by the user, it stays closed after a reload.
+  await group.click();
+  await expect(nav.getByRole('link', { name: 'Items' })).toBeHidden();
+  await page.reload();
+  await expect(nav.getByRole('button', { name: 'Masters' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+});
+
+test('opens the masters pages from the icon-only sidebar', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Phones use the drawer.');
+  await page.goto('/masters/suppliers');
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await nav.getByRole('button', { name: 'Masters' }).click();
+  await page.getByRole('menuitem', { name: 'Customers' }).click();
+  await expect(page).toHaveURL(/\/masters\/customers$/);
+
+  // Remembered, and the content starts right after the rail.
+  await page.reload();
+  const main = page.locator('#main-content');
+  const { x } = /** @type {{ x: number }} */ (await main.boundingBox());
+  const rail = /** @type {{ width: number }} */ (await page.locator('aside').boundingBox());
+  expect(x).toBe(rail.width);
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
+  await expect(nav.getByRole('button', { name: 'Masters' })).toBeVisible();
+});
