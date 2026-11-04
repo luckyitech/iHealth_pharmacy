@@ -40,6 +40,17 @@ deactivate. Repeating three files for each of them would be copy-paste. So each 
 entries. When a master needs a rule of its own, the file adds it as a small function. For example,
 `items.js` refuses to deactivate an item that still has stock, and generates the item code.
 
+The factory's options, for when a master needs more than columns and a schema:
+
+| Option                            | What it does                                                                                                       | Used by                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| `unique` (with `fields`)          | Refuses a duplicate, checked only when the value changes, so old duplicates stay editable; several fields together | names, codes, item-supplier pair |
+| `enrich`                          | Adds names of linked records, legacy dates (`legacyDates`) or flags, with one query per page                       | most masters                     |
+| `search`, `filters`               | Text search and list filters; either may query other tables first                                                  | item suppliers (search by names) |
+| `createDefaults`, `afterCreate`   | Columns set only on create; work after the insert (e.g. a code from the new id)                                    | items, employees                 |
+| `beforeWrite`, `beforeDeactivate` | Refuse a write (a linked record is missing) or a deactivation (stock on hand)                                      | item suppliers, items            |
+| `nullsLast`                       | Sort fields whose empty values go last                                                                             | item-supplier priority           |
+
 ## Frontend structure (apps/web/src)
 
 | Folder                                       | What it holds                                                                                    |
@@ -89,7 +100,9 @@ What happens when someone saves a new item on the **Items** screen:
   `npm run db:pull -w @ihealth/api` to refresh the models.
 - **A new permission rule**: `packages/shared/src/permissions/policies.js`.
 - **A setting**: `apps/api/src/config/env.js` (validated at startup) and `.env.example`. Values are never
-  hardcoded in the code.
+  hardcoded in the code: `npm run check:hardcodes` (also in CI) refuses place and pharmacy names,
+  currencies, dialling codes, time zones, locales, hosts and till numbers outside the config. Unit
+  conversions use `@ihealth/shared/units` (`MS_PER_MINUTE`, `BYTES_PER_KB`, `localToday`).
 
 ## How records are edited (web)
 
@@ -100,6 +113,10 @@ What happens when someone saves a new item on the **Items** screen:
 - The open record is in the URL (`?edit=48`, `?edit=new`), beside the list's search, filters and page.
 - `record-form.js` holds saving, Ctrl+S and focus; `record-actions.jsx` the "More" menu with
   deactivate or restore. Closing with unsaved changes asks first.
+- A master page is one config for `MasterResourcePage` (`master-resource-page.jsx`): columns, fields,
+  schema, and optionally `listFilters`, `tabs` (e.g. an item's Suppliers), `ListContext` (a line above the
+  list, e.g. "Showing the links of item …") and `newRecordDefaults` (a new record takes the list's filter,
+  e.g. the item it was opened from).
 
 ## Asking before saving, and notifications (web)
 
