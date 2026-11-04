@@ -22,11 +22,15 @@ describe('navigation', () => {
     expect(ids).toEqual(['dashboard', 'sales']);
   });
 
-  it('covers every legacy permission in exactly one module', () => {
+  it('gives every permission to at most one module, and covers every non-master group', () => {
     const covered = NAV_ITEMS.flatMap((item) =>
       item.permissions.map((permission) => permission.id),
     );
     expect(new Set(covered).size).toBe(covered.length);
-    expect(covered).toHaveLength(Object.keys(PERMISSIONS).length);
+    // Master-group permissions open the Masters screens they belong to (see features/masters/sections.js).
+    const nonMaster = Object.values(PERMISSIONS).filter(
+      (permission) => permission.group !== 'Master',
+    );
+    expect(nonMaster.every((permission) => covered.includes(permission.id))).toBe(true);
   });
 });

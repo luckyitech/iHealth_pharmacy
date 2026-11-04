@@ -19,6 +19,7 @@ import { createAccessTokens } from './tokens.js';
  * @param {import('pino').Logger} deps.logger
  * @param {import('../../infra/mailer.js').Mailer} deps.mailer
  * @param {import('./auth.repository.js').AuthRepository} [deps.repository] Replaced by an in-memory fake in tests.
+ * @param {import('../audit/audit-log.js').AuditLog} [deps.audit] Shared with the other modules.
  * @returns `{ routes, guards, apiRateLimit }`.
  */
 export function createAuthModule({
@@ -29,8 +30,8 @@ export function createAuthModule({
   logger,
   mailer,
   repository = createAuthRepository(prisma),
+  audit = createAuditLog(prisma, logger),
 }) {
-  const audit = createAuditLog(prisma, logger);
   const accessTokens = createAccessTokens(config.auth.accessSecret);
   const csrf = createCsrf({
     secret: config.auth.csrfSecret,

@@ -75,3 +75,22 @@ See [ADR 0004](../../docs/adr/0004-authentication-and-authorisation.md). Endpoin
 ### Integration tests
 
 `npm run test:integration -w @ihealth/api` starts MySQL 9.7.1 and Redis with Testcontainers (Docker required). It loads the committed legacy schema, the additive SQL and the synthetic seed, then runs the real repository end to end. CI runs it on every pull request.
+
+## Master data
+
+Master screens share one implementation: `http/crud/create-crud-routes.js`. A master declares its table and rules (see `features/masters/manufacturers.js`) and gets these endpoints under `/api/v1/masters/<resource>`:
+
+| Method and path     | What it does                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `GET /`             | List with `page`, `pageSize`, `sort` (`name` or `-name`), `q` (search) and `status` (`active`, `inactive` or `all`) |
+| `GET /:id`          | One record                                                                                                          |
+| `POST /`            | Create (201). Duplicates are refused (409, with the field in `details`)                                             |
+| `PATCH /:id`        | Change only the fields sent. A field sent empty is cleared                                                          |
+| `DELETE /:id`       | Deactivate (legacy `ACTIVE_S = 'N'`). Nothing is deleted                                                            |
+| `POST /:id/restore` | Reactivate                                                                                                          |
+
+- Reads need `POLICIES.<area>.read` and writes need `POLICIES.<area>.write` (`@ihealth/shared/permissions`). For masters: "Masters View" or "Masters Entry" to read, "Masters Entry" to write.
+- Every write fills the legacy audit columns (`CREATION_USER_ID`, `LAST_UPDATE_USER_ID`, `LAST_UPDATE_TS`) and records an `ih_audit_log` row with the names of the fields it changed.
+- Input schemas (`<name>InputSchema` in `@ihealth/shared/schemas`) carry the rules. Response schemas describe stored data loosely, because legacy rows may break today's rules and must still be listed and fixed.
+
+To add a master: write the shared input and response schemas, then a `features/masters/<name>.js` (column map, select, `toItem`, search, unique rules), and add its routes in `server.js`. On the web, add a `features/masters/<name>/<name>-page.jsx` with columns and fields, and add it to `features/masters/sections.js`.

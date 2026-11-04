@@ -24,7 +24,7 @@ describe('common schemas', () => {
   it('trims text', () => {
     expect(requiredTextSchema.parse('  Panadol  ')).toBe('Panadol');
     expect(requiredTextSchema.safeParse('   ').success).toBe(false);
-    expect(optionalTextSchema.parse('  ')).toBeUndefined();
+    expect(optionalTextSchema.parse('  ')).toBeNull();
   });
 
   it('normalises emails and Kenyan phone numbers', () => {
