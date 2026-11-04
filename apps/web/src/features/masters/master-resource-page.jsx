@@ -46,6 +46,8 @@ const NEW_RECORD = 'new';
  * @property {string[]} [sections] Section titles of a large record, for the dialog's section links (match the FormSection titles).
  * @property {{ id: string, label: string, Component: (props: { item: any, canWrite: boolean }) => React.ReactNode, permissions: readonly import('@ihealth/shared/permissions').PermissionDefinition[] }[]} [tabs] Extra tabs (each shown to users with one of its permissions) of a saved record's dialog, beside "Details" (e.g. an employee's sign-in and access).
  * @property {(item: any) => string | null | undefined} [recordCode] A code shown under the record's name, e.g. the item code.
+ * @property {(filters: Record<string, string>) => Record<string, unknown>} [newRecordDefaults] Values a new record takes
+ *   from the list's filters, e.g. the item a list of its suppliers is filtered by.
  */
 
 /**
@@ -220,6 +222,7 @@ export function MasterResourcePage({ config }) {
           key={editing?.id ?? NEW_RECORD}
           config={config}
           item={editing}
+          defaults={editing === null ? config.newRecordDefaults?.(params.filters) : undefined}
           canWrite={canWrite}
           onClose={() => setEditParam(null)}
         />

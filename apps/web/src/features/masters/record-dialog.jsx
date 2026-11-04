@@ -31,12 +31,13 @@ const SIZES = Object.freeze({
  * get a wide dialog with their sections as cards and a row of section links; small ones a narrow
  * dialog. Header and footer stay put while the fields scroll. Closing with unsaved changes asks first.
  *
- * @param {{ config: import('./master-resource-page.jsx').MasterResourceConfig, item: any | null, canWrite: boolean, onClose: () => void }} props
+ * @param {{ config: import('./master-resource-page.jsx').MasterResourceConfig, item: any | null, defaults?: Record<string, unknown>, canWrite: boolean, onClose: () => void }} props
  *   `item` is the record, or null for a new one.
  * @returns {React.JSX.Element}
  */
-export function RecordDialog({ config, item, canWrite, onClose }) {
+export function RecordDialog({ config, item, defaults, canWrite, onClose }) {
   const { form, save, isNew, saveValues, formError } = useRecordForm(config, item, {
+    defaults,
     onSaved: onClose,
   });
   const confirmation = useConfirm();
