@@ -65,7 +65,7 @@ export function ComboboxField({
   /** @param {any | null} row */
   const choose = (row) => {
     field.onChange(row ? row.id : '');
-    setPicked(row ? { id: row.id, label: optionLabel(row) || `#${row.id}` } : null);
+    setPicked(row ? { id: row.id, label: optionLabel(row) || `Unnamed (#${row.id})` } : null);
     setOpen(false);
     setSearch('');
   };
@@ -117,7 +117,7 @@ export function ComboboxField({
                 )}
               >
                 <span className={cn('truncate', !hasValue && 'text-muted-foreground')}>
-                  {hasValue ? (chosenLabel ?? `#${field.value}`) : placeholder}
+                  {hasValue ? (chosenLabel ?? `Unnamed (#${field.value})`) : placeholder}
                 </span>
                 <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 opacity-50" />
               </button>
@@ -195,7 +195,7 @@ export function ComboboxField({
                         aria-hidden="true"
                         className={cn('size-4 shrink-0', !selected && 'invisible')}
                       />
-                      <span className="truncate">{optionLabel(row) || `#${row.id}`}</span>
+                      <span className="truncate">{optionLabel(row) || `Unnamed (#${row.id})`}</span>
                     </li>
                   );
                 })}

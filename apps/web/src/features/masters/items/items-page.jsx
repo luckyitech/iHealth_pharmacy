@@ -3,6 +3,7 @@ import { itemInputSchema, PRODUCT_KINDS } from '@ihealth/shared/schemas';
 
 import { ComboboxField } from '@/components/form/combobox-field';
 import { FormField } from '@/components/form/form-field';
+import { FormSection } from '@/components/form/form-section';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +12,7 @@ import { useResourceOptions } from '@/lib/resource-api';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
+import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const KIND_OPTIONS = Object.freeze([
   { value: PRODUCT_KINDS.MEDICAL, label: 'Medical' },
@@ -23,19 +25,6 @@ const KIND_OPTIONS = Object.freeze([
  */
 const lookupOptions = (query) =>
   (query.data ?? []).map((option) => ({ value: option.id, label: option.name }));
-
-/**
- * @param {{ title: string, children: React.ReactNode }} props
- * @returns {React.JSX.Element}
- */
-function Section({ title, children }) {
-  return (
-    <fieldset className="grid gap-4">
-      <legend className="mb-1 text-sm font-semibold text-muted-foreground">{title}</legend>
-      {children}
-    </fieldset>
-  );
-}
 
 /**
  * Names of the record's current choices, from the API.
@@ -58,7 +47,7 @@ function ItemFields({ form, item }) {
 
   return (
     <>
-      <Section title="Product">
+      <FormSection title="Product">
         <TextField form={form} name="name" label="Name" />
         <FormField
           form={form}
@@ -78,9 +67,9 @@ function ItemFields({ form, item }) {
           <TextField form={form} name="barcode" label="Barcode" inputMode="numeric" />
           <SelectField form={form} name="productKind" label="Kind" options={KIND_OPTIONS} />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Classification">
+      <FormSection title="Classification">
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             form={form}
@@ -134,9 +123,9 @@ function ItemFields({ form, item }) {
             options={specializations.options}
           />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Units and tax">
+      <FormSection title="Units and tax">
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             form={form}
@@ -173,9 +162,9 @@ function ItemFields({ form, item }) {
             options={lookupOptions(taxes)}
           />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Clinical">
+      <FormSection title="Clinical">
         <div className="grid gap-4 sm:grid-cols-3">
           <TextField form={form} name="strength" label="Strength" hint="e.g. 500 mg" />
           <TextField form={form} name="specification" label="Specification" />
@@ -207,9 +196,9 @@ function ItemFields({ form, item }) {
         >
           {(control) => <Textarea {...control} rows={2} {...form.register('usage')} />}
         </FormField>
-      </Section>
+      </FormSection>
 
-      <Section title="Re-ordering">
+      <FormSection title="Re-ordering">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             form={form}
@@ -225,7 +214,7 @@ function ItemFields({ form, item }) {
             inputMode="numeric"
           />
         </div>
-      </Section>
+      </FormSection>
     </>
   );
 }
@@ -252,7 +241,9 @@ const CONFIG = {
   schema: itemInputSchema,
   toFormValues: formValuesFor(itemInputSchema, { productKind: PRODUCT_KINDS.MEDICAL }),
   Fields: ItemFields,
-  wideForm: true,
+  editor: 'page',
+  sections: ['Product', 'Classification', 'Units and tax', 'Clinical', 'Re-ordering'],
+  recordCode: (item) => item.code,
   writePermissions: POLICIES.masters.write,
   recordName: (item) => item.name || 'Unnamed item',
 };
@@ -262,4 +253,13 @@ const CONFIG = {
  */
 export default function ItemsPage() {
   return <MasterResourcePage config={CONFIG} />;
+}
+
+/**
+ * The page to create or edit one item.
+ *
+ * @returns {React.JSX.Element}
+ */
+export function EditorPage() {
+  return <RecordEditorPage config={CONFIG} />;
 }

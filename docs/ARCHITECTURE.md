@@ -46,7 +46,7 @@ entries. When a master needs a rule of its own, the file adds it as a small func
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `app/`                                       | Start-up: the router (every screen is loaded only when opened), the providers.                   |
 | `features/<area>/`                           | The screens of one area, e.g. `features/masters/items/items-page.jsx`.                           |
-| `components/ui/`                             | Basic building blocks: buttons, inputs, dialogs, side panels.                                    |
+| `components/ui/`                             | Basic building blocks: buttons, inputs, dialogs, menus.                                          |
 | `components/form/`, `components/data-table/` | Form fields wired to validation, and the table with sorting and paging.                          |
 | `lib/`                                       | Talking to the API (`api-client.js`, `resource-api.js`), and the reference lists (`lookups.js`). |
 | `hooks/`, `stores/`                          | Reusable React hooks, and the little state that lives only in the browser.                       |
@@ -58,7 +58,7 @@ so a mistake is shown next to the field before anything is sent.
 
 What happens when someone saves a new item on the **Items** screen:
 
-1. **Screen**: `features/masters/items/items-page.jsx` shows the form. When the user clicks _Create item_, the form
+1. **Screen**: the item's edit page (`/masters/items/new`, from `features/masters/items/items-page.jsx` and the shared `record-editor-page.jsx`) shows the form. When the user clicks _Create item_, the form
    checks the values with `itemInputSchema` (from `packages/shared`). If, for example, no manufacturer was chosen,
    the message appears under that field and nothing is sent.
 2. **API call**: `lib/resource-api.js` (`useSaveResource`) sends `POST /api/v1/masters/items` with the values.
@@ -77,7 +77,7 @@ What happens when someone saves a new item on the **Items** screen:
 6. **Response**: the new item comes back with the names of its group, manufacturer and so on, as
    `{ "data": { ... } }` with status `201`. Any error, at any step, goes through `src/middleware/error-handler.js`
    and comes back in one shape: `{ "error": { "code", "message", "details" } }`. Stack traces are never sent.
-7. **Screen again**: TanStack Query refreshes the items list, the side panel closes, and an "Item created" message
+7. **Screen again**: TanStack Query refreshes the items list, the edit page returns to the list (same search and page), and an "Item created" message
    appears.
 
 ## Where to add things
@@ -90,3 +90,12 @@ What happens when someone saves a new item on the **Items** screen:
 - **A new permission rule**: `packages/shared/src/permissions/policies.js`.
 - **A setting**: `apps/api/src/config/env.js` (validated at startup) and `.env.example`. Values are never
   hardcoded in the code.
+
+## How records are edited (web)
+
+- **Small records** (lookups, manufacturers, terms) open in a centred dialog: `features/masters/record-dialog.jsx`.
+- **Large records** (items, suppliers, customers, employees, hospitals, providers) open on their own page,
+  `/masters/<resource>/new` or `/masters/<resource>/<id>/edit`: `features/masters/record-editor-page.jsx`.
+  A master chooses with `editor: 'page'` in its config, and lists its `sections` for the section menu.
+- Both share `record-form.js` (saving, Ctrl+S, focus) and `record-actions.jsx` (the "More" menu with
+  deactivate or restore). Both warn before unsaved changes are lost.

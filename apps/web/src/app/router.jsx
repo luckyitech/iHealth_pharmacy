@@ -4,6 +4,7 @@ import { NotFoundPage, RouteErrorFallback } from '@/components/feedback/error-fa
 import { AppShell } from '@/components/layout/app-shell';
 import { RequireAuth, RequirePermission } from '@/features/auth/route-guards';
 
+import { RECORD_ID_PARAM } from '@/features/masters/record-params';
 import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
 
 /** Paths of the item-master lookup pages (one page component, configured per lookup). */
@@ -17,6 +18,25 @@ const ITEM_LOOKUP_ROUTES = /** @type {const} */ ([
 ]);
 
 import { NAV_ITEMS } from './navigation.js';
+
+/**
+ * The list, "new" and "edit" pages of a master whose records are edited on their own page.
+ * The page module exports the list as default and the editor as `EditorPage`.
+ *
+ * @param {string} path e.g. `items`
+ * @param {() => Promise<{ default: React.ComponentType, EditorPage: React.ComponentType }>} load
+ * @returns {import('react-router').RouteObject[]}
+ */
+function recordRoutes(path, load) {
+  return [
+    { path, lazy: async () => ({ Component: (await load()).default }) },
+    { path: `${path}/new`, lazy: async () => ({ Component: (await load()).EditorPage }) },
+    {
+      path: `${path}/:${RECORD_ID_PARAM}/edit`,
+      lazy: async () => ({ Component: (await load()).EditorPage }),
+    },
+  ];
+}
 
 /**
  * Each page is its own chunk, loaded when first visited.
@@ -93,13 +113,10 @@ export function createAppRouter() {
                             Component: (await import('@/features/masters/masters-index')).default,
                           }),
                         },
-                        {
-                          path: 'items',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/items/items-page'))
-                              .default,
-                          }),
-                        },
+                        ...recordRoutes(
+                          'items',
+                          () => import('@/features/masters/items/items-page'),
+                        ),
                         ...ITEM_LOOKUP_ROUTES.map((lookup) => ({
                           path: lookup,
                           lazy: async () => {
@@ -123,43 +140,26 @@ export function createAppRouter() {
                               .default,
                           }),
                         },
-                        {
-                          path: 'hospitals',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/organisation/hospitals-page')
-                            ).default,
-                          }),
-                        },
-                        {
-                          path: 'providers',
-                          lazy: async () => ({
-                            Component: (
-                              await import('@/features/masters/organisation/providers-page')
-                            ).default,
-                          }),
-                        },
-                        {
-                          path: 'employees',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/employees/employees-page'))
-                              .default,
-                          }),
-                        },
-                        {
-                          path: 'customers',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/customers/customers-page'))
-                              .default,
-                          }),
-                        },
-                        {
-                          path: 'suppliers',
-                          lazy: async () => ({
-                            Component: (await import('@/features/masters/suppliers/suppliers-page'))
-                              .default,
-                          }),
-                        },
+                        ...recordRoutes(
+                          'hospitals',
+                          () => import('@/features/masters/organisation/hospitals-page'),
+                        ),
+                        ...recordRoutes(
+                          'providers',
+                          () => import('@/features/masters/organisation/providers-page'),
+                        ),
+                        ...recordRoutes(
+                          'employees',
+                          () => import('@/features/masters/employees/employees-page'),
+                        ),
+                        ...recordRoutes(
+                          'customers',
+                          () => import('@/features/masters/customers/customers-page'),
+                        ),
+                        ...recordRoutes(
+                          'suppliers',
+                          () => import('@/features/masters/suppliers/suppliers-page'),
+                        ),
                         {
                           path: 'manufacturers',
                           lazy: async () => ({

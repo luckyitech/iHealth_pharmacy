@@ -68,6 +68,22 @@ export function useResourceOptions(resource, label = (row) => row.name) {
 }
 
 /**
+ * One record of a resource, e.g. the item being edited.
+ *
+ * @param {string} resource
+ * @param {number | undefined} id Nothing is fetched without an id (a new record).
+ * @returns {import('@tanstack/react-query').UseQueryResult<any>}
+ */
+export function useResource(resource, id) {
+  return useQuery({
+    queryKey: [...resourceKey(resource), 'one', id],
+    queryFn: async () =>
+      /** @type {{ data: unknown }} */ (await api.get(`${resource}/${id}`).json()).data,
+    enabled: id !== undefined,
+  });
+}
+
+/**
  * Create (no id) or update (id) a record, then refresh every list and detail of the resource.
  *
  * @template T

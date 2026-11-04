@@ -2,10 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { jsonResponse, recordPageRoutes, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
-import ItemsPage from './items-page.jsx';
+import ItemsPage, { EditorPage } from './items-page.jsx';
 
 const META = { page: 1, pageSize: 25, total: 1, totalPages: 1 };
 
@@ -16,23 +16,24 @@ const META = { page: 1, pageSize: 25, total: 1, totalPages: 1 };
 const list = (rows) => () =>
   jsonResponse(200, { data: rows, meta: { ...META, total: rows.length } });
 
+const ITEM_ROW = {
+  id: 7,
+  name: 'Paracetamol 500mg',
+  code: 'IC0000007',
+  groupName: 'Tablets',
+  manufacturerName: 'Cosmos Ltd',
+  taxCategoryName: 'A (16%)',
+  purchaseUnitId: 10,
+  purchaseUnitName: 'STRIPS',
+  active: true,
+};
+
 function setup() {
   /** @type {Record<string, unknown>[]} */
   const posted = [];
   const api = stubApi({
-    'GET masters/items': list([
-      {
-        id: 7,
-        name: 'Paracetamol 500mg',
-        code: 'IC0000007',
-        groupName: 'Tablets',
-        manufacturerName: 'Cosmos Ltd',
-        taxCategoryName: 'A (16%)',
-        purchaseUnitId: 10,
-        purchaseUnitName: 'STRIPS',
-        active: true,
-      },
-    ]),
+    'GET masters/items/7': () => jsonResponse(200, { data: ITEM_ROW }),
+    'GET masters/items': list([ITEM_ROW]),
     'GET masters/item-groups': list([{ id: 1, name: 'Tablets' }]),
     'GET masters/item-categories': list([]),
     'GET masters/specializations': list([]),
@@ -57,7 +58,10 @@ function setup() {
     },
   });
   vi.stubGlobal('fetch', api.fetch);
-  const view = renderRoutes([{ path: '/masters/items', element: <ItemsPage /> }], '/masters/items');
+  const view = renderRoutes(
+    recordPageRoutes('/masters/items', <ItemsPage />, <EditorPage />),
+    '/masters/items',
+  );
   view.queryClient.setQueryData(CURRENT_USER_KEY, {
     employeeId: 1,
     firstName: 'A',
@@ -94,7 +98,7 @@ describe('ItemsPage', () => {
   it('creates an item, picking the manufacturer by searching', async () => {
     const { posted } = setup();
     await userEvent.click(await screen.findByRole('button', { name: /New item/ }));
-    const panel = await screen.findByRole('dialog');
+    const panel = await screen.findByRole('form');
 
     await userEvent.type(within(panel).getByLabelText('Name'), 'Ibuprofen 200mg');
     await userEvent.selectOptions(await within(panel).findByLabelText('Group'), 'Tablets');
@@ -125,7 +129,7 @@ describe('ItemsPage', () => {
   it("keeps showing a record's choice that is no longer offered", async () => {
     setup();
     await userEvent.click(await screen.findByText('Paracetamol 500mg'));
-    const panel = await screen.findByRole('dialog');
+    const panel = await screen.findByRole('form');
     await waitFor(() =>
       expect(within(panel).getByLabelText('Purchase unit')).toHaveDisplayValue(
         'STRIPS (no longer offered)',
@@ -136,7 +140,7 @@ describe('ItemsPage', () => {
   it('names the missing essentials before calling the API', async () => {
     const { api } = setup();
     await userEvent.click(await screen.findByRole('button', { name: /New item/ }));
-    const panel = await screen.findByRole('dialog');
+    const panel = await screen.findByRole('form');
     await userEvent.type(within(panel).getByLabelText('Name'), 'Incomplete');
     await userEvent.click(within(panel).getByRole('button', { name: 'Create item' }));
     expect(await within(panel).findByText('Choose a manufacturer')).toBeInTheDocument();

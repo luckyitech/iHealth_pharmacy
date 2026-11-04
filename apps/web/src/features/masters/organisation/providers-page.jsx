@@ -2,6 +2,7 @@ import { POLICIES } from '@ihealth/shared/permissions';
 import { GENDERS, providerInputSchema } from '@ihealth/shared/schemas';
 
 import { AddressFields } from '@/components/form/address-fields';
+import { FormSection } from '@/components/form/form-section';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { useProviderTypes } from '@/lib/lookups';
@@ -9,6 +10,7 @@ import { useResourceOptions } from '@/lib/resource-api';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
+import { RecordEditorPage } from '../record-editor-page.jsx';
 
 const GENDER_OPTIONS = Object.freeze([
   { value: GENDERS.FEMALE, label: 'Female' },
@@ -24,49 +26,51 @@ function ProviderFields({ form, item }) {
   const hospitals = useResourceOptions('masters/hospitals');
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <TextField form={form} name="firstName" label="First name" />
-        <TextField form={form} name="middleName" label="Middle name" />
-        <TextField form={form} name="lastName" label="Last name" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField
-          form={form}
-          name="licenseNumber"
-          label="Licence number"
-          hint="As issued by the licensing board."
-        />
+      <FormSection title="Provider">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <TextField form={form} name="firstName" label="First name" />
+          <TextField form={form} name="middleName" label="Middle name" />
+          <TextField form={form} name="lastName" label="Last name" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            form={form}
+            name="licenseNumber"
+            label="Licence number"
+            hint="As issued by the licensing board."
+          />
+          <SelectField
+            form={form}
+            name="gender"
+            label="Gender"
+            options={GENDER_OPTIONS}
+            emptyLabel="Not stated"
+          />
+          <SelectField
+            form={form}
+            name="providerTypeId"
+            selectedLabel={item?.providerTypeName}
+            label="Type"
+            emptyLabel="Choose a type"
+            loading={types.isPending}
+            options={(types.data ?? []).map((type) => ({ value: type.id, label: type.name }))}
+          />
+          <TextField form={form} name="speciality" label="Speciality" />
+        </div>
         <SelectField
           form={form}
-          name="gender"
-          label="Gender"
-          options={GENDER_OPTIONS}
-          emptyLabel="Not stated"
+          name="hospitalId"
+          selectedLabel={item?.hospitalName}
+          label="Hospital"
+          emptyLabel="No hospital"
+          loading={hospitals.isPending}
+          options={hospitals.options}
         />
-        <SelectField
-          form={form}
-          name="providerTypeId"
-          selectedLabel={item?.providerTypeName}
-          label="Type"
-          emptyLabel="Choose a type"
-          loading={types.isPending}
-          options={(types.data ?? []).map((type) => ({ value: type.id, label: type.name }))}
-        />
-        <TextField form={form} name="speciality" label="Speciality" />
-      </div>
-      <SelectField
-        form={form}
-        name="hospitalId"
-        selectedLabel={item?.hospitalName}
-        label="Hospital"
-        emptyLabel="No hospital"
-        loading={hospitals.isPending}
-        options={hospitals.options}
-      />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField form={form} name="phone" label="Phone" type="tel" />
-        <TextField form={form} name="email" label="Email" type="email" />
-      </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField form={form} name="phone" label="Phone" type="tel" />
+          <TextField form={form} name="email" label="Email" type="email" />
+        </div>
+      </FormSection>
       <AddressFields form={form} />
     </>
   );
@@ -101,6 +105,9 @@ const CONFIG = {
   schema: providerInputSchema,
   toFormValues: formValuesFor(providerInputSchema),
   Fields: ProviderFields,
+  editor: 'page',
+  sections: ['Provider', 'Address'],
+  recordCode: (item) => item.licenseNumber,
   writePermissions: POLICIES.masters.write,
   recordName: (item) => fullName(item) || 'Unnamed provider',
 };
@@ -110,4 +117,13 @@ const CONFIG = {
  */
 export default function ProvidersPage() {
   return <MasterResourcePage config={CONFIG} />;
+}
+
+/**
+ * The page to create or edit one provider.
+ *
+ * @returns {React.JSX.Element}
+ */
+export function EditorPage() {
+  return <RecordEditorPage config={CONFIG} />;
 }

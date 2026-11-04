@@ -2,10 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { jsonResponse, recordPageRoutes, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
-import EmployeesPage from './employees-page.jsx';
+import EmployeesPage, { EditorPage } from './employees-page.jsx';
 
 const EMPLOYEE = {
   id: 9,
@@ -27,6 +27,7 @@ function setup() {
   /** @type {Record<string, unknown>[]} */
   const posted = [];
   const api = stubApi({
+    'GET masters/employees/9': () => jsonResponse(200, { data: EMPLOYEE }),
     'GET masters/employees': () =>
       jsonResponse(200, {
         data: [EMPLOYEE],
@@ -44,7 +45,7 @@ function setup() {
   });
   vi.stubGlobal('fetch', api.fetch);
   const view = renderRoutes(
-    [{ path: '/masters/employees', element: <EmployeesPage /> }],
+    recordPageRoutes('/masters/employees', <EmployeesPage />, <EditorPage />),
     '/masters/employees',
   );
   view.queryClient.setQueryData(CURRENT_USER_KEY, {
@@ -63,8 +64,8 @@ describe('EmployeesPage', () => {
   it('shows the generated code of an existing employee, not as an editable field', async () => {
     setup();
     await userEvent.click(await screen.findByText('Test Employee'));
-    const panel = await screen.findByRole('dialog');
-    expect(within(panel).getByText('DPEM0101260001')).toBeInTheDocument();
+    const panel = await screen.findByRole('form');
+    expect(screen.getByText('DPEM0101260001')).toBeInTheDocument();
     expect(
       within(panel).queryByRole('textbox', { name: /employee code/i }),
     ).not.toBeInTheDocument();
@@ -73,7 +74,7 @@ describe('EmployeesPage', () => {
   it('creates an employee with the dates and the shift flag', async () => {
     const { posted } = setup();
     await userEvent.click(await screen.findByRole('button', { name: /New employee/ }));
-    const panel = await screen.findByRole('dialog');
+    const panel = await screen.findByRole('form');
     await userEvent.selectOptions(within(panel).getByLabelText('Title'), 'Ms');
     await userEvent.type(within(panel).getByLabelText('First name'), 'New');
     await userEvent.type(within(panel).getByLabelText('Last name'), 'Hire');

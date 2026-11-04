@@ -1,23 +1,19 @@
 /* eslint-disable jsdoc/reject-any-type -- generic over every resource: row and form shapes come from each master's Zod schema */
-import { Loader2, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { useLocation, useNavigate } from 'react-router';
 
-import { applyServerErrors, useZodForm } from '@/components/form/use-zod-form';
 import { DataTable } from '@/components/data-table/data-table';
-import { ConfirmDialog } from '@/components/feedback/confirm-dialog';
 import { PageState } from '@/components/feedback/page-state';
 import { Button } from '@/components/ui/button';
-import { FormError } from '@/components/ui/form-error';
 import { Input } from '@/components/ui/input';
-import { RequiredLegend } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { usePermissions } from '@/features/auth/use-permissions';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useListParams } from '@/hooks/use-list-params';
-import { errorMessage } from '@/lib/api-error';
-import { useResourceList, useSaveResource, useSetResourceActive } from '@/lib/resource-api';
+import { useResourceList } from '@/lib/resource-api';
+
+import { RecordDialog } from './record-dialog.jsx';
 
 const STATUS_OPTIONS = Object.freeze([
   { value: 'active', label: 'Active' },
@@ -42,7 +38,9 @@ const DEFAULT_FILTERS = Object.freeze({ status: 'active' });
  * @property {readonly import('@ihealth/shared/permissions').PermissionDefinition[]} writePermissions
  * @property {(item: any) => string} recordName How a record is named in dialogs, e.g. its name.
  * @property {ListFilter[]} [listFilters] Extra filters next to "Show".
- * @property {boolean} [wideForm] A wider side panel, for long forms.
+ * @property {'dialog' | 'page'} [editor] Where records are edited: a dialog for a handful of fields (default), their own page for large records.
+ * @property {string[]} [sections] Section titles of a page editor, for its section menu (match the FormSection titles).
+ * @property {(item: any) => string | null | undefined} [recordCode] A code shown under the record's name, e.g. the item code.
  */
 
 /**
@@ -54,8 +52,8 @@ const DEFAULT_FILTERS = Object.freeze({ status: 'active' });
  */
 
 /**
- * The standard master-data screen: a searchable, sortable, paged list with an active/inactive filter,
- * and a side panel to create, edit, deactivate or restore a record. Each master only declares its
+ * The standard master-data screen: a searchable, sortable, paged list with an active/inactive filter.
+ * Records open in a dialog, or on their own edit page for large records (`editor: 'page'`). Each master only declares its
  * columns, fields and schema.
  *
  * @param {{ config: MasterResourceConfig }} props
@@ -69,6 +67,8 @@ export function MasterResourcePage({ config }) {
   const [search, setSearch] = useState(params.q);
   const debouncedSearch = useDebouncedValue(search);
   const { hasAny } = usePermissions();
+  const navigate = useNavigate();
+  const location = useLocation();
   const canWrite = hasAny(config.writePermissions);
   /** @type {[any | null | undefined, (item: any | null | undefined) => void]} */
   const [editing, setEditing] = useState(/** @type {any | null | undefined} */ (undefined));
@@ -87,6 +87,22 @@ export function MasterResourcePage({ config }) {
 
   const isMuted = (/** @type {any} */ item) => item.active === false;
 
+  /**
+   * Opens a record (null for a new one): in the dialog, or on its own page, keeping the list's
+   * search, filters and page in the URL to come back to.
+   *
+   * @param {any | null} row
+   */
+  const openRecord = (row) => {
+    if (config.editor !== 'page') {
+      setEditing(row);
+      return;
+    }
+    /** @type {import('./record-editor-page.jsx').EditorLocationState} */
+    const state = { listSearch: location.search };
+    navigate(row ? `/${config.resource}/${row.id}/edit` : `/${config.resource}/new`, { state });
+  };
+
   return (
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -95,7 +111,7 @@ export function MasterResourcePage({ config }) {
           <p className="text-sm text-muted-foreground">{config.description}</p>
         </div>
         {canWrite && (
-          <Button onClick={() => setEditing(null)}>
+          <Button onClick={() => openRecord(null)}>
             <Plus aria-hidden="true" />
             New {config.singular}
           </Button>
@@ -157,7 +173,7 @@ export function MasterResourcePage({ config }) {
         onPageChange={(page) => setParams({ page })}
         onPageSizeChange={(pageSize) => setParams({ pageSize })}
         getRowId={(row) => row.id}
-        onRowClick={(row) => setEditing(row)}
+        onRowClick={(row) => openRecord(row)}
         isRowMuted={isMuted}
         isLoading={list.isPending}
         error={list.error}
@@ -179,142 +195,15 @@ export function MasterResourcePage({ config }) {
         }
       />
 
-      <RecordSheet
-        config={config}
-        item={editing}
-        canWrite={canWrite}
-        onClose={() => setEditing(undefined)}
-      />
+      {editing !== undefined && (
+        <RecordDialog
+          key={editing?.id ?? 'new'}
+          config={config}
+          item={editing}
+          canWrite={canWrite}
+          onClose={() => setEditing(undefined)}
+        />
+      )}
     </div>
   );
 }
-
-/**
- * @param {{ config: MasterResourceConfig, item: any | null | undefined, canWrite: boolean, onClose: () => void }} props
- * @returns {React.JSX.Element}
- */
-function RecordSheet({ config, item, canWrite, onClose }) {
-  const open = item !== undefined;
-  const isNew = item === null;
-  const save = useSaveResource(config.resource);
-  const setActive = useSetResourceActive(config.resource);
-  const [confirming, setConfirming] = useState(false);
-  const form = useZodForm(config.schema, { defaultValues: config.toFormValues(item ?? null) });
-  const { reset } = form;
-
-  useEffect(() => {
-    if (open) {
-      reset(config.toFormValues(item ?? null));
-      save.reset();
-    }
-    // Reset only when another record is opened.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item]);
-
-  const onSubmit = form.handleSubmit((values) =>
-    save.mutate(
-      { id: isNew ? undefined : item.id, values },
-      {
-        onSuccess: () => {
-          toast.success(isNew ? `${capitalise(config.singular)} created` : 'Changes saved');
-          onClose();
-        },
-        onError: (error) => applyServerErrors(error, form.setError),
-      },
-    ),
-  );
-
-  const formError = save.isError && !applyServerErrorsPreview(save.error);
-  const title = isNew ? `New ${config.singular}` : item ? config.recordName(item) : '';
-
-  return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent
-        side="right"
-        className={config.wideForm ? 'max-w-3xl' : undefined}
-        showTitle
-        title={title}
-        description={isNew ? undefined : item?.active === false ? 'Inactive' : undefined}
-      >
-        <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={onSubmit}>
-          <fieldset
-            disabled={!canWrite || save.isPending}
-            className="grid flex-1 content-start gap-5 overflow-y-auto px-6 py-6"
-          >
-            {canWrite && <RequiredLegend />}
-            {formError && <FormError>{errorMessage(save.error)}</FormError>}
-            {open && <config.Fields form={form} item={item ?? null} />}
-          </fieldset>
-          {canWrite && (
-            <div className="flex flex-wrap items-center gap-2 border-t px-6 py-4">
-              <Button type="submit" disabled={save.isPending}>
-                {save.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-                {isNew ? `Create ${config.singular}` : 'Save changes'}
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              {!isNew && item && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={
-                    item.active === false
-                      ? 'ml-auto'
-                      : 'ml-auto text-destructive hover:text-destructive'
-                  }
-                  onClick={() => setConfirming(true)}
-                >
-                  {item.active === false ? 'Restore' : 'Deactivate'}
-                </Button>
-              )}
-            </div>
-          )}
-        </form>
-        {item && (
-          <ConfirmDialog
-            open={confirming}
-            onOpenChange={setConfirming}
-            destructive={item.active !== false}
-            title={
-              item.active === false
-                ? `Restore ${config.recordName(item)}?`
-                : `Deactivate ${config.recordName(item)}?`
-            }
-            description={
-              item.active === false
-                ? 'It will be available again everywhere it is used.'
-                : 'It will no longer be offered for new transactions. Its history stays, and you can restore it later.'
-            }
-            confirmLabel={item.active === false ? 'Restore' : 'Deactivate'}
-            onConfirm={async () => {
-              await setActive.mutateAsync({ id: item.id, active: item.active === false });
-              toast.success(item.active === false ? 'Restored' : 'Deactivated');
-              onClose();
-            }}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/**
- * Whether an error is only about fields (then it is shown next to them, not at the top).
- *
- * @param {unknown} error
- * @returns {boolean}
- */
-function applyServerErrorsPreview(error) {
-  let applied = false;
-  applyServerErrors(error, () => {
-    applied = true;
-  });
-  return applied;
-}
-
-/**
- * @param {string} text
- * @returns {string}
- */
-const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);

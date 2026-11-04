@@ -2,10 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { jsonResponse, recordPageRoutes, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
-import CustomersPage from './customers-page.jsx';
+import CustomersPage, { EditorPage } from './customers-page.jsx';
 
 function setup() {
   /** @type {Record<string, unknown>[]} */
@@ -46,7 +46,7 @@ function setup() {
   });
   vi.stubGlobal('fetch', api.fetch);
   const view = renderRoutes(
-    [{ path: '/masters/customers', element: <CustomersPage /> }],
+    recordPageRoutes('/masters/customers', <CustomersPage />, <EditorPage />),
     '/masters/customers',
   );
   view.queryClient.setQueryData(CURRENT_USER_KEY, {
@@ -71,7 +71,7 @@ describe('CustomersPage', () => {
   it('asks for company details only for corporate customers, and saves the phone without spaces', async () => {
     const { posted } = setup();
     await userEvent.click(await screen.findByRole('button', { name: /New customer/ }));
-    const panel = await screen.findByRole('dialog');
+    const panel = await screen.findByRole('form');
     expect(within(panel).queryByLabelText('Company name')).not.toBeInTheDocument();
     await userEvent.selectOptions(
       within(panel).getByLabelText('Type'),
