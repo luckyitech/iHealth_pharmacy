@@ -61,7 +61,7 @@ function toItem(row) {
 }
 
 /**
- * @param {{ prisma: import('@ihealth/db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog }} deps
+ * @param {{ prisma: import('#db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog }} deps
  * @returns The manufacturer routes.
  */
 export function createManufacturerRoutes(deps) {

@@ -30,7 +30,7 @@ npm run db:test:load          # builds the test database from the schema file an
 - **The legacy database is only read.** `mysqldump` runs in a single consistent-snapshot transaction (`--single-transaction`, no table locks) and is the only thing that touches it. All writes go to the Docker server through `docker compose exec`. The script refuses to run if the Docker port equals the legacy port.
 - Routines, triggers and events are included. `DEFINER` clauses are removed because the legacy users (`root@localhost`, `ihealthpharm@%`) do not exist in Docker.
 - `stock_movement_working` holds scratch rows that reporting procedures rebuild (about 20 GB). Its **structure** is copied but its **rows** are not, which keeps the copy around 1.5 GB.
-- `--keep-dump` also keeps a gzipped dump in `packages/db/dumps/` (git-ignored). Dumps hold real patient and business data: never commit or share them.
+- `--keep-dump` also keeps a gzipped dump in `apps/api/db/dumps/` (git-ignored). Dumps hold real patient and business data: never commit or share them.
 - `LEGACY_DB_PASSWORD` can be exported in the shell instead of written in `.env`.
 
 ## Local admin account
@@ -39,7 +39,7 @@ npm run db:test:load          # builds the test database from the schema file an
 
 ## Permissions added by the new system
 
-`packages/db/sql/additive/0003-masters-view-permission.sql` adds **Masters View** (`PHARMA_ACCESS_ID` 900001) to `pharma_access`. Ids from 900001 up are reserved for permissions the new system adds; the legacy counter is far higher, so they never collide. Nobody is granted it automatically. For production, it is applied with the other additive SQL during the import.
+`apps/api/db/sql/additive/0003-masters-view-permission.sql` adds **Masters View** (`PHARMA_ACCESS_ID` 900001) to `pharma_access`. Ids from 900001 up are reserved for permissions the new system adds; the legacy counter is far higher, so they never collide. Nobody is granted it automatically. For production, it is applied with the other additive SQL during the import.
 
 ## Shared test password
 
@@ -47,8 +47,8 @@ npm run db:test:load          # builds the test database from the schema file an
 
 ## Test database (`ihealthpharm_test`)
 
-- `packages/db/sql/schema/legacy-schema.sql` is the legacy schema with no data, AUTO_INCREMENT counters or definers. It is committed so tests and CI do not need the legacy server. To regenerate it, run `npm run db:schema:dump`.
-- `packages/db/sql/seed/` is loaded in name order: `01-pharma-access.sql` (the legacy permission catalogue, which is reference data) and `02-test-data.sql` (a small, fully synthetic data set; test accounts are listed at the top of the file).
+- `apps/api/db/sql/schema/legacy-schema.sql` is the legacy schema with no data, AUTO_INCREMENT counters or definers. It is committed so tests and CI do not need the legacy server. To regenerate it, run `npm run db:schema:dump`.
+- `apps/api/db/sql/seed/` is loaded in name order: `01-pharma-access.sql` (the legacy permission catalogue, which is reference data) and `02-test-data.sql` (a small, fully synthetic data set; test accounts are listed at the top of the file).
 - To rebuild the test database: `npm run db:test:load`.
 
 ## Reset

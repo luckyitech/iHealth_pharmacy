@@ -1,5 +1,5 @@
 /**
- * In-memory AuthRepository with the same synthetic accounts as packages/db/sql/seed/02-test-data.sql.
+ * In-memory AuthRepository with the same synthetic accounts as apps/api/db/sql/seed/02-test-data.sql.
  * The integration tests run the real repository against MySQL; these fakes keep unit tests fast.
  */
 

@@ -22,7 +22,7 @@ export const AUDIT_OUTCOMES = Object.freeze({
  * Append-only audit trail in ih_audit_log. Recording never fails the request: if the insert fails,
  * the entry is logged at error level instead.
  *
- * @param {{ $executeRaw: import('@ihealth/db').PrismaClient['$executeRaw'] }} prisma
+ * @param {{ $executeRaw: import('#db').PrismaClient['$executeRaw'] }} prisma
  * @param {import('pino').Logger} logger
  * @returns The audit log ({ record }).
  */

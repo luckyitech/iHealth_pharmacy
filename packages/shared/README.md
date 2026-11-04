@@ -11,7 +11,7 @@ Plain JavaScript shared by `apps/api` and `apps/web`. No Node-only or browser-on
 
 ## Permissions
 
-`PERMISSIONS` is generated from the legacy `pharma_access` table (`npm run permissions:generate -w @ihealth/db`).
+`PERMISSIONS` is generated from the legacy `pharma_access` table (`npm run permissions:generate -w @ihealth/api`).
 Keys are `GROUP_NAME` in upper snake case, e.g. `SALES_SALES_BILLING_SUBMISSION`. Ids, groups and names are copied exactly, typos included.
 Two legacy rows have unusual ids (`424324345` and `424324346`: Credit Settlement and its reversal). They are kept as they are.
 

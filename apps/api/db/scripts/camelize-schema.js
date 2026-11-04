@@ -4,7 +4,7 @@
  *   - fields become camelCase, and scalar fields get `@map("LEGACY_COLUMN")`
  *   - references inside `@relation`, `@@id`, `@@index` and `@@unique` follow the renames
  *
- * The script is deterministic and idempotent, so `npm run db:pull -w @ihealth/db` always yields the same file.
+ * The script is deterministic and idempotent, so `npm run db:pull -w @ihealth/api` always yields the same file.
  *
  *   node scripts/camelize-schema.js prisma/schema.prisma
  */

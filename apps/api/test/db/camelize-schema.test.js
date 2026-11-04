@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { camelizeSchema, toCamelCase, toPascalCase } from './camelize-schema.js';
+import { camelizeSchema, toCamelCase, toPascalCase } from '../../db/scripts/camelize-schema.js';
 
 const introspected = `generator client {
   provider = "prisma-client-js"

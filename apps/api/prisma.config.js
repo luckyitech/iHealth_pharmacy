@@ -13,6 +13,6 @@ loadEnv({ path: path.resolve(here, '../../.env'), quiet: true });
 const url = process.env.DATABASE_URL;
 
 export default defineConfig({
-  schema: path.join(here, 'prisma/schema.prisma'),
+  schema: path.join(here, 'db/prisma/schema.prisma'),
   ...(url ? { datasource: { url } } : {}),
 });

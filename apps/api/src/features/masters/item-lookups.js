@@ -165,7 +165,7 @@ async function withGroupNames(items, prisma) {
 /**
  * Routes of the item-master lookups: categories, forms, groups, generic names, specializations, units.
  *
- * @param {{ prisma: import('@ihealth/db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog }} deps
+ * @param {{ prisma: import('#db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog }} deps
  * @returns The routes of every lookup.
  */
 export function createItemLookupRoutes(deps) {

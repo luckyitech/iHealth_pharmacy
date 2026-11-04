@@ -29,7 +29,7 @@ const appInfoSchema = z.object({
  * Public facts the signed-out pages and formatting need: which pharmacy this is (from its database
  * record) and the regional settings (from configuration). Nothing private.
  *
- * @param {{ prisma: import('@ihealth/db').PrismaClient, config: Readonly<import('../../config/env.js').Config> }} deps
+ * @param {{ prisma: import('#db').PrismaClient, config: Readonly<import('../../config/env.js').Config> }} deps
  * @returns The app-info route definitions.
  */
 export function createAppInfoRoutes({ prisma, config }) {

@@ -12,12 +12,13 @@ import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const packageRoot = path.resolve(here, '..');
-loadEnv({ path: path.resolve(packageRoot, '../../.env'), quiet: true });
+// Prisma runs from apps/api, where prisma.config.js is.
+const apiRoot = path.resolve(here, '../..');
+loadEnv({ path: path.resolve(apiRoot, '../../.env'), quiet: true });
 
 const NO_DIFFERENCE = 0;
 const HAS_DIFFERENCE = 2;
-// Additive tables of the new system (packages/db/sql/additive) are not part of the legacy schema.
+// Additive tables of the new system (apps/api/db/sql/additive) are not part of the legacy schema.
 const ADDITIVE_TABLE = /`ih_\w+`/;
 
 /**
@@ -48,11 +49,11 @@ const result = spawnSync(
     'diff',
     '--from-config-datasource',
     '--to-schema',
-    'prisma/schema.prisma',
+    'db/prisma/schema.prisma',
     '--script',
     '--exit-code',
   ],
-  { cwd: packageRoot, env: { ...process.env, DATABASE_URL: url }, encoding: 'utf8' },
+  { cwd: apiRoot, env: { ...process.env, DATABASE_URL: url }, encoding: 'utf8' },
 );
 
 const remaining = result.status === HAS_DIFFERENCE ? withoutAdditiveTables(result.stdout) : '';
@@ -68,7 +69,7 @@ if (result.status === NO_DIFFERENCE || (result.status === HAS_DIFFERENCE && rema
   );
   process.stderr.write(result.stdout);
   process.stderr.write(
-    '\nRe-run `npm run db:pull -w @ihealth/db` against the reference database.\n',
+    '\nRe-run `npm run db:pull -w @ihealth/api` against the reference database.\n',
   );
 } else {
   process.stderr.write(result.stderr || result.stdout);

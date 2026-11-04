@@ -1,4 +1,4 @@
-/** @typedef {import('@ihealth/db').PrismaClient} PrismaClient */
+/** @typedef {import('#db').PrismaClient} PrismaClient */
 /** @typedef {Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>} TransactionClient */
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -11,7 +11,7 @@ const DEFAULT_MAX_WAIT_MS = 5_000;
  * @template T
  * @param {PrismaClient} prisma
  * @param {(tx: TransactionClient) => Promise<T>} work
- * @param {{ timeoutMs?: number, maxWaitMs?: number, isolationLevel?: import('@ihealth/db').Prisma.TransactionIsolationLevel }} [options]
+ * @param {{ timeoutMs?: number, maxWaitMs?: number, isolationLevel?: import('#db').Prisma.TransactionIsolationLevel }} [options]
  * @returns {Promise<T>}
  */
 export function withTransaction(prisma, work, options = {}) {

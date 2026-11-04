@@ -1,4 +1,4 @@
-import { createPrismaClient } from '@ihealth/db';
+import { createPrismaClient } from '#db';
 
 import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';

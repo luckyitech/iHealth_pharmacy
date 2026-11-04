@@ -3,10 +3,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SCHEMA_FILE="${REPO_ROOT}/packages/db/sql/schema/legacy-schema.sql"
-SEED_DIR="${REPO_ROOT}/packages/db/sql/seed"
-ADDITIVE_DIR="${REPO_ROOT}/packages/db/sql/additive"
-DUMP_DIR="${REPO_ROOT}/packages/db/dumps"
+SCHEMA_FILE="${REPO_ROOT}/apps/api/db/sql/schema/legacy-schema.sql"
+SEED_DIR="${REPO_ROOT}/apps/api/db/sql/seed"
+ADDITIVE_DIR="${REPO_ROOT}/apps/api/db/sql/additive"
+DUMP_DIR="${REPO_ROOT}/apps/api/db/dumps"
 
 # Legacy table whose rows are scratch data rebuilt by stored procedures (about 20 GB).
 # Its structure is copied, its rows are not.

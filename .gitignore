@@ -17,7 +17,7 @@ coverage/
 *.sql.gz
 *.dump
 dumps/
-packages/db/dumps/
+apps/api/db/dumps/
 
 # Test artifacts
 playwright-report/

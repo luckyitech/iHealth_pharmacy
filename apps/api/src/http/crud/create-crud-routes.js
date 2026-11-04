@@ -78,7 +78,7 @@ const sameText = (a, b) =>
  * names of the fields it changed, and duplicate checks run inside the same transaction as the write.
  *
  * @param {CrudConfig} config
- * @param {{ prisma: import('@ihealth/db').PrismaClient, audit: import('../../features/audit/audit-log.js').AuditLog }} deps
+ * @param {{ prisma: import('#db').PrismaClient, audit: import('../../features/audit/audit-log.js').AuditLog }} deps
  * @returns The route definitions.
  */
 export function createCrudRoutes(config, { prisma, audit }) {

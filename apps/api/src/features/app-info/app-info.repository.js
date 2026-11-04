@@ -7,7 +7,7 @@
  */
 
 /**
- * @param {import('@ihealth/db').PrismaClient} prisma
+ * @param {import('#db').PrismaClient} prisma
  * @returns {{ findPharmacy: (pharmacyId: number | undefined) => Promise<PharmacyProfile | null> }}
  */
 export function createAppInfoRepository(prisma) {

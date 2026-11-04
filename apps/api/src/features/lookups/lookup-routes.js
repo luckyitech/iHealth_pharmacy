@@ -22,7 +22,7 @@ const options = (rows) =>
 /**
  * Read-only reference lists used by forms (countries, provinces). They come from the legacy lookup tables.
  *
- * @param {{ prisma: import('@ihealth/db').PrismaClient }} deps
+ * @param {{ prisma: import('#db').PrismaClient }} deps
  * @returns The lookup routes.
  */
 export function createLookupRoutes({ prisma }) {
