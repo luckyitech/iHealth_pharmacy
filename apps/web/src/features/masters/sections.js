@@ -13,6 +13,7 @@ import {
   Tags,
   Truck,
   UserRound,
+  Users,
 } from 'lucide-react';
 
 /**
@@ -60,6 +61,7 @@ export const MASTER_SECTIONS = Object.freeze([
     ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
     ['manufacturers', 'Manufacturers', Factory],
   ]),
+  ...sections('Customers', [['customers', 'Customers', Users]]),
   ...sections('Prescribers', [
     ['hospitals', 'Hospitals', Hospital],
     ['providers', 'Providers', UserRound],

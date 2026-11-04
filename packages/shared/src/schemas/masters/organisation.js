@@ -46,14 +46,17 @@ export const hospitalSchema = z.object({
 /** Legacy GENDER_CD values. */
 export const GENDERS = Object.freeze({ FEMALE: 'F', MALE: 'M' });
 
+/** Optional legacy GENDER_CD: empty means "not stated". */
+export const optionalGenderSchema = z.preprocess(
+  (value) => (value === '' || value === undefined ? null : value),
+  z.enum([GENDERS.FEMALE, GENDERS.MALE]).nullable(),
+);
+
 export const providerInputSchema = z.object({
   firstName: requiredText(LENGTH.personName),
   middleName: optionalText(LENGTH.personName),
   lastName: requiredText(LENGTH.personName),
-  gender: z.preprocess(
-    (value) => (value === '' || value === undefined ? null : value),
-    z.enum([GENDERS.FEMALE, GENDERS.MALE]).nullable(),
-  ),
+  gender: optionalGenderSchema,
   // Optional: most legacy prescribers have none on file, and a required field would block every edit.
   licenseNumber: optionalText(LENGTH.license),
   providerTypeId: optionalIdSchema,
