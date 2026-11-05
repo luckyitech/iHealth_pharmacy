@@ -138,8 +138,9 @@ What happens when someone saves a new item on the **Items** screen:
 
 The layout follows the old system's pattern (`components/layout/app-shell.jsx`):
 
+- **Left column:** from the top of the screen, as in the old system. Its top cell holds the pharmacy's logo and is as tall as the two bars, so the column and the bars meet on one vertical and one horizontal line; the bars start to its right.
 - **Account bar:** the pharmacy's logo and name from its profile (`pharmacy-brand.jsx`, from `/app-info` and the public logo), the theme and the account menu.
-- **Menu bar:** the main sections from `app/navigation.js`, only those the user may open, the current one highlighted (`SectionTabs`).
+- **Menu bar** (`bg-nav`, a deeper teal in dark mode so white text stays readable): the main sections from `app/navigation.js`, only those the user may open, the current one highlighted (`SectionTabs`).
 - **Side panel:** for a section with pages of its own (`children`, e.g. Masters from `features/masters/sections.js`), its pages under small group headings (`side-panel.jsx`, `SectionNav`).
   - It is an icon rail (64px) with a tooltip on each icon, and slides out to 240px over the page on hover or keyboard focus. It opens after 150ms and closes 250ms after the mouse leaves. On a touch screen the first tap opens it and a tap outside closes it.
   - "Keep the panel open" pins it (remembered in `stores/sidebar-store.js`); the page then starts after it.

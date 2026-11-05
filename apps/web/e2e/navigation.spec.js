@@ -62,7 +62,9 @@ test.describe('desktop', () => {
     page,
   }) => {
     await page.goto('/masters/suppliers');
-    await expect(page.getByRole('banner').getByText('Smoke Pharmacy')).toBeVisible();
+    await expect(
+      page.getByRole('banner').getByText('Smoke Pharmacy').locator('visible=true'),
+    ).toBeVisible();
     await expect(
       page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Masters' }),
     ).toHaveAttribute('aria-current', 'page');
@@ -123,9 +125,24 @@ test.describe('desktop', () => {
     await expect(panel).toHaveAttribute('data-expanded', 'false');
   });
 
-  test('has no side panel on a section without pages of its own', async ({ page }) => {
+  test('lines the left column up with both top bars, and keeps only the logo on a section without pages', async ({
+    page,
+  }) => {
+    await page.goto('/masters/suppliers');
+    const logoCell = page.getByRole('link', { name: 'Dashboard', exact: true }).first();
+    const bars = page.getByRole('banner');
+    const cell = await logoCell.boundingBox();
+    const header = await bars.boundingBox();
+    // The column starts at the top, and the bars start where it ends.
+    expect(cell?.y).toBe(0);
+    expect(cell?.height).toBe(header?.height);
+    expect(header?.x).toBe(RAIL_WIDTH);
+
     await page.goto('/');
-    await expect(page.locator('[data-expanded]')).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Masters' })).toHaveCount(0);
+    await page.locator('[data-expanded]').hover();
+    await expect(page.locator('[data-expanded]')).toHaveAttribute('data-expanded', 'false');
+    expect((await page.locator('#main-content').boundingBox())?.x).toBe(RAIL_WIDTH);
   });
 });
 

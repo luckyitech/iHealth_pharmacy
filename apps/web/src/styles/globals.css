@@ -38,6 +38,9 @@
   --sidebar-border: oklch(0.91 0.01 200);
   /* Solid brand surface (sign-in panel). Deeper than --primary in dark mode so it does not glare. */
   --brand: oklch(0.47 0.09 185);
+  /* The menu bar across the top. */
+  --nav: oklch(0.47 0.09 185);
+  --nav-foreground: oklch(0.99 0 0);
   --brand-foreground: oklch(0.99 0 0);
 }
 
@@ -69,6 +72,9 @@
   --sidebar-accent-foreground: oklch(0.96 0.005 200);
   --sidebar-border: oklch(0.28 0.015 210);
   --brand: oklch(0.28 0.05 190);
+  /* A deep teal: white text stays readable and the bar does not glare on dark surfaces. */
+  --nav: oklch(0.38 0.07 188);
+  --nav-foreground: oklch(0.97 0.01 190);
   --brand-foreground: oklch(0.95 0.01 190);
 }
 
@@ -106,6 +112,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-nav: var(--nav);
+  --color-nav-foreground: var(--nav-foreground);
 }
 
 @layer base {
