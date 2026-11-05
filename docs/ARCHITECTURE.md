@@ -148,3 +148,11 @@ The layout follows the old system's pattern (`components/layout/app-shell.jsx`):
 - **Find a page:** Ctrl+K (⌘K on a Mac), or the search button in the account bar, opens a quick search over every page the user may open (`command-palette.jsx`, built on [cmdk](https://cmdk.paco.me)).
 - **Reduce effects:** a switch in the account menu turns off animations, slides and see-through blur, remembered per person on this device (`stores/effects-store.js`, the `data-reduce-effects` rule in `styles/globals.css`). The system's reduce-motion setting is respected anyway.
 - **Content width:** pages start right after the rail or panel, with a 16px gutter on phones and 24px from the `sm` breakpoint, and use the full width.
+
+## Sales (phase 2)
+
+- **Sales history** (`apps/api/src/features/sales/`, `apps/web/src/features/sales/history/`): read-only. The list, one bill, and its receipt reprint read the legacy `sales` and `sales_items` tables with parameterised raw SQL, because some legacy timestamps are zero dates and the list needs joins and a line count per bill.
+- **Statuses and payments**: the legacy `PAYMENT_STATUS` text (any case) maps to `BILL_STATUSES`; each payment method is its own legacy amount column (`PAYMENT_METHODS`). Old-data problems are flagged, never changed: no items, payments that don't add up, short M-Pesa codes.
+- **Receipt**: `receipt-pdf.js` draws the 80 mm receipt with pdfkit, from the pharmacy profile and the installation's locale and currency. A reprint is marked "COPY".
+- **Privacy**: opening or reprinting a bill is written to the audit log; card numbers show only their last digits.
+- **Errors**: every failed action shows a notification through `notify.failure(action, error)`: what failed, why, and the request's reference for support. Field errors still show under their field.
