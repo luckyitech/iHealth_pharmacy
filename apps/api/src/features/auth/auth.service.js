@@ -1,3 +1,4 @@
+import { MS_PER_MINUTE } from '@ihealth/shared/units';
 import { randomUUID } from 'node:crypto';
 
 import { ERROR_CODES } from '@ihealth/shared/errors';
@@ -492,7 +493,7 @@ export function createAuthService({
         expiresAt: new Date(now().getTime() + PASSWORD_RESET_TTL_MS),
         requestIp: client.ipAddress,
       });
-      const minutes = PASSWORD_RESET_TTL_MS / 60_000;
+      const minutes = PASSWORD_RESET_TTL_MS / MS_PER_MINUTE;
       await mailer.send({
         to: email,
         subject: 'Reset your iHealth Pharmacy password',

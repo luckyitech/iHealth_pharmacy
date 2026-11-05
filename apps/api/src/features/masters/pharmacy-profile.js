@@ -1,4 +1,5 @@
 /* eslint-disable jsdoc/reject-any-type -- the pharmacy row is typed by SELECT */
+import { BYTES_PER_KB } from '@ihealth/shared/units';
 import { ERROR_CODES } from '@ihealth/shared/errors';
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
@@ -208,7 +209,7 @@ export function createPharmacyProfileRoutes({ prisma, audit, config }) {
       method: 'put',
       path: `/${RESOURCE}/logo`,
       summary: "Replace the pharmacy's logo",
-      description: `Send the image itself as the body (${LOGO_TYPES.join(', ')}), at most ${MAX_LOGO_BYTES / 1024} kB.`,
+      description: `Send the image itself as the body (${LOGO_TYPES.join(', ')}), at most ${MAX_LOGO_BYTES / BYTES_PER_KB} kB.`,
       tags: ['Masters'],
       permissions: POLICIES.masters.write,
       before: [express.raw({ type: [...LOGO_TYPES], limit: MAX_LOGO_BYTES })],
@@ -222,7 +223,7 @@ export function createPharmacyProfileRoutes({ prisma, audit, config }) {
           detectImageType(bytes) !== declared
         ) {
           throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
-            message: `Upload a PNG, JPEG or WebP image of at most ${MAX_LOGO_BYTES / 1024} kB.`,
+            message: `Upload a PNG, JPEG or WebP image of at most ${MAX_LOGO_BYTES / BYTES_PER_KB} kB.`,
           });
         }
         const { row } = await load();

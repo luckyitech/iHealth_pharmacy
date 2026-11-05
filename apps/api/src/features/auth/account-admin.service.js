@@ -1,3 +1,4 @@
+import { MS_PER_SECOND } from '@ihealth/shared/units';
 import { randomBytes } from 'node:crypto';
 
 import { ERROR_CODES } from '@ihealth/shared/errors';
@@ -146,7 +147,9 @@ export function createAccountAdminService({
         username: credentials?.username ?? null,
         loginEnabled: credentials?.active ?? false,
         lockedUntil:
-          lockedFor === null ? null : new Date(now().getTime() + lockedFor * 1000).toISOString(),
+          lockedFor === null
+            ? null
+            : new Date(now().getTime() + lockedFor * MS_PER_SECOND).toISOString(),
         twoFactorEnabled: credentials?.twoFactorEnabled ?? false,
         mustChangePassword: credentials
           ? await repository.isPasswordChangeRequired(credentials.credentialsId)

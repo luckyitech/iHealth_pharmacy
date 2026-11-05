@@ -1,4 +1,5 @@
-const MINUTE_MS = 60_000;
+import { MS_PER_MINUTE as MINUTE_MS } from '@ihealth/shared/units';
+
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;

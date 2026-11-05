@@ -1,6 +1,7 @@
 /**
  * Fails when application code contains values that belong in the database or in configuration:
- * place and pharmacy names, currencies, time zones, locales, hosts and URLs, account or till numbers.
+ * place and pharmacy names, currencies, dialling codes, time zones, locales, hosts and URLs, account or
+ * till numbers.
  *
  *   node scripts/quality/check-hardcodes.js
  *
@@ -21,6 +22,7 @@ const RULES = [
   { name: 'place name', pattern: /\b(Nairobi|Mombasa|Kisumu|Nakuru|Eldoret|Kenya)\b/ },
   { name: 'pharmacy name', pattern: /DOCPHARMA|Docpharm/i },
   { name: 'currency code', pattern: /['"`](KES|USD|EUR|UGX|TZS)['"`]/ },
+  { name: 'country dialling code', pattern: /\+(254|255|256|250)\b/ },
   {
     name: 'time zone',
     pattern: /['"`](Africa|Europe|America|Asia)\/[A-Za-z_]+['"`]|['"`][+-]\d{2}:\d{2}['"`]/,

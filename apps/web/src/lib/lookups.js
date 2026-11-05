@@ -1,3 +1,4 @@
+import { MS_PER_HOUR } from '@ihealth/shared/units';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from './api-client.js';
@@ -5,7 +6,7 @@ import { api } from './api-client.js';
 /** @typedef {{ id: number, name: string }} Option */
 
 /** Reference lists rarely change during a session. */
-const LOOKUP_STALE_MS = 60 * 60 * 1000;
+const LOOKUP_STALE_MS = MS_PER_HOUR;
 
 /**
  * A read-only reference list from `/lookups/<path>`.

@@ -5,6 +5,7 @@ import {
   itemSupplierInputSchema,
   SUPPLIER_PRIORITIES,
 } from '@ihealth/shared/schemas';
+import { localToday } from '@ihealth/shared/units';
 import { TriangleAlert, X } from 'lucide-react';
 
 import { ComboboxField } from '@/components/form/combobox-field';
@@ -37,15 +38,6 @@ const ISSUE_OPTIONS = Object.freeze([
 /** Decimal places shown for a rate. */
 const RATE_DECIMALS = 2;
 
-/**
- * @returns {string} Today in the browser's time zone, as `YYYY-MM-DD`.
- */
-function today() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
-
 const baseValues = formValuesFor(itemSupplierInputSchema);
 
 /**
@@ -55,7 +47,7 @@ const baseValues = formValuesFor(itemSupplierInputSchema);
 const toFormValues = (link) => ({
   ...baseValues(link),
   // The legacy column cannot be empty; a new link is valid from today unless changed.
-  validUntil: link?.validUntil ?? today(),
+  validUntil: link?.validUntil ?? localToday(),
 });
 
 /**

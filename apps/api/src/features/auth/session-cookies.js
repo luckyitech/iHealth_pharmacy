@@ -1,3 +1,4 @@
+import { MS_PER_SECOND } from '@ihealth/shared/units';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   COOKIES,
@@ -22,7 +23,7 @@ export function setSessionCookies(res, { accessToken, refreshToken, familyId }, 
   res.cookie(COOKIES.ACCESS, accessToken, {
     ...baseOptions(secure),
     path: '/',
-    maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
+    maxAge: ACCESS_TOKEN_TTL_SECONDS * MS_PER_SECOND,
   });
   res.cookie(COOKIES.REFRESH, refreshToken, {
     ...baseOptions(secure),

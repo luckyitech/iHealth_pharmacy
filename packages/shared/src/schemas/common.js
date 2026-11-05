@@ -83,21 +83,6 @@ export const requiredIdSchema = (message) =>
     )
     .pipe(z.number({ error: message }));
 
-const KENYAN_PHONE = /^(?:\+254|254|0)([17]\d{8})$/;
-
-/**
- * Kenyan mobile or landline number in any common form (`0712 345 678`, `+254712345678`, `254712345678`).
- * Output is E.164: `+254712345678`.
- */
-export const kenyanPhoneSchema = z
-  .string()
-  .transform((value) => value.replace(/[\s-]/g, ''))
-  .refine(
-    (value) => KENYAN_PHONE.test(value),
-    'Enter a valid Kenyan phone number, e.g. 0712 345 678',
-  )
-  .transform((value) => `+254${/** @type {RegExpExecArray} */ (KENYAN_PHONE.exec(value))[1]}`);
-
 /** Calendar date without time (`YYYY-MM-DD`), interpreted in the installation's time zone. */
 export const dateOnlySchema = z.iso.date('Use the format YYYY-MM-DD');
 

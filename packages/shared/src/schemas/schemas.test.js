@@ -8,7 +8,6 @@ import {
   fromLegacyFlag,
   idParamsSchema,
   itemSupplierInputSchema,
-  kenyanPhoneSchema,
   MAX_PAGE_SIZE,
   optionalTextSchema,
   requiredTextSchema,
@@ -28,11 +27,8 @@ describe('common schemas', () => {
     expect(optionalTextSchema.parse('  ')).toBeNull();
   });
 
-  it('normalises emails and Kenyan phone numbers', () => {
+  it('normalises emails', () => {
     expect(emailSchema.parse(' Jane@Example.TEST ')).toBe('jane@example.test');
-    expect(kenyanPhoneSchema.parse('0712 345 678')).toBe('+254712345678');
-    expect(kenyanPhoneSchema.parse('254112345678')).toBe('+254112345678');
-    expect(kenyanPhoneSchema.safeParse('0812345678').success).toBe(false);
   });
 
   it('maps legacy Y/N flags', () => {
