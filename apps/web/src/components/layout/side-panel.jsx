@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
 import { PharmacyLogo, PharmacyName } from './pharmacy-brand.jsx';
-import { SectionNav } from './sidebar-nav.jsx';
+import { SectionNav } from './section-nav.jsx';
 
 /** Short delays so passing over the rail does not open it, and leaving it briefly does not close it. */
 const OPEN_DELAY_MS = 150;
