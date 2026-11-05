@@ -85,7 +85,9 @@ test.describe('desktop', () => {
     expect((await page.locator('#main-content').boundingBox())?.x).toBe(RAIL_WIDTH);
   });
 
-  test('slides out over the page on hover and back when the mouse leaves', async ({ page }) => {
+  test('slides out on hover, moving the page along, and back when the mouse leaves', async ({
+    page,
+  }) => {
     await page.goto('/masters/suppliers');
     const panel = page.locator('[data-expanded]');
     const main = page.locator('#main-content');
@@ -93,8 +95,8 @@ test.describe('desktop', () => {
     await panel.hover();
     await expect(panel).toHaveAttribute('data-expanded', 'true');
     await expect.poll(async () => (await panel.boundingBox())?.width).toBe(PANEL_WIDTH);
-    // Over the page: the page does not move.
-    expect((await main.boundingBox())?.x).toBe(RAIL_WIDTH);
+    // The page moves along, as when the panel is pinned.
+    await expect.poll(async () => (await main.boundingBox())?.x).toBe(PANEL_WIDTH);
 
     await page
       .getByRole('navigation', { name: 'Masters' })

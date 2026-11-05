@@ -16,9 +16,9 @@ const CLOSE_DELAY_MS = 250;
  * The desktop left column, from the top of the screen down, as in the old system: the pharmacy's
  * logo in a cell as tall as the two top bars, then the current section's pages.
  *
- * The pages are an icon rail that slides out over the page, with labels, while the mouse is on it
+ * The pages are an icon rail that slides out, with labels, while the mouse is on it
  * or the keyboard is in it. On a touch screen the first tap opens it and a tap outside closes it.
- * Pinned, it stays open and the page starts after it. A section without pages of its own shows
+ * The page moves along with it, as when it is pinned open. A section without pages of its own shows
  * only the logo cell.
  *
  * @param {{ section: import('@/app/navigation').NavItem | undefined }} props
@@ -68,8 +68,8 @@ export function SidePanel({ section }) {
     <aside
       aria-label="Section pages"
       className={cn(
-        'sticky top-0 z-40 hidden h-svh shrink-0 transition-[width] duration-200 motion-reduce:transition-none lg:block',
-        pinned && hasPages ? 'w-60' : 'w-16',
+        'sticky top-0 z-40 hidden h-svh shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none lg:block',
+        expanded ? 'w-60' : 'w-16',
       )}
     >
       <div
@@ -78,7 +78,6 @@ export function SidePanel({ section }) {
         className={cn(
           'absolute inset-y-0 left-0 flex flex-col overflow-hidden border-r bg-card transition-[width,box-shadow] duration-200 ease-out motion-reduce:transition-none',
           expanded ? 'w-60' : 'w-16',
-          hovered && !pinned && 'shadow-xl',
         )}
         onPointerEnter={(event) => event.pointerType === 'mouse' && schedule(true, OPEN_DELAY_MS)}
         onPointerLeave={(event) => event.pointerType === 'mouse' && schedule(false, CLOSE_DELAY_MS)}
