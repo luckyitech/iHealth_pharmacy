@@ -1,4 +1,5 @@
 import { MASTER_SECTIONS, MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
+import { SALES_SECTIONS } from '@/features/sales/sections';
 import { PERMISSION_LIST } from '@ihealth/shared/permissions';
 import {
   BarChart3,
@@ -61,6 +62,7 @@ export const NAV_ITEMS = Object.freeze([
     icon: ShoppingCart,
     description: 'Billing, returns, credit notes and receipts',
     permissions: permissionsOf((group) => group === 'Sales'),
+    children: SALES_SECTIONS,
   },
   {
     id: 'stock',

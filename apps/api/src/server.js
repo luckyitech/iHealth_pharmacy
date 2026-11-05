@@ -21,6 +21,7 @@ import { createPharmacyProfileRoutes } from './features/masters/pharmacy-profile
 import { createProviderRoutes } from './features/masters/providers.js';
 import { createSupplierRoutes } from './features/masters/suppliers.js';
 import { createTermsRoutes } from './features/masters/terms.js';
+import { createSalesBillRoutes } from './features/sales/bills.routes.js';
 import { collectRoutes } from './routes.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -82,6 +83,7 @@ const app = createApp({
         ...createTermsRoutes({ prisma, audit }),
       ],
     },
+    sales: { routes: createSalesBillRoutes({ prisma, audit, config }) },
   }),
   guards: auth.guards,
   apiRateLimit: auth.apiRateLimit,

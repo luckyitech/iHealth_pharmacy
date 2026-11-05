@@ -1,4 +1,5 @@
-import { createBrowserRouter } from 'react-router';
+import { POLICIES } from '@ihealth/shared/permissions';
+import { createBrowserRouter, Navigate } from 'react-router';
 
 import { NotFoundPage, RouteErrorFallback } from '@/components/feedback/error-fallbacks';
 import { AppShell } from '@/components/layout/app-shell';
@@ -18,6 +19,9 @@ const ITEM_LOOKUP_ROUTES = /** @type {const} */ ([
 
 import { NAV_ITEMS } from './navigation.js';
 
+/** Modules with screens of their own; the others show a placeholder page until they are built. */
+const CUSTOM_MODULES = new Set(['masters', 'sales']);
+
 /**
  * Each page is its own chunk, loaded when first visited.
  * Module pages are guarded by the same permissions that decide whether they appear in the menu.
@@ -25,21 +29,21 @@ import { NAV_ITEMS } from './navigation.js';
  * @returns {ReturnType<typeof createBrowserRouter>}
  */
 export function createAppRouter() {
-  const moduleRoutes = NAV_ITEMS.filter((item) => item.path !== '/' && item.id !== 'masters').map(
-    (item) => ({
-      path: item.path.slice(1),
-      element: <RequirePermission permissions={item.permissions} />,
-      children: [
-        {
-          index: true,
-          lazy: async () => {
-            const { default: ModulePage } = await import('@/features/modules/module-page');
-            return { Component: () => <ModulePage item={item} /> };
-          },
+  const moduleRoutes = NAV_ITEMS.filter(
+    (item) => item.path !== '/' && !CUSTOM_MODULES.has(item.id),
+  ).map((item) => ({
+    path: item.path.slice(1),
+    element: <RequirePermission permissions={item.permissions} />,
+    children: [
+      {
+        index: true,
+        lazy: async () => {
+          const { default: ModulePage } = await import('@/features/modules/module-page');
+          return { Component: () => <ModulePage item={item} /> };
         },
-      ],
-    }),
-  );
+      },
+    ],
+  }));
 
   return createBrowserRouter([
     {
@@ -84,6 +88,20 @@ export function createAppRouter() {
                   }),
                 },
                 ...moduleRoutes,
+                {
+                  path: 'sales',
+                  element: <RequirePermission permissions={POLICIES.sales.read} />,
+                  children: [
+                    { index: true, element: <Navigate to="history" replace /> },
+                    {
+                      path: 'history',
+                      lazy: async () => ({
+                        Component: (await import('@/features/sales/history/sales-history-page'))
+                          .default,
+                      }),
+                    },
+                  ],
+                },
                 {
                   path: 'masters',
                   element: <RequirePermission permissions={MASTERS_AREA_PERMISSIONS} />,

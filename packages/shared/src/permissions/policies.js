@@ -21,6 +21,14 @@ export const POLICIES = Object.freeze({
     ]),
     write: Object.freeze([PERMISSIONS.MASTER_MASTERS_ENTRY, PERMISSIONS.MASTER_UPDATE_SUPPLIER]),
   }),
+  // Anyone who sold or approved in the legacy Sales module may look up past bills.
+  sales: Object.freeze({
+    read: Object.freeze([
+      PERMISSIONS.SALES_SALES_BILLING_SUBMISSION,
+      PERMISSIONS.SALES_SALES_BILLING_BONUS_ITEMS_APPROVAL,
+      PERMISSIONS.SALES_SALES_RETURN_APPROVAL,
+    ]),
+  }),
   // Sign-in, role and permissions of staff: changing who can do what is a "Masters Entry" task.
   employeeAccess: Object.freeze({
     read: Object.freeze([PERMISSIONS.MASTER_MASTERS_ENTRY]),
