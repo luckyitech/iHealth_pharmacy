@@ -70,10 +70,10 @@ function localDateTime(value, locale) {
  * A reprint says so at the top.
  *
  * @param {BillDetail} bill
- * @param {{ pharmacy: ReceiptPharmacy, region: Region, printedBy: string, printedAt: string }} context
+ * @param {{ pharmacy: ReceiptPharmacy, region: Region, printedBy: string, printedAt: string, copy?: boolean }} context The receipt is marked "COPY" unless `copy` is false (the first print of a new sale).
  * @returns {Promise<Buffer>}
  */
-export function renderReceipt(bill, { pharmacy, region, printedBy, printedAt }) {
+export function renderReceipt(bill, { pharmacy, region, printedBy, printedAt, copy = true }) {
   const height =
     HEIGHT.header +
     bill.lines.length * HEIGHT.line +
@@ -143,7 +143,7 @@ export function renderReceipt(bill, { pharmacy, region, printedBy, printedAt }) 
   if (pharmacy.email) line(pharmacy.email, { align: 'center' });
   if (pharmacy.taxPin) line(`PIN: ${pharmacy.taxPin}`, { align: 'center' });
   rule();
-  line('SALES RECEIPT (COPY)', { bold: true, align: 'center' });
+  line(copy ? 'SALES RECEIPT (COPY)' : 'SALES RECEIPT', { bold: true, align: 'center' });
   pair('Bill #', bill.code ?? String(bill.id), true);
   pair('Date', localDateTime(bill.createdAt ?? bill.billDate, region.locale));
   if (bill.customerName) pair('Customer', bill.customerName);

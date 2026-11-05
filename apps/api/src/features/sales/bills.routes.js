@@ -31,6 +31,13 @@ import { renderReceipt } from './receipt-pdf.js';
 const PATH = '/sales/bills';
 const TAGS = ['Sales'];
 const RESOURCE = 'sales/bills';
+const PRINT = 'print';
+const REPRINT = 'reprint';
+
+const receiptQuerySchema = z.object({
+  /** Asks for the original receipt: given once, to the cashier who made the bill. */
+  original: z.stringbool().optional(),
+});
 
 /** `YYYY-MM-DD HH:MM` in a time zone. */
 const LOCAL_STAMP = 'sv-SE'; // hardcode-ok: a locale whose format is ISO-like, used only to build text
@@ -88,6 +95,18 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
       resourceId: id,
       ipAddress: req.ip,
     });
+
+  /**
+   * @param {number} id
+   * @returns {Promise<boolean>} Whether the original receipt of this bill was printed already.
+   */
+  const printedBefore = async (id) => {
+    /** @type {unknown[]} */
+    const rows = await prisma.$queryRaw`
+      SELECT 1 FROM ih_audit_log
+      WHERE ACTION = ${`${RESOURCE}.${PRINT}`} AND RESOURCE_ID = ${String(id)} LIMIT 1`;
+    return rows.length > 0;
+  };
 
   return [
     defineRoute({
@@ -160,10 +179,12 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
     defineRoute({
       method: 'get',
       path: `${PATH}/:id/receipt`,
-      summary: "Reprint a bill's receipt (PDF)",
+      summary: "Print a bill's receipt (PDF)",
+      description:
+        'Marked "COPY", except the first print asked with `original=true` by the cashier who made the bill.',
       tags: TAGS,
       permissions: POLICIES.sales.read,
-      request: { params: idParamsSchema },
+      request: { params: idParamsSchema, query: receiptQuerySchema },
       responses: { 200: { description: 'The receipt, application/pdf' } },
       handler: async ({ req, res, input }) => {
         const pharmacyId = await currentPharmacyId(prisma, config);
@@ -186,6 +207,10 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
             select: { firstNm: true, lastNm: true },
           }),
         ]);
+        const original =
+          Boolean(input.query.original) &&
+          bill.cashierId === getAuth(res).employeeId &&
+          !(await printedBefore(bill.id));
         const pdf = await renderReceipt(bill, {
           pharmacy: {
             name: pharmacy?.pharmacyNm?.trim() ?? '',
@@ -200,8 +225,9 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
           region: config.region,
           printedBy: [printer?.firstNm, printer?.lastNm].filter(Boolean).join(' ').trim(),
           printedAt: localStamp(new Date(), config.region.timeZone),
+          copy: !original,
         });
-        await record(req, 'reprint', bill.id);
+        await record(req, original ? PRINT : REPRINT, bill.id);
         res.set({
           'Content-Type': 'application/pdf',
           'Content-Disposition': `inline; filename="receipt-${encodeURIComponent(bill.code ?? String(bill.id))}.pdf"`,

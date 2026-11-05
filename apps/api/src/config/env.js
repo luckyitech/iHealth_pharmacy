@@ -58,6 +58,16 @@ const envSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.coerce.number().int().positive().optional(),
   ),
+  // Most sales one pharmacy can keep on hold at once; each till parks a sale while serving the next.
+  SALES_MAX_HELD: z.coerce.number().int().min(1).max(500).default(30),
+  // Bank notes offered as quick amounts in the payment window, smallest first.
+  SALES_QUICK_CASH_NOTES: z
+    .string()
+    .default('50,100,200,500,1000')
+    .transform((value) => value.split(',').map((note) => Number(note.trim())))
+    .pipe(z.array(z.number().positive()).min(1)),
+  // Most batches one till search returns.
+  SALES_SEARCH_LIMIT: z.coerce.number().int().min(5).max(100).default(30),
   // Regional settings. The legacy database has no table for them, so they are deployment configuration.
   APP_LOCALE: z.string().min(2).default('en-KE'),
   APP_CURRENCY: z.string().length(3).default('KES'),
@@ -83,7 +93,7 @@ const envSchema = z.object({
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[] }} sales
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
@@ -135,6 +145,9 @@ export function loadConfig(env) {
       roundingStep: values.SALES_ROUNDING_STEP,
       selfDiscountLimit: values.SALES_SELF_DISCOUNT_LIMIT,
       defaultProviderId: values.SALES_DEFAULT_PROVIDER_ID,
+      maxHeld: values.SALES_MAX_HELD,
+      searchLimit: values.SALES_SEARCH_LIMIT,
+      quickCashNotes: values.SALES_QUICK_CASH_NOTES,
     }),
     region: Object.freeze({
       locale: values.APP_LOCALE,

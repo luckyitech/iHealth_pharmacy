@@ -238,6 +238,20 @@ describe('completing a sale', () => {
     expect(await quantityOf(ids['LAST-ONE'])).toBe(0);
   });
 
+  it('prints the original receipt once, for the cashier who made the bill, then copies', async () => {
+    const sale = await sell({
+      lines: [{ stockId: ids['ZERO-OK'], quantity: 1 }],
+      payments: [{ method: 'cash', amount: '20' }],
+    });
+    const print = () =>
+      cashier.agent.get(`${BILLS}/${sale.body.data.id}/receipt`).query({ original: 'true' });
+    expect((await print()).headers['content-type']).toBe('application/pdf');
+    await print();
+    const actions =
+      await db.select`SELECT ACTION AS action FROM ih_audit_log WHERE RESOURCE_ID = ${String(sale.body.data.id)} AND ACTION LIKE 'sales/bills.%print' ORDER BY AUDIT_LOG_ID`;
+    expect(actions.map((row) => row.action)).toEqual(['sales/bills.print', 'sales/bills.reprint']);
+  });
+
   it('refuses people who may not sell', async () => {
     const admin = await signIn('test.admin', 'Test-Admin-Pass-1');
     const response = await admin.agent

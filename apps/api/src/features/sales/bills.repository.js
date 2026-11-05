@@ -4,6 +4,8 @@ import { compareMoney, moneyToString, roundMoney, subtractMoney } from '@ihealth
 
 import { Prisma } from '#db';
 
+import { escapeLike } from '../../lib/sql-like.js';
+
 /** Legacy `PAYMENT_STATUS` text (compared without case) -> status. */
 const LEGACY_STATUS = Object.freeze({
   paid: BILL_STATUSES.PAID,
@@ -72,12 +74,6 @@ const SUMMARY_COLUMNS = Prisma.sql`
   s.NET_AMOUNT AS netAmount, s.PAID_AMOUNT AS paidAmount, s.BALANCE_AMOUNT AS balanceAmount,
   s.PAYMENT_STATUS AS paymentStatus, ${paymentSelect},
   (SELECT COUNT(*) FROM sales_items i WHERE i.BILL_ID = s.BILL_ID) AS lineCount`;
-
-/**
- * @param {string} value
- * @returns {string} The value with LIKE wildcards escaped.
- */
-const escapeLike = (value) => value.replace(/[\\%_]/g, (match) => `\\${match}`);
 
 /**
  * @param {unknown} value
