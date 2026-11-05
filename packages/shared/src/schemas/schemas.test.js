@@ -11,6 +11,7 @@ import {
   MAX_PAGE_SIZE,
   optionalTextSchema,
   requiredTextSchema,
+  salePaymentSchema,
   toLegacyFlag,
 } from './index.js';
 
@@ -113,5 +114,19 @@ describe('itemSupplierInputSchema', () => {
     expect(issues({ unitRate: '-1' })).toEqual(['Cannot be negative']);
     expect(issues({ unitRate: '' })).toEqual(['Enter the rate per pack']);
     expect(issues({ validUntil: '' })).toEqual(['Enter the validity date']);
+  });
+});
+
+describe('salePaymentSchema', () => {
+  it('needs the full M-Pesa code, in capitals, and takes cash without one', () => {
+    expect(
+      salePaymentSchema.parse({ method: 'mpesa', amount: '100', reference: ' qk52ab1xyz ' }),
+    ).toEqual({ method: 'mpesa', amount: '100.00', reference: 'QK52AB1XYZ' });
+    expect(
+      salePaymentSchema.safeParse({ method: 'mpesa', amount: '100', reference: 'AB12' }).error
+        ?.issues[0].message,
+    ).toBe('Enter the full 10-character M-Pesa code, e.g. QK52AB1XYZ');
+    expect(salePaymentSchema.safeParse({ method: 'cash', amount: '50' }).success).toBe(true);
+    expect(salePaymentSchema.safeParse({ method: 'card', amount: '50' }).success).toBe(false);
   });
 });

@@ -51,6 +51,13 @@ const envSchema = z.object({
     .default('DP'),
   // A bill's net is rounded to this step (legacy: whole shillings). 0 keeps cents.
   SALES_ROUNDING_STEP: z.coerce.number().min(0).max(100).default(1),
+  // Highest line discount a cashier may give without a second person's approval, in percent.
+  SALES_SELF_DISCOUNT_LIMIT: z.coerce.number().min(0).max(100).default(25),
+  // Prescriber saved on bills without one, as the legacy app did (its "N/A" provider). Empty = none.
+  SALES_DEFAULT_PROVIDER_ID: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
   // Regional settings. The legacy database has no table for them, so they are deployment configuration.
   APP_LOCALE: z.string().min(2).default('en-KE'),
   APP_CURRENCY: z.string().length(3).default('KES'),
@@ -76,7 +83,7 @@ const envSchema = z.object({
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined }} sales
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
@@ -124,7 +131,11 @@ export function loadConfig(env) {
     }),
     pharmacyId: values.PHARMACY_ID,
     documentCodePrefix: values.DOCUMENT_CODE_PREFIX,
-    sales: Object.freeze({ roundingStep: values.SALES_ROUNDING_STEP }),
+    sales: Object.freeze({
+      roundingStep: values.SALES_ROUNDING_STEP,
+      selfDiscountLimit: values.SALES_SELF_DISCOUNT_LIMIT,
+      defaultProviderId: values.SALES_DEFAULT_PROVIDER_ID,
+    }),
     region: Object.freeze({
       locale: values.APP_LOCALE,
       currency: values.APP_CURRENCY,
