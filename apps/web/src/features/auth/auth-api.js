@@ -11,6 +11,7 @@ import { setCsrfToken } from '@/lib/csrf-token';
  * @property {number | null} pharmacyId
  * @property {{ roleId: number, name: string | null, pharmacyBranchId: number }[]} roles
  * @property {number[]} permissionIds
+ * @property {boolean} [mustChangePassword] A temporary password must be replaced first.
  */
 
 /**
@@ -65,4 +66,16 @@ export async function requestPasswordReset(body) {
  */
 export async function resetPassword(body) {
   await api.post('auth/reset-password', { json: body });
+}
+
+/**
+ * Changes the signed-in user's own password. Other sessions end; this one is renewed.
+ *
+ * @param {{ currentPassword: string, newPassword: string }} body
+ * @returns {Promise<void>}
+ */
+export async function changePassword(body) {
+  /** @type {{ data: { csrfToken: string } }} */
+  const response = await api.post('auth/change-password', { json: body }).json();
+  setCsrfToken(response.data.csrfToken);
 }

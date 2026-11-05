@@ -50,6 +50,18 @@ export function onSessionEnded(listener) {
   return () => sessionEndedListeners.delete(listener);
 }
 
+/** Listeners told when the API says a temporary password must be changed first. */
+const passwordChangeListeners = new Set();
+
+/**
+ * @param {() => void} listener
+ * @returns {() => void} Unsubscribe.
+ */
+export function onPasswordChangeRequired(listener) {
+  passwordChangeListeners.add(listener);
+  return () => passwordChangeListeners.delete(listener);
+}
+
 /**
  * @typedef {{ error?: { code?: import('@ihealth/shared/error-codes').ErrorCode, message?: string, details?: import('@ihealth/shared/errors').ErrorDetail[], requestId?: string } }} ErrorBody
  */
@@ -98,6 +110,15 @@ export const api = ky.create({
       },
     ],
     afterResponse: [
+      async ({ response }) => {
+        // An administrator set a temporary password while this user was signed in.
+        if (response.status === 403) {
+          const { code } = await toApiError(response);
+          if (code === ERROR_CODES.PASSWORD_CHANGE_REQUIRED)
+            passwordChangeListeners.forEach((listener) => listener());
+        }
+        return response;
+      },
       async ({ request, response }) => {
         if (
           response.status !== 401 ||

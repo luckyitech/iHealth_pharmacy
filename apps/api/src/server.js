@@ -1,4 +1,4 @@
-import { createPrismaClient } from '#db';
+import { createPrismaClient, missingAdditiveTables } from '#db';
 
 import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
@@ -11,6 +11,7 @@ import { createAuthModule } from './features/auth/auth.module.js';
 import { createLookupRoutes } from './features/lookups/lookup-routes.js';
 import { createItemLookupRoutes } from './features/masters/item-lookups.js';
 import { createCustomerRoutes } from './features/masters/customers.js';
+import { createEmployeeAccessRoutes } from './features/masters/employee-access.js';
 import { createEmployeeRoutes } from './features/masters/employees.js';
 import { createHospitalRoutes } from './features/masters/hospitals.js';
 import { createItemRoutes } from './features/masters/items.js';
@@ -27,6 +28,16 @@ const config = loadConfig(process.env);
 const logger = createLogger({ level: config.logLevel, pretty: config.env === 'development' });
 const prisma = createPrismaClient({ url: config.databaseUrl, timezone: config.region.dbTimeZone });
 const redis = createRedis(config.redisUrl, logger);
+
+const missingTables = await missingAdditiveTables(prisma);
+if (missingTables.length) {
+  // Without them sign-in and other features fail on every request; say so once, clearly.
+  logger.fatal(
+    { missingTables },
+    'Database tables are missing. Apply the additive SQL first (development: npm run db:additive)',
+  );
+  process.exit(1);
+}
 
 try {
   await redis.connect();
@@ -63,6 +74,7 @@ const app = createApp({
         ...createSupplierRoutes({ prisma, audit }),
         ...createCustomerRoutes({ prisma, audit, config }),
         ...createEmployeeRoutes({ prisma, audit, config }),
+        ...createEmployeeAccessRoutes({ prisma, accountAdmin: auth.accountAdmin, config }),
         ...createHospitalRoutes({ prisma, audit }),
         ...createProviderRoutes({ prisma, audit }),
         ...createTermsRoutes({ prisma, audit }),

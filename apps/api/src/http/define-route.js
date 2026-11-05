@@ -35,6 +35,7 @@
  * @property {RouteAccess} [access] Defaults to `authenticated`: routes are private unless opened explicitly.
  * @property {ReadonlyArray<import('@ihealth/shared/permissions').PermissionDefinition>} [permissions] Any one of them is enough (see POLICIES in the shared package).
  * @property {boolean} [csrf] Set to false only for endpoints that cannot carry a CSRF token (e.g. login).
+ * @property {boolean} [allowWhilePasswordChangeRequired] Reachable by a user who must change their password first (sign-out, who am I, change password).
  * @property {import('express').RequestHandler[]} [before] Extra middleware run after the guards (e.g. rate limits).
  * @property {{ params?: import('zod').ZodType, query?: import('zod').ZodType, body?: import('zod').ZodType }} [request]
  * @property {Record<number, RouteResponse>} responses The first 2xx entry is the success status.

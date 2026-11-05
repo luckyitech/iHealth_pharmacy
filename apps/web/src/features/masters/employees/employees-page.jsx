@@ -15,6 +15,7 @@ import { useEmployeeTypes } from '@/lib/lookups';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
+import { EmployeeAccessPanel } from './employee-access-panel.jsx';
 
 const TITLE_OPTIONS = Object.freeze(
   EMPLOYEE_TITLES.map((title) => ({ value: title, label: title })),
@@ -146,6 +147,14 @@ const CONFIG = {
   dialogSize: 'large',
   sections: ['Personal', 'Job', 'Statutory numbers', 'Address'],
   recordCode: (item) => item.code,
+  tabs: [
+    {
+      id: 'access',
+      label: 'Sign-in and access',
+      Component: EmployeeAccessPanel,
+      permissions: POLICIES.employeeAccess.read,
+    },
+  ],
   writePermissions: POLICIES.masters.write,
   recordName: (item) => fullName(item) || 'Unnamed employee',
 };

@@ -331,6 +331,39 @@ export function createAuthRepository(prisma) {
     },
 
     /**
+     * Whether the account must choose a new password before doing anything else.
+     *
+     * @param {number} credentialsId
+     * @returns {Promise<boolean>}
+     */
+    async isPasswordChangeRequired(credentialsId) {
+      /** @type {{ required: bigint | number }[]} */
+      const rows = await prisma.$queryRaw`
+        SELECT COUNT(*) AS required FROM ih_password_change_required
+        WHERE EMPLOYEE_CREDENTIALS_ID = ${credentialsId}`;
+      return Number(rows[0]?.required ?? 0) > 0;
+    },
+
+    /**
+     * @param {number} credentialsId
+     * @param {boolean} required
+     * @param {string | null} by Employee id of the administrator who asked for it (null when cleared).
+     * @param {Pick<PrismaClient, '$executeRaw'>} [client]
+     * @returns {Promise<void>}
+     */
+    async setPasswordChangeRequired(credentialsId, required, by, client = prisma) {
+      if (required) {
+        await client.$executeRaw`
+          INSERT INTO ih_password_change_required (EMPLOYEE_CREDENTIALS_ID, REQUIRED_BY)
+          VALUES (${credentialsId}, ${by})
+          ON DUPLICATE KEY UPDATE REQUIRED_AT = CURRENT_TIMESTAMP(3), REQUIRED_BY = VALUES(REQUIRED_BY)`;
+      } else {
+        await client.$executeRaw`
+          DELETE FROM ih_password_change_required WHERE EMPLOYEE_CREDENTIALS_ID = ${credentialsId}`;
+      }
+    },
+
+    /**
      * @template T
      * @param {(tx: Pick<PrismaClient, '$executeRaw' | '$queryRaw'>) => Promise<T>} work
      * @returns {Promise<T>}

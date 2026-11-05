@@ -24,11 +24,22 @@ export const REFRESH_COOKIE_PATH = '/api/v1/auth';
 
 export const CSRF_HEADER = 'x-csrf-token';
 
+/**
+ * The account lockout key, shared by sign-in and the administrator's "unlock".
+ *
+ * @param {number} credentialsId
+ * @returns {string}
+ */
+export const accountThrottleKey = (credentialsId) => `account-${credentialsId}`;
+
 export const REVOKE_REASONS = Object.freeze({
   ROTATED: 'ROTATED',
   LOGOUT: 'LOGOUT',
   REUSE_DETECTED: 'REUSE_DETECTED',
   PASSWORD_RESET: 'PASSWORD_RESET',
+  PASSWORD_CHANGED: 'PASSWORD_CHANGED',
+  ADMIN_PASSWORD_SET: 'ADMIN_PASSWORD_SET',
+  LOGIN_DISABLED: 'LOGIN_DISABLED',
 });
 
 export const AUDIT_ACTIONS = Object.freeze({
@@ -40,4 +51,5 @@ export const AUDIT_ACTIONS = Object.freeze({
   APPROVAL_PIN: 'auth.approval_pin',
   PASSWORD_RESET_REQUESTED: 'auth.password_reset_requested',
   PASSWORD_RESET_COMPLETED: 'auth.password_reset_completed',
+  PASSWORD_CHANGED: 'auth.password_changed',
 });

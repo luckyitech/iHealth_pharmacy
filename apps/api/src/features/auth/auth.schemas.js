@@ -26,6 +26,8 @@ export const currentUserSchema = z.object({
     }),
   ),
   permissionIds: z.array(z.number().int()),
+  // An administrator asked for a new password: nothing else works until it is changed.
+  mustChangePassword: z.boolean(),
 });
 
 /** @typedef {z.infer<typeof currentUserSchema>} CurrentUser */

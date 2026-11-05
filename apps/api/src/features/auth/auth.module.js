@@ -1,4 +1,6 @@
 import { createAuditLog } from '../audit/audit-log.js';
+import { createAccountAdminRepository } from './account-admin.repository.js';
+import { createAccountAdminService } from './account-admin.service.js';
 import { createAuthGuards } from './auth.guards.js';
 import { createAuthRepository } from './auth.repository.js';
 import { createAuthRoutes } from './auth.routes.js';
@@ -20,7 +22,8 @@ import { createAccessTokens } from './tokens.js';
  * @param {import('../../infra/mailer.js').Mailer} deps.mailer
  * @param {import('./auth.repository.js').AuthRepository} [deps.repository] Replaced by an in-memory fake in tests.
  * @param {import('../audit/audit-log.js').AuditLog} [deps.audit] Shared with the other modules.
- * @returns `{ routes, guards, apiRateLimit }`.
+ * @param {import('./account-admin.repository.js').AccountAdminRepository} [deps.adminRepository]
+ * @returns `{ routes, guards, apiRateLimit, accountAdmin }` (`accountAdmin` administers staff accounts).
  */
 export function createAuthModule({
   config,
@@ -30,6 +33,7 @@ export function createAuthModule({
   logger,
   mailer,
   repository = createAuthRepository(prisma),
+  adminRepository = createAccountAdminRepository(prisma),
   audit = createAuditLog(prisma, logger),
 }) {
   const accessTokens = createAccessTokens(config.auth.accessSecret);
@@ -37,10 +41,12 @@ export function createAuthModule({
     secret: config.auth.csrfSecret,
     secureCookies: config.auth.cookieSecure,
   });
+  // One sign-in lockout, shared by sign-in and the administrators' "unlock".
+  const loginThrottle = createLoginThrottle(counters, 'auth:login');
   const service = createAuthService({
     repository,
     accessTokens,
-    loginThrottle: createLoginThrottle(counters, 'auth:login'),
+    loginThrottle,
     pinThrottle: createLoginThrottle(counters, 'auth:pin'),
     resetThrottle: createLoginThrottle(counters, 'auth:reset'),
     mailer,
@@ -62,5 +68,6 @@ export function createAuthModule({
     }),
     guards: createAuthGuards({ accessTokens, repository, csrf, audit }),
     apiRateLimit: createRateLimiter(RATE_LIMITS.api, 'api', redis),
+    accountAdmin: createAccountAdminService({ repository, adminRepository, loginThrottle, audit }),
   };
 }

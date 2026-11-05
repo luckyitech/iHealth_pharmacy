@@ -8,11 +8,15 @@ import { ConfirmDialog } from '@/components/feedback/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { RequiredLegend } from '@/components/ui/label';
+import { usePermissions } from '@/features/auth/use-permissions';
 import { errorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 
 import { RecordActionsMenu, StatusBadge } from './record-actions.jsx';
 import { useFocusFirstField, useRecordForm, useSaveShortcut } from './record-form.js';
+
+/** The record's own fields; other tabs come from the master's config. */
+const DETAILS_TAB = 'details';
 
 /** Width and height of the dialog, by record size. Full screen on phones either way. */
 const SIZES = Object.freeze({
@@ -34,12 +38,17 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
     onSaved: onClose,
   });
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  // Extra tabs (e.g. an employee's sign-in and access) exist only for saved records.
+  const { hasAny } = usePermissions();
+  const tabs = item ? (config.tabs ?? []).filter((candidate) => hasAny(candidate.permissions)) : [];
+  const [tab, setTab] = useState(DETAILS_TAB);
+  const onDetails = tab === DETAILS_TAB;
   const body = useRef(/** @type {HTMLDivElement | null} */ (null));
   const dirty = form.formState.isDirty && canWrite;
   const large = config.dialogSize === 'large';
 
   useFocusFirstField(body, item?.id ?? 'new');
-  useSaveShortcut(canWrite, () => void onSubmit());
+  useSaveShortcut(canWrite && onDetails, () => void onSubmit());
   // A reload or closed tab with unsaved changes gets the browser's own warning.
   useEffect(() => {
     if (!dirty) return undefined;
@@ -56,7 +65,8 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
   const requestClose = () => (dirty ? setConfirmingDiscard(true) : onClose());
   const title = isNew ? `New ${config.singular}` : config.recordName(item);
   const code = item && config.recordCode?.(item);
-  const sections = large ? (config.sections ?? []) : [];
+  const sections = large && onDetails ? (config.sections ?? []) : [];
+  const activeTab = tabs.find((candidate) => candidate.id === tab);
 
   return (
     <DialogPrimitive.Root open onOpenChange={(open) => !open && requestClose()}>
@@ -73,69 +83,96 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
             SIZES[large ? 'large' : 'small'],
           )}
         >
+          <header className="border-b">
+            <div className="flex items-start gap-3 px-6 pt-4 pb-3">
+              <div className="grid min-w-0 flex-1 gap-1">
+                <DialogPrimitive.Title
+                  className={cn('truncate font-semibold', large ? 'text-xl' : 'text-lg')}
+                >
+                  {title}
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description asChild>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    {isNew ? (
+                      config.description
+                    ) : (
+                      <>
+                        {code && <span className="font-mono text-xs">{code}</span>}
+                        <StatusBadge active={item.active !== false} />
+                      </>
+                    )}
+                  </div>
+                </DialogPrimitive.Description>
+              </div>
+              {!isNew && canWrite && (
+                <RecordActionsMenu config={config} item={item} onDone={onClose} />
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Close"
+                onClick={requestClose}
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+            {tabs.length > 0 && (
+              <div role="tablist" aria-label="Parts of the record" className="flex gap-1 px-4">
+                {[{ id: DETAILS_TAB, label: 'Details' }, ...tabs].map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    role="tab"
+                    id={`tab-${candidate.id}`}
+                    aria-selected={tab === candidate.id}
+                    aria-controls={`panel-${candidate.id}`}
+                    onClick={() => setTab(candidate.id)}
+                    className={cn(
+                      '-mb-px border-b-2 px-3 py-2 text-sm font-medium focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                      tab === candidate.id
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {candidate.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {sections.length > 1 && (
+              <nav aria-label="Sections" className="overflow-x-auto px-4 pb-2">
+                <ul className="flex gap-1 text-sm">
+                  {sections.map((section) => (
+                    <li key={section}>
+                      <button
+                        type="button"
+                        className="rounded-md px-2.5 py-1 whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                        onClick={() =>
+                          body.current
+                            ?.querySelector(`#${sectionAnchor(section)}`)
+                            ?.scrollIntoView({ block: 'start' })
+                        }
+                      >
+                        {section}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+          </header>
+
           <form
             aria-label={title}
+            id={`panel-${DETAILS_TAB}`}
+            role={tabs.length ? 'tabpanel' : undefined}
+            aria-labelledby={tabs.length ? `tab-${DETAILS_TAB}` : undefined}
+            hidden={!onDetails}
             className="flex min-h-0 flex-1 flex-col"
             noValidate
             onSubmit={onSubmit}
           >
-            <header className="border-b">
-              <div className="flex items-start gap-3 px-6 pt-4 pb-3">
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <DialogPrimitive.Title
-                    className={cn('truncate font-semibold', large ? 'text-xl' : 'text-lg')}
-                  >
-                    {title}
-                  </DialogPrimitive.Title>
-                  <DialogPrimitive.Description asChild>
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      {isNew ? (
-                        config.description
-                      ) : (
-                        <>
-                          {code && <span className="font-mono text-xs">{code}</span>}
-                          <StatusBadge active={item.active !== false} />
-                        </>
-                      )}
-                    </div>
-                  </DialogPrimitive.Description>
-                </div>
-                {!isNew && canWrite && (
-                  <RecordActionsMenu config={config} item={item} onDone={onClose} />
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Close"
-                  onClick={requestClose}
-                >
-                  <X aria-hidden="true" />
-                </Button>
-              </div>
-              {sections.length > 1 && (
-                <nav aria-label="Sections" className="overflow-x-auto px-4 pb-2">
-                  <ul className="flex gap-1 text-sm">
-                    {sections.map((section) => (
-                      <li key={section}>
-                        <button
-                          type="button"
-                          className="rounded-md px-2.5 py-1 whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                          onClick={() =>
-                            body.current
-                              ?.querySelector(`#${sectionAnchor(section)}`)
-                              ?.scrollIntoView({ block: 'start' })
-                          }
-                        >
-                          {section}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-            </header>
-
             <div
               ref={body}
               className={cn('min-h-0 flex-1 overflow-y-auto px-6 py-5', large && 'bg-muted/30')}
@@ -164,6 +201,16 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
               </footer>
             )}
           </form>
+          {activeTab && (
+            <div
+              role="tabpanel"
+              id={`panel-${activeTab.id}`}
+              aria-labelledby={`tab-${activeTab.id}`}
+              className="min-h-0 flex-1 overflow-y-auto bg-muted/30 px-6 py-5"
+            >
+              <activeTab.Component item={item} canWrite={canWrite} />
+            </div>
+          )}
           <ConfirmDialog
             open={confirmingDiscard}
             onOpenChange={setConfirmingDiscard}

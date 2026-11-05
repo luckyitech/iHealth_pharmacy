@@ -2,6 +2,7 @@ import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { PrismaClient } from '@prisma/client';
 
 export { Prisma, PrismaClient } from '@prisma/client';
+export { additiveTables, missingAdditiveTables } from './additive-tables.js';
 
 /**
  * @typedef {object} CreatePrismaClientOptions

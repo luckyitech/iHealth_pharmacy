@@ -6,7 +6,7 @@ import { Toaster } from 'sonner';
 
 import { AppErrorFallback } from '@/components/feedback/error-fallbacks';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
-import { onSessionEnded } from '@/lib/api-client';
+import { onPasswordChangeRequired, onSessionEnded } from '@/lib/api-client';
 import { createQueryClient } from '@/lib/query-client';
 import { prefersDark, useThemeStore } from '@/stores/theme-store';
 
@@ -31,19 +31,25 @@ function ThemeSync() {
 
 /**
  * When the session cannot be renewed, forget the user so the guard returns to the sign-in page.
+ * When the API asks for a new password first, reload the user so the guard opens that page.
  *
  * @returns {null}
  */
 function SessionWatcher() {
   const queryClient = useQueryClient();
-  useEffect(
-    () =>
-      onSessionEnded(() => {
-        queryClient.clear();
-        queryClient.setQueryData(CURRENT_USER_KEY, null);
-      }),
-    [queryClient],
-  );
+  useEffect(() => {
+    const stopSession = onSessionEnded(() => {
+      queryClient.clear();
+      queryClient.setQueryData(CURRENT_USER_KEY, null);
+    });
+    const stopPassword = onPasswordChangeRequired(
+      () => void queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY }),
+    );
+    return () => {
+      stopSession();
+      stopPassword();
+    };
+  }, [queryClient]);
   return null;
 }
 

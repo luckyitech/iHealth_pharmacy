@@ -33,6 +33,10 @@ npm run db:test:load          # builds the test database from the schema file an
 - `--keep-dump` also keeps a gzipped dump in `apps/api/db/dumps/` (git-ignored). Dumps hold real patient and business data: never commit or share them.
 - `LEGACY_DB_PASSWORD` can be exported in the shell instead of written in `.env`.
 
+## New tables after pulling changes
+
+`npm run db:additive` applies every file in `apps/api/db/sql/additive/` to the Docker copy. The files only create what is missing, so it is safe to run any time. Run it after pulling a change that adds one. The API checks at start-up that every table those files create exists; if one is missing it stops with a message naming the table, instead of failing later on sign-in or another request.
+
 ## Local admin account
 
 `npm run db:dev-admin` creates or refreshes `dev.admin` (email `dev.admin@localhost`) in the Docker development database. It gets every legacy permission and no two-factor sign-in. The password is `DEV_ADMIN_PASSWORD` in `.env`: if that is empty, a random one is generated and saved there. The script refuses to run against anything but the Docker database, and it is safe to run again (for example after `npm run db:copy`, which replaces the database).

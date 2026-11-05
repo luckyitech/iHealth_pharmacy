@@ -115,6 +115,16 @@ export function createMemoryAuthRepository() {
         if (reset.credentialsId === credentialsId && !reset.usedAt) reset.usedAt = new Date();
       }
     },
+    async isPasswordChangeRequired(/** @type {number} */ credentialsId) {
+      return state.passwordChange.has(credentialsId);
+    },
+    async setPasswordChangeRequired(
+      /** @type {number} */ credentialsId,
+      /** @type {boolean} */ required,
+    ) {
+      if (required) state.passwordChange.add(credentialsId);
+      else state.passwordChange.delete(credentialsId);
+    },
     async transaction(/** @type {(tx: any) => Promise<any>} */ work) {
       return work({});
     },
@@ -191,5 +201,7 @@ function initialState() {
     tokens: [],
     /** @type {any[]} */
     resets: [],
+    /** Accounts that must choose a new password. */
+    passwordChange: new Set(),
   };
 }

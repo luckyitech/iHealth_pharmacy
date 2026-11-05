@@ -28,6 +28,7 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "db:copy": "scripts/db/copy-dev-db.sh",
+    "db:additive": "scripts/db/apply-additive.sh",
     "db:schema:dump": "scripts/db/dump-test-schema.sh",
     "db:test:load": "scripts/db/load-test-db.sh",
     "postinstall": "npm run db:generate -w @ihealth/api",
