@@ -9,6 +9,7 @@ import {
   idParamsSchema,
   tillCustomerQuerySchema,
   tillCustomerSchema,
+  tillSettingsSchema,
 } from '@ihealth/shared/schemas';
 import { z } from 'zod';
 
@@ -36,6 +37,23 @@ export function createTillRoutes({ prisma, audit, config }) {
   const held = createHeldSales({ prisma, config });
 
   return [
+    defineRoute({
+      method: 'get',
+      path: '/sales/till-settings',
+      summary: 'Rules the sales screen shows, such as the discount a cashier may give alone',
+      tags: TAGS,
+      permissions: POLICIES.sales.sell,
+      responses: {
+        200: { description: 'Till settings', schema: dataResponseSchema(tillSettingsSchema) },
+      },
+      handler: () => ({
+        data: {
+          selfDiscountLimit: config.sales.selfDiscountLimit,
+          maxHeld: config.sales.maxHeld,
+        },
+      }),
+    }),
+
     defineRoute({
       method: 'get',
       path: '/sales/batches',

@@ -231,6 +231,11 @@ describe('the till', () => {
     expect(response.status).toBe(400);
   });
 
+  it('tells the till the rules it shows', async () => {
+    const response = await cashier.agent.get('/api/v1/sales/till-settings');
+    expect(response.body.data).toEqual({ selfDiscountLimit: 25, maxHeld: MAX_HELD });
+  });
+
   it('refuses people who may not sell', async () => {
     const admin = await signIn('test.admin', 'Test-Admin-Pass-1');
     expect((await admin.agent.get('/api/v1/sales/batches').query({ q: 'testa' })).status).toBe(403);

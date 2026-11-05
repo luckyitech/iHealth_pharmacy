@@ -91,3 +91,11 @@ export const heldSaleSchema = z.object({
     }),
   ),
 });
+
+/** Rules the till shows before the server applies them. */
+export const tillSettingsSchema = z.object({
+  /** Highest line discount, in percent, a cashier may give without a second person. */
+  selfDiscountLimit: z.number(),
+  /** Most sales the pharmacy can keep on hold at once. */
+  maxHeld: z.number().int(),
+});
