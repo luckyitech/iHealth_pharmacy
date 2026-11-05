@@ -29,6 +29,18 @@ describe('navigation', () => {
     expect(masters?.children?.map((page) => page.path)).toEqual(['/masters/suppliers']);
   });
 
+  it('lists the daily Masters pages first and the set-up lists last', () => {
+    const masters = NAV_ITEMS.find((item) => item.id === 'masters');
+    const groups = [...new Set(masters?.children?.map((page) => page.group))];
+    expect(groups).toEqual(['Daily', 'Now and then', 'Setup and lists']);
+    expect(masters?.children?.slice(0, 4).map((page) => page.id)).toEqual([
+      'customers',
+      'items',
+      'item-suppliers',
+      'suppliers',
+    ]);
+  });
+
   it('gives every permission to at most one module, and covers every non-master group', () => {
     const covered = NAV_ITEMS.flatMap((item) =>
       item.permissions.map((permission) => permission.id),
