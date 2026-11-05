@@ -133,3 +133,18 @@ What happens when someone saves a new item on the **Items** screen:
   offers Undo. The API client reports a lost connection once, and an ended session says so.
 - Errors about a field stay under that field. A page's main result, like the forgot-password answer,
   stays on the page. Neither is a notification.
+
+## Navigation (web)
+
+The layout follows the old system's pattern (`components/layout/app-shell.jsx`):
+
+- **Left column:** from the top of the screen, as in the old system. Its top cell holds the pharmacy's logo and is as tall as the two bars, so the column and the bars meet on one vertical and one horizontal line; the bars start to its right.
+- **Account bar:** the pharmacy's logo and name from its profile (`pharmacy-brand.jsx`, from `/app-info` and the public logo), the theme and the account menu.
+- **Menu bar** (`bg-nav`, a deeper teal in dark mode so white text stays readable): the main sections from `app/navigation.js`, only those the user may open, the current one highlighted (`SectionTabs`).
+- **Side panel:** for a section with pages of its own (`children`, e.g. Masters from `features/masters/sections.js`), its pages under small group headings (`side-panel.jsx`, `SectionNav`).
+  - It is an icon rail (64px) with a tooltip on each icon, and slides out to 240px on hover or keyboard focus, moving the page along as when it is pinned. It opens after 150ms and closes 250ms after the mouse leaves. On a touch screen the first tap opens it and a tap outside closes it.
+  - "Keep the panel open" pins it (remembered in `stores/sidebar-store.js`); the page then starts after it.
+- **Phones:** one bar with a menu button; the drawer lists the sections with the current section's pages (`MobileNav`).
+- **Find a page:** Ctrl+K (⌘K on a Mac), or the search button in the account bar, opens a quick search over every page the user may open (`command-palette.jsx`, built on [cmdk](https://cmdk.paco.me)).
+- **Reduce effects:** a switch in the account menu turns off animations, slides and see-through blur, remembered per person on this device (`stores/effects-store.js`, the `data-reduce-effects` rule in `styles/globals.css`). The system's reduce-motion setting is respected anyway.
+- **Content width:** pages start right after the rail or panel, with a 16px gutter on phones and 24px from the `sm` breakpoint, and use the full width.

@@ -22,6 +22,26 @@ describe('navigation', () => {
     expect(ids).toEqual(['dashboard', 'sales']);
   });
 
+  it('lists under Masters only the pages the user may open, with full paths', () => {
+    const masters = visibleNavItems(grant([PERMISSIONS.MASTER_UPDATE_SUPPLIER.id])).find(
+      (item) => item.id === 'masters',
+    );
+    expect(masters?.children?.map((page) => page.path)).toEqual(['/masters/suppliers']);
+  });
+
+  it('keeps the Masters headings and puts the most used groups and pages first', () => {
+    const masters = NAV_ITEMS.find((item) => item.id === 'masters');
+    const groups = [...new Set(masters?.children?.map((page) => page.group))];
+    expect(groups).toEqual([
+      'Customers',
+      'Products',
+      'Suppliers and makers',
+      'Organisation',
+      'Prescribers',
+    ]);
+    expect(masters?.children?.slice(0, 2).map((page) => page.id)).toEqual(['customers', 'items']);
+  });
+
   it('gives every permission to at most one module, and covers every non-master group', () => {
     const covered = NAV_ITEMS.flatMap((item) =>
       item.permissions.map((permission) => permission.id),

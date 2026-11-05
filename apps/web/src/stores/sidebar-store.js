@@ -1,15 +1,27 @@
 import { create } from 'zustand';
-
-/** @typedef {{ mobileOpen: boolean, setMobileOpen: (open: boolean) => void }} SidebarState */
+import { persist } from 'zustand/middleware';
 
 /**
- * Whether the mobile navigation drawer is open. Desktop navigation is always visible.
+ * @typedef {object} SidebarState
+ * @property {boolean} mobileOpen The phone drawer is open. Not remembered.
+ * @property {boolean} pinned The desktop side panel stays open instead of sliding out on hover.
+ * @property {(open: boolean) => void} setMobileOpen
+ * @property {() => void} togglePinned
+ */
+
+/**
+ * Client-only navigation state. Whether the side panel is pinned is remembered between visits.
  */
 export const useSidebarStore = create(
-  /** @type {import('zustand').StateCreator<SidebarState>} */ (
-    (set) => ({
-      mobileOpen: false,
-      setMobileOpen: (open) => set({ mobileOpen: open }),
-    })
+  persist(
+    /** @type {import('zustand').StateCreator<SidebarState, [['zustand/persist', unknown]]>} */ (
+      (set) => ({
+        mobileOpen: false,
+        pinned: false,
+        setMobileOpen: (open) => set({ mobileOpen: open }),
+        togglePinned: () => set((state) => ({ pinned: !state.pinned })),
+      })
+    ),
+    { name: 'ihealth-sidebar', partialize: (state) => ({ pinned: state.pinned }) },
   ),
 );

@@ -46,11 +46,8 @@ const sections = (group, entries) =>
 
 /** Master-data screens, in menu order. Each appears only for users with one of its permissions. */
 export const MASTER_SECTIONS = Object.freeze([
-  ...sections('Organisation', [
-    ['pharmacy-profile', 'Pharmacy profile', Building2],
-    ['employees', 'Employees', IdCard],
-    ['terms', 'Terms and conditions', FileText],
-  ]),
+  // Groups and pages ordered by use, measured on the pharmacy's data (2026-11-05): most used first.
+  ...sections('Customers', [['customers', 'Customers', Users]]),
   ...sections('Products', [
     ['items', 'Items', Package],
     ['item-categories', 'Categories', Tags],
@@ -61,14 +58,18 @@ export const MASTER_SECTIONS = Object.freeze([
     ['specializations', 'Specializations', Stethoscope],
   ]),
   ...sections('Suppliers and makers', [
-    ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
     ['item-suppliers', 'Item suppliers', Link2],
+    ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
     ['manufacturers', 'Manufacturers', Factory],
   ]),
-  ...sections('Customers', [['customers', 'Customers', Users]]),
+  ...sections('Organisation', [
+    ['employees', 'Employees', IdCard],
+    ['pharmacy-profile', 'Pharmacy profile', Building2],
+    ['terms', 'Terms and conditions', FileText],
+  ]),
   ...sections('Prescribers', [
-    ['hospitals', 'Hospitals', Hospital],
     ['providers', 'Providers', UserRound],
+    ['hospitals', 'Hospitals', Hospital],
   ]),
 ]);
 
