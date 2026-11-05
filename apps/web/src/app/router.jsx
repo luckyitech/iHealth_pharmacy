@@ -140,6 +140,13 @@ export function createAppRouter() {
                           }),
                         },
                         {
+                          path: 'customers',
+                          lazy: async () => ({
+                            Component: (await import('@/features/masters/customers/customers-page'))
+                              .default,
+                          }),
+                        },
+                        {
                           path: 'suppliers',
                           lazy: async () => ({
                             Component: (await import('@/features/masters/suppliers/suppliers-page'))

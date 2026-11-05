@@ -10,6 +10,7 @@ import { createAuditLog } from './features/audit/audit-log.js';
 import { createAuthModule } from './features/auth/auth.module.js';
 import { createLookupRoutes } from './features/lookups/lookup-routes.js';
 import { createItemLookupRoutes } from './features/masters/item-lookups.js';
+import { createCustomerRoutes } from './features/masters/customers.js';
 import { createHospitalRoutes } from './features/masters/hospitals.js';
 import { createItemRoutes } from './features/masters/items.js';
 import { createManufacturerRoutes } from './features/masters/manufacturers.js';
@@ -59,6 +60,7 @@ const app = createApp({
         ...createItemRoutes({ prisma, audit, config }),
         ...createManufacturerRoutes({ prisma, audit }),
         ...createSupplierRoutes({ prisma, audit }),
+        ...createCustomerRoutes({ prisma, audit, config }),
         ...createHospitalRoutes({ prisma, audit }),
         ...createProviderRoutes({ prisma, audit }),
         ...createTermsRoutes({ prisma, audit }),

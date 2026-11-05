@@ -7,6 +7,7 @@ import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createLookupRoutes } from '../../src/features/lookups/lookup-routes.js';
+import { createCustomerRoutes } from '../../src/features/masters/customers.js';
 import { createHospitalRoutes } from '../../src/features/masters/hospitals.js';
 import { createItemLookupRoutes } from '../../src/features/masters/item-lookups.js';
 import { createItemRoutes } from '../../src/features/masters/items.js';
@@ -56,6 +57,7 @@ beforeAll(async () => {
           ...createPharmacyProfileRoutes({ prisma: db.prisma, audit, config }),
           ...createItemRoutes({ prisma: db.prisma, audit, config }),
           ...createSupplierRoutes({ prisma: db.prisma, audit }),
+          ...createCustomerRoutes({ prisma: db.prisma, audit, config }),
         ],
       },
     }),
@@ -612,5 +614,102 @@ describe('suppliers', () => {
     expect(payment.body.data).toEqual([expect.objectContaining({ name: 'CHEQUE' })]);
     const credit = await admin.agent.get('/api/v1/lookups/return-credit-types');
     expect(credit.body.data).toEqual([expect.objectContaining({ name: 'CREDIT NOTE' })]);
+  });
+});
+
+describe('customers', () => {
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let admin;
+  /** @type {{ countryId: number, provinceId: number }} */
+  let place;
+
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    await db.prisma.$executeRaw`INSERT INTO country_lookup (COUNTRY_NM) VALUES ('Uganda')`;
+    const [country] =
+      await db.select`SELECT COUNTRY_ID AS id FROM country_lookup WHERE COUNTRY_NM = 'Uganda'`;
+    await db.prisma
+      .$executeRaw`INSERT INTO provinces_lookup (PROVINCES_NM, COUNTRY_ID) VALUES ('Kampala', ${country.id})`;
+    const [province] =
+      await db.select`SELECT PROVINCES_ID AS id FROM provinces_lookup WHERE COUNTRY_ID = ${country.id}`;
+    place = { countryId: country.id, provinceId: province.id };
+  });
+
+  /**
+   * @param {Record<string, unknown>} body
+   */
+  const create = (body) =>
+    admin.agent
+      .post('/api/v1/masters/customers')
+      .set('x-csrf-token', admin.csrf)
+      .send({ kind: 'individual', ...place, ...body });
+
+  it('creates a customer with a date of birth, stored as the same calendar day', async () => {
+    const created = await create({
+      firstName: 'Test',
+      lastName: 'Customer',
+      phone: '0700 000 101',
+      gender: 'F',
+      birthDate: '1990-03-31',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      birthDate: '1990-03-31',
+      gender: 'F',
+      kind: 'individual',
+    });
+    const [row] =
+      await db.select`SELECT CAST(DOB_DT AS CHAR) AS dob, PHARMACY_ID AS pharmacyId, CORPORATE AS corporate FROM customer WHERE CUSTOMER_ID = ${created.body.data.id}`;
+    expect(row).toEqual({ dob: '1990-03-31', pharmacyId: 1, corporate: 'N' });
+  });
+
+  it('allows a shared phone number, refuses an invalid one and a future birth date', async () => {
+    expect((await create({ firstName: 'Amina', phone: '0700 000 101' })).status).toBe(201);
+    const invalid = await create({ firstName: 'X', phone: 'call me', birthDate: '2999-01-01' });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.details.map((/** @type {any} */ detail) => detail.path)).toEqual(
+      expect.arrayContaining(['body.phone', 'body.birthDate']),
+    );
+  });
+
+  it('keeps company details only for corporate customers, and filters by kind', async () => {
+    const company = await create({
+      kind: 'corporate',
+      firstName: 'Accounts',
+      phone: '0200000000',
+      organisation: 'Dawa Ltd',
+      taxNumber: 'P000111222Z',
+    });
+    expect(company.body.data).toMatchObject({ kind: 'corporate', organisation: 'Dawa Ltd' });
+    const individual = await admin.agent
+      .patch(`/api/v1/masters/customers/${company.body.data.id}`)
+      .set('x-csrf-token', admin.csrf)
+      .send({ kind: 'individual' });
+    expect(individual.body.data).toMatchObject({ organisation: null, taxNumber: null });
+
+    await create({
+      kind: 'corporate',
+      firstName: 'Buyer',
+      phone: '0200000001',
+      organisation: 'Afya',
+    });
+    const corporates = await admin.agent.get('/api/v1/masters/customers?kind=corporate');
+    expect(corporates.body.data.map((/** @type {any} */ row) => row.organisation)).toEqual([
+      'Afya',
+    ]);
+    const byPhone = await admin.agent.get('/api/v1/masters/customers?q=0700000');
+    expect(byPhone.body.meta.total).toBe(2);
+    expect(byPhone.body.data[0].phone).toBe('0700000101');
+  });
+
+  it('lists a customer whose stored birth date is a zero date', async () => {
+    await db.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SET SESSION sql_mode = ''`;
+      await tx.$executeRaw`INSERT INTO customer (PHONE_NBR, FIRST_NM, DOB_DT, ACTIVE_S) VALUES ('0711000000', 'Legacy', '0000-00-00', 'Y')`;
+      await tx.$executeRaw`SET SESSION sql_mode = DEFAULT`;
+    });
+    const response = await admin.agent.get('/api/v1/masters/customers?q=Legacy');
+    expect(response.status).toBe(200);
+    expect(response.body.data[0]).toMatchObject({ firstName: 'Legacy', birthDate: null });
   });
 });
