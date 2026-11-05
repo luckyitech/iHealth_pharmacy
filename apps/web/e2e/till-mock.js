@@ -1,0 +1,284 @@
+/**
+ * A small in-memory stand-in for the sales screen's API, so the till can be tested without a
+ * database. It prices with the shared engine, as the server does. All data is made up.
+ */
+import { priceBill } from '@ihealth/shared/pricing';
+
+export const TILL_USER = Object.freeze({
+  employeeId: 2,
+  username: 'smoke.cashier',
+  firstName: 'Smoke',
+  lastName: 'Cashier',
+  email: 'cashier@example.test',
+  pharmacyId: 1,
+  roles: [],
+  // Sales Billing Submission, Sales Return Approval
+  permissionIds: [6, 8],
+});
+
+/** Barcode of the made-up syrup. */
+export const SYRUP_BARCODE = '6009900000017';
+/** An M-Pesa code the mock says is already on another bill. */
+export const USED_MPESA_CODE = 'QK00USED00';
+
+const BATCHES = Object.freeze([
+  {
+    stockId: 1,
+    itemId: 10,
+    itemName: 'Testamol 500mg tabs',
+    itemCode: 'TST500',
+    genericName: 'Testamolum',
+    batchNo: 'TM-EARLY',
+    barcode: null,
+    expiryDate: '2030-01-31',
+    expired: false,
+    available: 40,
+    labelPrice: '116.00',
+    vatPercent: 16,
+  },
+  {
+    stockId: 2,
+    itemId: 10,
+    itemName: 'Testamol 500mg tabs',
+    itemCode: 'TST500',
+    genericName: 'Testamolum',
+    batchNo: 'TM-LATE',
+    barcode: null,
+    expiryDate: '2031-06-30',
+    expired: false,
+    available: 100,
+    labelPrice: '116.00',
+    vatPercent: 16,
+  },
+  {
+    stockId: 3,
+    itemId: 10,
+    itemName: 'Testamol 500mg tabs',
+    itemCode: 'TST500',
+    genericName: 'Testamolum',
+    batchNo: 'TM-OLD',
+    barcode: null,
+    expiryDate: '2020-01-31',
+    expired: true,
+    available: 5,
+    labelPrice: '116.00',
+    vatPercent: 16,
+  },
+  {
+    stockId: 4,
+    itemId: 20,
+    itemName: 'Demo cough syrup 100ml',
+    itemCode: 'DCS100',
+    genericName: null,
+    batchNo: 'DC-77',
+    barcode: SYRUP_BARCODE,
+    expiryDate: '2029-12-31',
+    expired: false,
+    available: 12,
+    labelPrice: '450.00',
+    vatPercent: 0,
+  },
+]);
+
+/**
+ * State both tills share, like the server's database.
+ *
+ * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number }}
+ */
+export const createTillServer = () => ({ held: new Map(), nextHeld: 1, nextBill: 1 });
+
+/**
+ * @param {Record<string, any>} sale A held sale with its lines.
+ * @returns {Record<string, any>} What the list shows: everything but the lines.
+ */
+const summaryOf = (sale) =>
+  Object.fromEntries(Object.entries(sale).filter(([field]) => field !== 'lines'));
+
+/**
+ * @param {{ stockId: number, quantity: number, discountPercent?: number }[]} lines
+ * @returns {ReturnType<typeof priceBill>}
+ */
+const price = (lines) =>
+  priceBill(
+    lines.map((line) => {
+      const batch = /** @type {(typeof BATCHES)[number]} */ (
+        BATCHES.find((b) => b.stockId === line.stockId)
+      );
+      return {
+        labelPrice: batch.labelPrice,
+        quantity: line.quantity,
+        discountPercent: line.discountPercent ?? 0,
+        vatPercent: batch.vatPercent,
+      };
+    }),
+    { roundingStep: 1 },
+  );
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {ReturnType<typeof createTillServer>} server
+ */
+export async function mockTillApi(page, server) {
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace('/api/v1/', '');
+    const key = `${request.method()} ${path}`;
+    /**
+     * @param {unknown} body
+     * @param {number} [status]
+     * @returns {Promise<void>}
+     */
+    const json = (body, status = 200) =>
+      route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+
+    if (key === 'GET auth/me') return json({ data: TILL_USER });
+    if (key === 'GET auth/csrf') return json({ data: { csrfToken: 'smoke' } });
+    if (key === 'GET app-info')
+      return json({
+        data: {
+          apiVersion: '1',
+          pharmacy: { id: 1, name: 'Example Pharmacy', city: null, country: null },
+          region: { locale: 'en-KE', currency: 'KES', timeZone: 'Africa/Nairobi' },
+        },
+      });
+    if (key === 'GET sales/till-settings')
+      return json({
+        data: { selfDiscountLimit: 25, maxHeld: 30, quickCashNotes: [50, 100, 200, 500, 1000] },
+      });
+    if (key === 'GET sales/batches') {
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      const scanned = BATCHES.filter((b) => b.barcode === q);
+      const found = scanned.length
+        ? BATCHES.filter((b) => scanned.some((s) => s.itemId === b.itemId))
+        : BATCHES.filter(
+            (b) => b.itemName.toLowerCase().startsWith(q) || b.itemCode.toLowerCase().startsWith(q),
+          );
+      return json({ data: { batches: found, scanned: scanned.length > 0 } });
+    }
+    if (key === 'POST sales/quote') {
+      const { lines } = request.postDataJSON();
+      const priced = price(lines);
+      return json({
+        data: {
+          lines: lines.map((/** @type {any} */ line, /** @type {number} */ index) => {
+            const batch = /** @type {any} */ (BATCHES.find((b) => b.stockId === line.stockId));
+            return {
+              ...line,
+              discountPercent: line.discountPercent ?? 0,
+              itemId: batch.itemId,
+              itemName: batch.itemName,
+              itemCode: batch.itemCode,
+              batchNo: batch.batchNo,
+              expiryDate: batch.expiryDate,
+              available: batch.available,
+              vatPercent: batch.vatPercent,
+              taxCode: null,
+              labelPrice: batch.labelPrice,
+              ...priced.lines[index],
+              warnings: line.quantity > batch.available ? ['insufficientStock'] : [],
+            };
+          }),
+          totals: priced,
+          quantity: priced.quantity,
+        },
+      });
+    }
+    if (key === 'POST sales/bills') {
+      const body = request.postDataJSON();
+      const mpesaIndex = body.payments.findIndex((/** @type {any} */ p) => p.method === 'mpesa');
+      if (mpesaIndex >= 0 && body.payments[mpesaIndex].reference === USED_MPESA_CODE) {
+        return json(
+          {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'Some details need fixing.',
+              details: [
+                {
+                  path: `body.payments.${mpesaIndex}.reference`,
+                  message: 'This M-Pesa code is already on bill TSB0511260001',
+                },
+              ],
+              requestId: 'req-till',
+            },
+          },
+          400,
+        );
+      }
+      const priced = price(body.lines);
+      const cash = body.payments.find((/** @type {any} */ p) => p.method === 'cash');
+      const mpesa = body.payments.find((/** @type {any} */ p) => p.method === 'mpesa');
+      const cashDue = Number(priced.net) - Number(mpesa?.amount ?? 0);
+      const id = server.nextBill++;
+      return json(
+        {
+          data: {
+            id,
+            code: `TSB051126${String(id).padStart(4, '0')}`,
+            payments: [
+              ...(cash ? [{ method: 'cash', amount: cashDue.toFixed(2), reference: null }] : []),
+              ...(mpesa
+                ? [{ method: 'mpesa', amount: mpesa.amount, reference: mpesa.reference }]
+                : []),
+            ],
+            change: (Number(cash?.amount ?? 0) - cashDue).toFixed(2),
+          },
+        },
+        201,
+      );
+    }
+    if (key === 'GET sales/held')
+      return json({
+        data: [...server.held.values()].reverse().map(summaryOf),
+      });
+    if (key === 'POST sales/held') {
+      const body = request.postDataJSON();
+      const id = server.nextHeld++;
+      const sale = {
+        id,
+        customerName: body.customerName ?? null,
+        note: null,
+        lineCount: body.lines.length,
+        net: price(body.lines).net,
+        heldBy: 'Smoke Cashier',
+        heldAt: new Date().toISOString(),
+        lines: body.lines,
+      };
+      server.held.set(id, sale);
+      return json({ data: summaryOf(sale) }, 201);
+    }
+    const recall = /^sales\/held\/(\d+)\/recall$/.exec(path);
+    if (request.method() === 'POST' && recall) {
+      const sale = server.held.get(Number(recall[1]));
+      if (!sale)
+        return json(
+          {
+            error: {
+              code: 'NOT_FOUND',
+              message: 'This sale is no longer on hold. It may have been recalled at another till.',
+              requestId: 'req-held',
+            },
+          },
+          404,
+        );
+      server.held.delete(sale.id);
+      return json({
+        data: {
+          id: sale.id,
+          customerId: null,
+          customerName: sale.customerName,
+          customerPhone: null,
+          note: null,
+          lines: sale.lines.map((/** @type {any} */ line) => ({ discountPercent: 0, ...line })),
+        },
+      });
+    }
+    if (/^sales\/bills\/\d+\/receipt$/.test(path))
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        body: '%PDF-1.4\n%%EOF',
+      });
+    return json({ error: { code: 'NOT_FOUND', message: `No mock for ${key}` } }, 404);
+  });
+}

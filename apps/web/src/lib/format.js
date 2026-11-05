@@ -23,7 +23,7 @@ const NO_SHIFT = 'UTC'; // hardcode-ok: the values are local wall-clock times, s
 /**
  * Money, dates and times in this installation's locale and currency (from GET /app-info).
  *
- * @returns {{ money: (value: string | number) => string, date: (value: string | null) => string, dateTime: (value: string | null) => string }}
+ * @returns {{ money: (value: string | number) => string, date: (value: string | null) => string, dateTime: (value: string | null) => string, time: (instant: string) => string }}
  */
 export function useFormat() {
   const { data } = useAppInfo();
@@ -36,6 +36,11 @@ export function useFormat() {
       timeStyle: 'short',
       timeZone: NO_SHIFT,
     });
+    // Instants (ISO with a zone, from the new tables) are shown in the pharmacy's time zone.
+    const timeFormat = new Intl.DateTimeFormat(locale, {
+      timeStyle: 'short',
+      timeZone: region?.timeZone,
+    });
     return {
       money: (value) => (region ? formatMoney(value, region) : String(value)),
       date: (value) => {
@@ -47,6 +52,7 @@ export function useFormat() {
         if (!parsed) return '—';
         return value?.includes(' ') ? dateTimeFormat.format(parsed) : dateFormat.format(parsed);
       },
+      time: (instant) => timeFormat.format(new Date(instant)),
     };
   }, [region]);
 }

@@ -1,5 +1,5 @@
 import { POLICIES } from '@ihealth/shared/permissions';
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter } from 'react-router';
 
 import { NotFoundPage, RouteErrorFallback } from '@/components/feedback/error-fallbacks';
 import { AppShell } from '@/components/layout/app-shell';
@@ -92,7 +92,25 @@ export function createAppRouter() {
                   path: 'sales',
                   element: <RequirePermission permissions={POLICIES.sales.read} />,
                   children: [
-                    { index: true, element: <Navigate to="history" replace /> },
+                    {
+                      index: true,
+                      lazy: async () => ({
+                        Component: (await import('@/features/sales/sales-index')).default,
+                      }),
+                    },
+                    {
+                      path: 'new',
+                      element: <RequirePermission permissions={POLICIES.sales.sell} />,
+                      children: [
+                        {
+                          index: true,
+                          lazy: async () => ({
+                            Component: (await import('@/features/sales/till/sales-screen-page'))
+                              .default,
+                          }),
+                        },
+                      ],
+                    },
                     {
                       path: 'history',
                       lazy: async () => ({
