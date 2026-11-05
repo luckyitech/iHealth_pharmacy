@@ -233,7 +233,11 @@ describe('the till', () => {
 
   it('tells the till the rules it shows', async () => {
     const response = await cashier.agent.get('/api/v1/sales/till-settings');
-    expect(response.body.data).toEqual({ selfDiscountLimit: 25, maxHeld: MAX_HELD });
+    expect(response.body.data).toEqual({
+      selfDiscountLimit: 25,
+      maxHeld: MAX_HELD,
+      quickCashNotes: [50, 100, 200, 500, 1000],
+    });
   });
 
   it('refuses people who may not sell', async () => {

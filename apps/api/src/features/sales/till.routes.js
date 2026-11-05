@@ -50,6 +50,7 @@ export function createTillRoutes({ prisma, audit, config }) {
         data: {
           selfDiscountLimit: config.sales.selfDiscountLimit,
           maxHeld: config.sales.maxHeld,
+          quickCashNotes: config.sales.quickCashNotes,
         },
       }),
     }),

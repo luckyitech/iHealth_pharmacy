@@ -98,4 +98,6 @@ export const tillSettingsSchema = z.object({
   selfDiscountLimit: z.number(),
   /** Most sales the pharmacy can keep on hold at once. */
   maxHeld: z.number().int(),
+  /** Bank notes offered as quick amounts when taking cash, smallest first. */
+  quickCashNotes: z.array(z.number()),
 });
