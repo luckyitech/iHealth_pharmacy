@@ -1,9 +1,8 @@
-/* eslint-disable jsdoc/reject-any-type -- rows come from the generic CRUD factory, typed by SELECT */
 import { POLICIES } from '@ihealth/shared/permissions';
 import { manufacturerInputSchema, manufacturerSchema } from '@ihealth/shared/schemas';
 
 import { createCrudRoutes } from '../../http/crud/create-crud-routes.js';
-import { isActive, isoDate, LEGACY_STAMPS, pickColumns, text } from './legacy-mapping.js';
+import { ADDRESS_COLUMNS, columnMapping, LEGACY_STAMPS } from './legacy-mapping.js';
 
 /** API field -> `manufacturer` column (Prisma field). */
 const COLUMNS = Object.freeze({
@@ -17,48 +16,10 @@ const COLUMNS = Object.freeze({
   contactLastName: 'contactPersonLastNm',
   contactPhone: 'contactPersonPhoneNbr',
   contactEmail: 'contactPersonEmailId',
-  addressLine1: 'addressLine1',
-  addressLine2: 'addressLine2',
-  city: 'cityNm',
-  zip: 'zipCd',
-  countryId: 'countryId',
-  provinceId: 'provincesId',
+  ...ADDRESS_COLUMNS,
 });
 
-const SELECT = Object.freeze({
-  manufacturerId: true,
-  activeS: true,
-  lastUpdateTs: true,
-  ...Object.fromEntries(Object.values(COLUMNS).map((column) => [column, true])),
-});
-
-/**
- * @param {Record<string, any>} row A `manufacturer` row as selected by SELECT.
- * @returns {import('@ihealth/shared/schemas').Manufacturer}
- */
-function toItem(row) {
-  return {
-    id: row.manufacturerId,
-    active: isActive(row.activeS),
-    updatedAt: isoDate(row.lastUpdateTs),
-    name: text(row.mfrName) ?? '',
-    license: text(row.license),
-    phone: text(row.phoneNbr),
-    email: text(row.emailId),
-    fax: text(row.fax),
-    website: text(row.website),
-    contactFirstName: text(row.contactPersonFirstNm),
-    contactLastName: text(row.contactPersonLastNm),
-    contactPhone: text(row.contactPersonPhoneNbr),
-    contactEmail: text(row.contactPersonEmailId),
-    addressLine1: text(row.addressLine1),
-    addressLine2: text(row.addressLine2),
-    city: text(row.cityNm),
-    zip: text(row.zipCd),
-    countryId: row.countryId ?? null,
-    provinceId: row.provincesId ?? null,
-  };
-}
+const MAPPING = columnMapping('manufacturerId', COLUMNS, ['name']);
 
 /**
  * @param {{ prisma: import('#db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog }} deps
@@ -75,11 +36,9 @@ export function createManufacturerRoutes(deps) {
       permissions: POLICIES.masters,
       itemSchema: manufacturerSchema,
       inputSchema: manufacturerInputSchema,
-      select: SELECT,
-      toItem,
-      toData: (input) => pickColumns(input, COLUMNS),
-      sortable: ['name', 'city', 'updatedAt'],
-      sortColumns: { name: 'mfrName', city: 'cityNm', updatedAt: 'lastUpdateTs' },
+      ...MAPPING,
+      sortable: ['name', 'city'],
+      sortColumns: { name: 'mfrName', city: 'cityNm' },
       defaultSort: 'name',
       search: (q) => ({
         OR: [

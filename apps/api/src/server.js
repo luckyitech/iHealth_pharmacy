@@ -10,7 +10,11 @@ import { createAuditLog } from './features/audit/audit-log.js';
 import { createAuthModule } from './features/auth/auth.module.js';
 import { createLookupRoutes } from './features/lookups/lookup-routes.js';
 import { createItemLookupRoutes } from './features/masters/item-lookups.js';
+import { createHospitalRoutes } from './features/masters/hospitals.js';
 import { createManufacturerRoutes } from './features/masters/manufacturers.js';
+import { createPharmacyProfileRoutes } from './features/masters/pharmacy-profile.js';
+import { createProviderRoutes } from './features/masters/providers.js';
+import { createTermsRoutes } from './features/masters/terms.js';
 import { collectRoutes } from './routes.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -48,8 +52,12 @@ const app = createApp({
     lookups: { routes: createLookupRoutes({ prisma }) },
     masters: {
       routes: [
-        ...createManufacturerRoutes({ prisma, audit }),
+        ...createPharmacyProfileRoutes({ prisma, audit, config }),
         ...createItemLookupRoutes({ prisma, audit }),
+        ...createManufacturerRoutes({ prisma, audit }),
+        ...createHospitalRoutes({ prisma, audit }),
+        ...createProviderRoutes({ prisma, audit }),
+        ...createTermsRoutes({ prisma, audit }),
       ],
     },
   }),

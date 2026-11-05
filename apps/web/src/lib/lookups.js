@@ -36,3 +36,15 @@ export function useProvinces(countryId) {
     staleTime: LOOKUP_STALE_MS,
   });
 }
+
+/**
+ * @returns {import('@tanstack/react-query').UseQueryResult<Option[]>}
+ */
+export function useProviderTypes() {
+  return useQuery({
+    queryKey: ['lookups', 'provider-types'],
+    queryFn: async () =>
+      /** @type {{ data: Option[] }} */ (await api.get('lookups/provider-types').json()).data,
+    staleTime: LOOKUP_STALE_MS,
+  });
+}

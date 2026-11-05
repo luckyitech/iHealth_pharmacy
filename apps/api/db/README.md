@@ -18,4 +18,8 @@ const prisma = createPrismaClient({ url: config.databaseUrl, timezone: config.re
 const access = await prisma.employeeAccess.findMany({ where: { employeeId: 1, activeS: 'Y' } });
 ```
 
-Zero dates: the legacy app connected with `zeroDateTimeBehavior=convertToNull`. Repositories must treat `0000-00-00` values as `null` where they still exist.
+**Zero dates.** Many legacy rows hold `0000-00-00 00:00:00` in timestamp columns (for example 20 of 33 hospitals in `LAST_UPDATE_TS`). The legacy app connected with `zeroDateTimeBehavior=convertToNull`. Prisma cannot read such a value: selecting it fails the whole query with "Invalid time value". So:
+
+- Never select a legacy timestamp or date column through a Prisma model. Leave it out of `select`.
+- When a date is really needed, read it with raw SQL, e.g. `NULLIF(LAST_UPDATE_TS, 0)` or `IF(YEAR(x) = 0, NULL, x)`.
+- Writes always set `LAST_UPDATE_TS`, because the column's default is a zero date, which strict SQL mode rejects.

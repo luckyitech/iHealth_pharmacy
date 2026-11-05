@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { optionalEmail, optionalIdSchema, optionalText, requiredText } from '../common.js';
+import { storedId, storedText } from './address.js';
 
 /** Column lengths of the legacy `manufacturer` table. */
 const LENGTH = Object.freeze({
@@ -40,13 +41,9 @@ export const manufacturerInputSchema = z.object({
  * A stored manufacturer as the API returns it. Deliberately looser than the input rules: legacy rows
  * may break today's rules (a missing name, a malformed email) and must still be listed and fixed.
  */
-const storedText = z.string().nullable();
-const storedId = z.number().int().nullable();
-
 export const manufacturerSchema = z.object({
   id: z.number().int(),
   active: z.boolean(),
-  updatedAt: storedText,
   name: z.string(),
   license: storedText,
   phone: storedText,
