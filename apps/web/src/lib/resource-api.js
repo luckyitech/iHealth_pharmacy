@@ -1,3 +1,5 @@
+/* eslint-disable jsdoc/reject-any-type -- generic over every resource's row shape */
+import { MAX_PAGE_SIZE } from '@ihealth/shared/schemas';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from './api-client.js';
@@ -19,9 +21,14 @@ export const resourceKey = (resource) => ['resource', resource];
  * @template T
  * @param {string} resource
  * @param {ListRequest} request
+ * @param {{ enabled?: boolean }} [options] `enabled: false` waits (e.g. until a picker is opened).
  * @returns {import('@tanstack/react-query').UseQueryResult<{ data: T[], meta: ListMeta }>}
  */
-export function useResourceList(resource, { page, pageSize, sort, q, filters = {} }) {
+export function useResourceList(
+  resource,
+  { page, pageSize, sort, q, filters = {} },
+  { enabled = true } = {},
+) {
   const searchParams = Object.fromEntries(
     Object.entries({ page, pageSize, sort, q, ...filters }).filter(
       ([, value]) => value !== undefined && value !== '',
@@ -31,7 +38,33 @@ export function useResourceList(resource, { page, pageSize, sort, q, filters = {
     queryKey: [...resourceKey(resource), 'list', searchParams],
     queryFn: () => api.get(resource, { searchParams }).json(),
     placeholderData: keepPreviousData,
+    enabled,
   });
+}
+
+const ACTIVE_ONLY = Object.freeze({ status: 'active' });
+
+/**
+ * Active records of a short resource (up to one page), as select options sorted by name.
+ *
+ * @param {string} resource e.g. `masters/item-groups`
+ * @param {(row: any) => string} [label] Defaults to `row.name`.
+ * @returns {{ options: { value: number, label: string }[], isPending: boolean }}
+ */
+export function useResourceOptions(resource, label = (row) => row.name) {
+  const list = useResourceList(resource, {
+    page: 1,
+    pageSize: MAX_PAGE_SIZE,
+    sort: 'name',
+    filters: ACTIVE_ONLY,
+  });
+  const rows = /** @type {any[]} */ (
+    /** @type {{ data?: unknown[] } | undefined} */ (list.data)?.data ?? []
+  );
+  return {
+    options: rows.map((row) => ({ value: row.id, label: label(row) || `#${row.id}` })),
+    isPending: list.isPending,
+  };
 }
 
 /**

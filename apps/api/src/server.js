@@ -11,6 +11,7 @@ import { createAuthModule } from './features/auth/auth.module.js';
 import { createLookupRoutes } from './features/lookups/lookup-routes.js';
 import { createItemLookupRoutes } from './features/masters/item-lookups.js';
 import { createHospitalRoutes } from './features/masters/hospitals.js';
+import { createItemRoutes } from './features/masters/items.js';
 import { createManufacturerRoutes } from './features/masters/manufacturers.js';
 import { createPharmacyProfileRoutes } from './features/masters/pharmacy-profile.js';
 import { createProviderRoutes } from './features/masters/providers.js';
@@ -54,6 +55,7 @@ const app = createApp({
       routes: [
         ...createPharmacyProfileRoutes({ prisma, audit, config }),
         ...createItemLookupRoutes({ prisma, audit }),
+        ...createItemRoutes({ prisma, audit, config }),
         ...createManufacturerRoutes({ prisma, audit }),
         ...createHospitalRoutes({ prisma, audit }),
         ...createProviderRoutes({ prisma, audit }),

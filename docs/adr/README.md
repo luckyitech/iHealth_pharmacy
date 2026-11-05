@@ -11,3 +11,4 @@ An accepted ADR is never edited to change its decision: a new ADR supersedes it.
 | [0004](0004-authentication-and-authorisation.md) | Authentication and authorisation           | Accepted |
 | [0005](0005-api-conventions.md)                  | REST API conventions                       | Accepted |
 | [0006](0006-frontend-stack.md)                   | Frontend stack                             | Accepted |
+| [0007](0007-backend-feature-folders.md)          | Backend organised by feature folders       | Accepted |

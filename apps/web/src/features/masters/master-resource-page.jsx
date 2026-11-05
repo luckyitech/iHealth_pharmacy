@@ -37,9 +37,19 @@ const DEFAULT_FILTERS = Object.freeze({ status: 'active' });
  * @property {string} searchPlaceholder
  * @property {import('zod').ZodType} schema Shared Zod input schema (the API validates the same).
  * @property {(item: any | null) => Record<string, unknown>} toFormValues Record (or null for new) -> form defaults.
- * @property {(props: { form: import('react-hook-form').UseFormReturn<any> }) => React.ReactNode} Fields The form's fields.
+ * @property {(props: { form: import('react-hook-form').UseFormReturn<any>, item: any | null }) => React.ReactNode} Fields The form's fields; `item` is the record edited (null for a new one).
  * @property {readonly import('@ihealth/shared/permissions').PermissionDefinition[]} writePermissions
  * @property {(item: any) => string} recordName How a record is named in dialogs, e.g. its name.
+ * @property {ListFilter[]} [listFilters] Extra filters next to "Show".
+ * @property {boolean} [wideForm] A wider side panel, for long forms.
+ */
+
+/**
+ * @typedef {object} ListFilter
+ * @property {string} key Query parameter, e.g. `productKind`.
+ * @property {string} label Accessible name, e.g. "Kind".
+ * @property {string} allLabel The "no filter" option, e.g. "All kinds".
+ * @property {readonly { value: string, label: string }[]} options
  */
 
 /**
@@ -118,6 +128,22 @@ export function MasterResourcePage({ config }) {
             </option>
           ))}
         </NativeSelect>
+        {config.listFilters?.map((filter) => (
+          <NativeSelect
+            key={filter.key}
+            aria-label={filter.label}
+            className="w-40"
+            value={params.filters[filter.key] ?? ''}
+            onChange={(event) => setParams({ filters: { [filter.key]: event.target.value } })}
+          >
+            <option value="">{filter.allLabel}</option>
+            {filter.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </NativeSelect>
+        ))}
       </div>
 
       <DataTable
@@ -204,6 +230,7 @@ function RecordSheet({ config, item, canWrite, onClose }) {
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
         side="right"
+        className={config.wideForm ? 'max-w-3xl' : undefined}
         showTitle
         title={title}
         description={isNew ? undefined : item?.active === false ? 'Inactive' : undefined}
@@ -214,7 +241,7 @@ function RecordSheet({ config, item, canWrite, onClose }) {
             className="grid flex-1 content-start gap-5 overflow-y-auto px-6 py-6"
           >
             {formError && <FormError>{errorMessage(save.error)}</FormError>}
-            {open && <config.Fields form={form} />}
+            {open && <config.Fields form={form} item={item ?? null} />}
           </fieldset>
           {canWrite && (
             <div className="flex flex-wrap items-center gap-2 border-t px-6 py-4">

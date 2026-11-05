@@ -62,6 +62,9 @@ const sameText = (a, b) =>
  * @property {UniqueRule[]} [unique]
  * @property {{ createdBy?: string, updatedBy?: string, updatedAt?: string }} [stamps] Legacy audit columns to fill.
  * @property {(items: Record<string, any>[], prisma: any) => Promise<Record<string, any>[]>} [enrich] Adds related data (e.g. names of linked records) to items, in one query for a whole page.
+ * @property {(tx: any) => Promise<Record<string, unknown>>} [createDefaults] Extra columns set only when a record is created.
+ * @property {(tx: any, row: any) => Promise<any>} [afterCreate] Runs in the create transaction, e.g. to fill a code derived from the new id; returns the (updated) row.
+ * @property {(client: any, id: number) => Promise<void>} [beforeDeactivate] Throws to refuse a deactivation.
  */
 
 /**
@@ -198,6 +201,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
     async ({ req, res, input }) => {
       const id = input.params.id;
       await findOrFail(id);
+      if (!active && config.beforeDeactivate) await config.beforeDeactivate(prisma, id);
       await config.delegate(prisma).update({
         where: { [idField]: id },
         data: {
@@ -281,14 +285,16 @@ export function createCrudRoutes(config, { prisma, audit }) {
       handler: async ({ req, res, input }) => {
         const created = await prisma.$transaction(async (tx) => {
           await assertUnique(tx, input.body, undefined);
-          return config.delegate(tx).create({
+          const row = await config.delegate(tx).create({
             data: {
               ...config.toData(input.body),
+              ...(config.createDefaults ? await config.createDefaults(tx) : {}),
               ...(config.activeField ? { [config.activeField]: ACTIVE } : {}),
               ...stampsFor(res, true),
             },
             select: config.select,
           });
+          return config.afterCreate ? config.afterCreate(tx, row) : row;
         });
         await record(req, 'create', created[idField], { fields: Object.keys(input.body) });
         return { data: await toOneItem(created) };

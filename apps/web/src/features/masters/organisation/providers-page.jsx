@@ -1,11 +1,11 @@
 import { POLICIES } from '@ihealth/shared/permissions';
-import { GENDERS, MAX_PAGE_SIZE, providerInputSchema } from '@ihealth/shared/schemas';
+import { GENDERS, providerInputSchema } from '@ihealth/shared/schemas';
 
 import { AddressFields } from '@/components/form/address-fields';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { useProviderTypes } from '@/lib/lookups';
-import { useResourceList } from '@/lib/resource-api';
+import { useResourceOptions } from '@/lib/resource-api';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
 import { MasterResourcePage } from '../master-resource-page.jsx';
@@ -16,24 +16,12 @@ const GENDER_OPTIONS = Object.freeze([
 ]);
 
 /**
- * @param {{ form: import('react-hook-form').UseFormReturn<Record<string, unknown>> }} props
+ * @param {{ form: import('react-hook-form').UseFormReturn<Record<string, unknown>>, item: { hospitalName: string | null, providerTypeName: string | null } | null }} props
  * @returns {React.JSX.Element}
  */
-function ProviderFields({ form }) {
+function ProviderFields({ form, item }) {
   const types = useProviderTypes();
-  const hospitals = useResourceList('masters/hospitals', {
-    page: 1,
-    pageSize: MAX_PAGE_SIZE,
-    sort: 'name',
-    filters: { status: 'active' },
-  });
-  const hospitalRows = /** @type {{ id: number, name: string }[]} */ (
-    /** @type {{ data?: unknown[] } | undefined} */ (hospitals.data)?.data ?? []
-  );
-  const hospitalOptions = hospitalRows.map((hospital) => ({
-    value: hospital.id,
-    label: hospital.name,
-  }));
+  const hospitals = useResourceOptions('masters/hospitals');
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-3">
@@ -58,6 +46,7 @@ function ProviderFields({ form }) {
         <SelectField
           form={form}
           name="providerTypeId"
+          selectedLabel={item?.providerTypeName}
           label="Type"
           emptyLabel="Choose a type"
           loading={types.isPending}
@@ -68,10 +57,11 @@ function ProviderFields({ form }) {
       <SelectField
         form={form}
         name="hospitalId"
+        selectedLabel={item?.hospitalName}
         label="Hospital"
         emptyLabel="No hospital"
         loading={hospitals.isPending}
-        options={hospitalOptions}
+        options={hospitals.options}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField form={form} name="phone" label="Phone" type="tel" />

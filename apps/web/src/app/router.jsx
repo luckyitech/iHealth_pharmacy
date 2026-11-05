@@ -93,6 +93,13 @@ export function createAppRouter() {
                             Component: (await import('@/features/masters/masters-index')).default,
                           }),
                         },
+                        {
+                          path: 'items',
+                          lazy: async () => ({
+                            Component: (await import('@/features/masters/items/items-page'))
+                              .default,
+                          }),
+                        },
                         ...ITEM_LOOKUP_ROUTES.map((lookup) => ({
                           path: lookup,
                           lazy: async () => {

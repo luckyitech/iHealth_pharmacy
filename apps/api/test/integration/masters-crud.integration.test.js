@@ -9,6 +9,7 @@ import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createLookupRoutes } from '../../src/features/lookups/lookup-routes.js';
 import { createHospitalRoutes } from '../../src/features/masters/hospitals.js';
 import { createItemLookupRoutes } from '../../src/features/masters/item-lookups.js';
+import { createItemRoutes } from '../../src/features/masters/items.js';
 import { createManufacturerRoutes } from '../../src/features/masters/manufacturers.js';
 import { createPharmacyProfileRoutes } from '../../src/features/masters/pharmacy-profile.js';
 import { createProviderRoutes } from '../../src/features/masters/providers.js';
@@ -52,6 +53,7 @@ beforeAll(async () => {
           ...createProviderRoutes({ prisma: db.prisma, audit }),
           ...createTermsRoutes({ prisma: db.prisma, audit }),
           ...createPharmacyProfileRoutes({ prisma: db.prisma, audit, config }),
+          ...createItemRoutes({ prisma: db.prisma, audit, config }),
         ],
       },
     }),
@@ -381,5 +383,125 @@ describe('organisation masters', () => {
     expect((await admin.agent.get('/api/v1/masters/terms')).body.data[0].text).toBe(
       'Goods once sold cannot be returned.',
     );
+  });
+});
+
+describe('item master', () => {
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let admin;
+  /** @type {Record<string, number>} */
+  const ids = {};
+
+  /**
+   * @param {string} path
+   * @param {Record<string, unknown>} body
+   * @returns {Promise<number>}
+   */
+  const create = async (path, body) => {
+    const response = await admin.agent
+      .post(`/api/v1/masters/${path}`)
+      .set('x-csrf-token', admin.csrf)
+      .send(body);
+    expect(response.status).toBe(201);
+    return response.body.data.id;
+  };
+
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    ids.group = await create('item-groups', {
+      code: 'TAB',
+      name: 'Tablets',
+      productKind: 'medical',
+    });
+    ids.form = await create('item-forms', { code: 'T', name: 'Tablet', productKind: 'medical' });
+    ids.unit = await create('units-of-measure', { code: 'PC', name: 'Piece' });
+    ids.manufacturer = await create('manufacturers', { name: 'Cosmos Ltd' });
+    await db.prisma
+      .$executeRaw`INSERT INTO taxcategory (CATEGORY_CODE, CATEGORY_VALUE, ACTIVE_S) VALUES ('A', 16, 'Y'), ('A', 14, 'N')`;
+    const [tax] =
+      await db.select`SELECT TAXCATEGORY_ID AS id FROM taxcategory WHERE CATEGORY_VALUE = 16`;
+    ids.tax = tax.id;
+  });
+
+  const item = () => ({
+    name: 'Paracetamol 500mg',
+    productKind: 'medical',
+    groupId: ids.group,
+    formId: ids.form,
+    manufacturerId: ids.manufacturer,
+    purchaseUnitId: ids.unit,
+    issueUnitId: ids.unit,
+    taxCategoryId: ids.tax,
+    pack: '100',
+    barcode: '6001234567890',
+  });
+
+  it('creates an item with a generated code, the pharmacy and the names of its lookups', async () => {
+    const response = await admin.agent
+      .post('/api/v1/masters/items')
+      .set('x-csrf-token', admin.csrf)
+      .send(item());
+    expect(response.status).toBe(201);
+    const { id } = response.body.data;
+    expect(response.body.data).toMatchObject({
+      code: `IC${String(id).padStart(7, '0')}`,
+      groupName: 'Tablets',
+      formName: 'Tablet',
+      manufacturerName: 'Cosmos Ltd',
+      purchaseUnitName: 'Piece',
+      taxCategoryName: 'A (16%)',
+      productKind: 'medical',
+    });
+    const [row] =
+      await db.select`SELECT PHARMACY_ID AS pharmacyId, MEDICAL_OR_NON_MEDICAL AS kind FROM items WHERE ITEM_ID = ${id}`;
+    expect(row).toEqual({ pharmacyId: 1, kind: 'M' });
+  });
+
+  it('requires the essentials and refuses a barcode already in use', async () => {
+    const missing = await admin.agent
+      .post('/api/v1/masters/items')
+      .set('x-csrf-token', admin.csrf)
+      .send({ name: 'Incomplete', productKind: 'medical' });
+    expect(missing.status).toBe(400);
+    const paths = missing.body.error.details.map((/** @type {any} */ detail) => detail.path);
+    expect(paths).toEqual(
+      expect.arrayContaining(['body.groupId', 'body.manufacturerId', 'body.taxCategoryId']),
+    );
+
+    const duplicate = await admin.agent
+      .post('/api/v1/masters/items')
+      .set('x-csrf-token', admin.csrf)
+      .send({ ...item(), name: 'Another' });
+    expect(duplicate.status).toBe(409);
+  });
+
+  it('offers only active tax rates', async () => {
+    const response = await admin.agent.get('/api/v1/lookups/tax-categories');
+    expect(response.body.data).toEqual([{ id: ids.tax, name: 'A (16%)' }]);
+  });
+
+  it('refuses to deactivate an item that has stock, and allows it once the stock is cleared', async () => {
+    const id = await create('items', { ...item(), name: 'Amoxicillin', barcode: '' });
+    await db.prisma
+      .$executeRaw`INSERT INTO stock (ITEM_ID, PHARMACY_ID, QUANTITY) VALUES (${id}, 1, 12)`;
+    const refused = await admin.agent
+      .delete(`/api/v1/masters/items/${id}`)
+      .set('x-csrf-token', admin.csrf);
+    expect(refused.status).toBe(409);
+
+    await db.prisma.$executeRaw`UPDATE stock SET QUANTITY = 0 WHERE ITEM_ID = ${id}`;
+    const allowed = await admin.agent
+      .delete(`/api/v1/masters/items/${id}`)
+      .set('x-csrf-token', admin.csrf);
+    expect(allowed.status).toBe(204);
+  });
+
+  it('searches by name, code or barcode and filters by kind', async () => {
+    const byBarcode = await admin.agent.get('/api/v1/masters/items?q=600123');
+    expect(byBarcode.body.data.map((/** @type {any} */ row) => row.name)).toEqual([
+      'Paracetamol 500mg',
+    ]);
+    const nonMedical = await admin.agent.get('/api/v1/masters/items?productKind=nonMedical');
+    expect(nonMedical.body.data).toEqual([]);
   });
 });
