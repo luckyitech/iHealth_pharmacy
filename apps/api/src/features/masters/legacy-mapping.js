@@ -1,5 +1,6 @@
 /* eslint-disable jsdoc/reject-any-type -- generic over every master table; rows are typed by each select */
 /** Helpers shared by the master resources for the legacy column conventions. */
+import { Prisma } from '#db';
 
 /**
  * Legacy `ACTIVE_S`: 'Y', 'N', lowercase variants or NULL (old rows); NULL counts as active, as in the legacy app.
@@ -79,3 +80,51 @@ export function columnMapping(idField, columns, requiredText = []) {
     toData: (input) => pickColumns(input, columns),
   };
 }
+
+/** A zero date as MySQL prints it. */
+const ZERO_DATE = '0000-00-00';
+
+/**
+ * An `enrich` step that adds legacy DATE columns as `YYYY-MM-DD` text (null when empty or a zero
+ * date), read with raw SQL: a zero date read through the model fails the whole query.
+ *
+ * @param {string} table Legacy table name (a constant, never user input).
+ * @param {string} idColumn Its primary-key column, e.g. `CUSTOMER_ID`.
+ * @param {Record<string, string>} columns API field -> DATE column, e.g. `{ birthDate: 'DOB_DT' }`.
+ * @returns {(items: Record<string, any>[], prisma: any) => Promise<Record<string, any>[]>}
+ */
+export function legacyDates(table, idColumn, columns) {
+  const selected = Prisma.raw(
+    Object.entries(columns)
+      .map(([field, column]) => `CAST(${column} AS CHAR) AS ${field}`)
+      .join(', '),
+  );
+  return async (items, prisma) => {
+    if (!items.length) return items;
+    /** @type {Record<string, any>[]} */
+    const rows = await prisma.$queryRaw`
+      SELECT ${Prisma.raw(idColumn)} AS id, ${selected}
+      FROM ${Prisma.raw(table)}
+      WHERE ${Prisma.raw(idColumn)} IN (${Prisma.join(items.map((item) => item.id))})`;
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return items.map((item) => {
+      const row = byId.get(item.id);
+      /** @type {Record<string, string | null>} */
+      const dates = {};
+      for (const field of Object.keys(columns)) {
+        const value = row?.[field];
+        dates[field] = value && value !== ZERO_DATE ? value : null;
+      }
+      return { ...item, ...dates };
+    });
+  };
+}
+
+/**
+ * Prisma data for a calendar date from the API (`YYYY-MM-DD`): midnight UTC, so a DATE column
+ * keeps the same day.
+ *
+ * @param {string | null} value
+ * @returns {Date | null}
+ */
+export const toLegacyDate = (value) => (value ? new Date(`${value}T00:00:00Z`) : null);

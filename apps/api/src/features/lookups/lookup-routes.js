@@ -33,7 +33,8 @@ function codeAndDescription(code, description) {
 
 /**
  * Read-only reference lists used by forms (countries, provinces, provider types, tax categories,
- * schedule and Latin codes, payment and return-credit types), from the legacy lookup tables.
+ * schedule and Latin codes, payment and return-credit types, employee types), from the legacy
+ * lookup tables.
  *
  * @param {{ prisma: import('#db').PrismaClient }} deps
  * @returns The lookup routes.
@@ -202,6 +203,25 @@ export function createLookupRoutes({ prisma }) {
         });
         return {
           data: options(rows.map((row) => ({ id: row.returnCreditTypeId, name: row.type }))),
+        };
+      },
+    }),
+    defineRoute({
+      method: 'get',
+      path: '/lookups/employee-types',
+      summary: 'Employee types (pharmacist, technician, ...)',
+      tags: ['Lookups'],
+      permissions: LOOKUP_PERMISSIONS,
+      responses: { 200: { description: 'Employee types', schema: optionsResponse } },
+      handler: async () => {
+        const rows = await prisma.employeeTypeLookup.findMany({
+          select: { employeeTypeLookupId: true, employeeTypeDesc: true },
+          orderBy: { employeeTypeDesc: 'asc' },
+        });
+        return {
+          data: options(
+            rows.map((row) => ({ id: row.employeeTypeLookupId, name: row.employeeTypeDesc })),
+          ),
         };
       },
     }),

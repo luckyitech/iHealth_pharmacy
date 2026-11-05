@@ -44,6 +44,11 @@ const envSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.coerce.number().int().positive().optional(),
   ),
+  // First letters of every generated document code (legacy "DP": DPEM0411260001).
+  DOCUMENT_CODE_PREFIX: z
+    .string()
+    .regex(/^[A-Z]{1,4}$/, 'must be 1 to 4 capital letters')
+    .default('DP'),
   // Regional settings. The legacy database has no table for them, so they are deployment configuration.
   APP_LOCALE: z.string().min(2).default('en-KE'),
   APP_CURRENCY: z.string().length(3).default('KES'),
@@ -68,6 +73,7 @@ const envSchema = z.object({
  * @property {string} appUrl
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
+ * @property {string} documentCodePrefix
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
@@ -114,6 +120,7 @@ export function loadConfig(env) {
       from: values.MAIL_FROM,
     }),
     pharmacyId: values.PHARMACY_ID,
+    documentCodePrefix: values.DOCUMENT_CODE_PREFIX,
     region: Object.freeze({
       locale: values.APP_LOCALE,
       currency: values.APP_CURRENCY,

@@ -5,6 +5,7 @@ import {
   FileText,
   FlaskConical,
   Hospital,
+  IdCard,
   Layers,
   Package,
   Pill,
@@ -46,6 +47,7 @@ const sections = (group, entries) =>
 export const MASTER_SECTIONS = Object.freeze([
   ...sections('Organisation', [
     ['pharmacy-profile', 'Pharmacy profile', Building2],
+    ['employees', 'Employees', IdCard],
     ['terms', 'Terms and conditions', FileText],
   ]),
   ...sections('Products', [

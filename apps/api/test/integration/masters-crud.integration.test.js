@@ -8,6 +8,7 @@ import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createLookupRoutes } from '../../src/features/lookups/lookup-routes.js';
 import { createCustomerRoutes } from '../../src/features/masters/customers.js';
+import { createEmployeeRoutes } from '../../src/features/masters/employees.js';
 import { createHospitalRoutes } from '../../src/features/masters/hospitals.js';
 import { createItemLookupRoutes } from '../../src/features/masters/item-lookups.js';
 import { createItemRoutes } from '../../src/features/masters/items.js';
@@ -58,6 +59,7 @@ beforeAll(async () => {
           ...createItemRoutes({ prisma: db.prisma, audit, config }),
           ...createSupplierRoutes({ prisma: db.prisma, audit }),
           ...createCustomerRoutes({ prisma: db.prisma, audit, config }),
+          ...createEmployeeRoutes({ prisma: db.prisma, audit, config }),
         ],
       },
     }),
@@ -711,5 +713,108 @@ describe('customers', () => {
     const response = await admin.agent.get('/api/v1/masters/customers?q=Legacy');
     expect(response.status).toBe(200);
     expect(response.body.data[0]).toMatchObject({ firstName: 'Legacy', birthDate: null });
+  });
+});
+
+describe('employees', () => {
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let admin;
+  /** @type {Record<string, number>} */
+  const ids = {};
+
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    await db.prisma
+      .$executeRaw`INSERT INTO generateuniquecode (UNIQUE_CODE_NAME, UNIQUE_CODE_NUMBER) VALUES ('EM', 0)`;
+    await db.prisma
+      .$executeRaw`INSERT INTO employee_type_lookup (EMPLOYEE_TYPE_CD, EMPLOYEE_TYPE_DESC, CREATION_USER_ID, LAST_UPDATE_TS) VALUES ('PA', 'PHARMACIST', 'test', NOW())`;
+    const [type] =
+      await db.select`SELECT EMPLOYEE_TYPE_LOOKUP_ID AS id FROM employee_type_lookup WHERE EMPLOYEE_TYPE_CD = 'PA'`;
+    await db.prisma.$executeRaw`INSERT INTO country_lookup (COUNTRY_NM) VALUES ('Tanzania')`;
+    const [country] =
+      await db.select`SELECT COUNTRY_ID AS id FROM country_lookup WHERE COUNTRY_NM = 'Tanzania'`;
+    await db.prisma
+      .$executeRaw`INSERT INTO provinces_lookup (PROVINCES_NM, COUNTRY_ID) VALUES ('Arusha', ${country.id})`;
+    const [province] =
+      await db.select`SELECT PROVINCES_ID AS id FROM provinces_lookup WHERE COUNTRY_ID = ${country.id}`;
+    Object.assign(ids, { type: type.id, country: country.id, province: province.id });
+  });
+
+  const employee = () => ({
+    title: 'Ms',
+    firstName: 'Test',
+    lastName: 'Employee',
+    gender: 'F',
+    birthDate: '1995-06-30',
+    phone: '0700 000 303',
+    designation: 'Pharmacist',
+    employeeTypeId: ids.type,
+    employment: 'fullTime',
+    joiningDate: '2024-01-02',
+    worksShifts: true,
+    nssfNumber: 'NSSF-TEST-1',
+    zip: '00100',
+    countryId: ids.country,
+    provinceId: ids.province,
+  });
+
+  it('creates an employee with a generated code, the legacy columns and the dates', async () => {
+    const created = await admin.agent
+      .post('/api/v1/masters/employees')
+      .set('x-csrf-token', admin.csrf)
+      .send(employee());
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      code: expect.stringMatching(/^DPEM\d{6}0001$/),
+      employeeTypeName: 'PHARMACIST',
+      employment: 'fullTime',
+      worksShifts: true,
+      birthDate: '1995-06-30',
+      joiningDate: '2024-01-02',
+      phone: '0700000303',
+    });
+    const [row] =
+      await db.select`SELECT EMPLOYEE_TYPE_FULL_PART_TIME AS employment, ARE_YOU_WORK_ON_SHIFTS AS shifts, CAST(DATE_OF_JOINING AS CHAR) AS joined, PHARMACY_ID AS pharmacyId FROM employee WHERE EMPLOYEE_ID = ${created.body.data.id}`;
+    expect(row).toEqual({
+      employment: 'Full time',
+      shifts: 'Y',
+      joined: '2024-01-02',
+      pharmacyId: 1,
+    });
+  });
+
+  it('numbers the next employee of the day after the first, and refuses a duplicate NSSF number', async () => {
+    const duplicate = await admin.agent
+      .post('/api/v1/masters/employees')
+      .set('x-csrf-token', admin.csrf)
+      .send(employee());
+    expect(duplicate.status).toBe(409);
+    const second = await admin.agent
+      .post('/api/v1/masters/employees')
+      .set('x-csrf-token', admin.csrf)
+      .send({ ...employee(), nssfNumber: 'NSSF-TEST-2' });
+    expect(second.body.data.code).toMatch(/^DPEM\d{6}0002$/);
+  });
+
+  it('requires the essentials, including the dates', async () => {
+    const missing = await admin.agent
+      .post('/api/v1/masters/employees')
+      .set('x-csrf-token', admin.csrf)
+      .send({ firstName: 'Only', lastName: 'Names' });
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.details.map((/** @type {any} */ detail) => detail.path)).toEqual(
+      expect.arrayContaining([
+        'body.title',
+        'body.birthDate',
+        'body.joiningDate',
+        'body.nssfNumber',
+      ]),
+    );
+  });
+
+  it('lists the seeded employees whose dates are empty', async () => {
+    const response = await admin.agent.get('/api/v1/masters/employees?status=all&pageSize=100');
+    expect(response.status).toBe(200);
+    expect(response.body.meta.total).toBeGreaterThanOrEqual(3);
   });
 });

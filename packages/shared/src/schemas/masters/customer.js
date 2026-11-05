@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
 import {
-  dateOnlySchema,
+  calendarDateSchema,
   optionalEmail,
   optionalText,
   requiredIdSchema,
+  requiredPhone,
   requiredText,
 } from '../common.js';
 import { ADDRESS_LENGTH, storedId, storedText } from './address.js';
@@ -24,19 +25,7 @@ const LENGTH = Object.freeze({
 /** Who a customer is: a person, or a company buying on account (legacy `CORPORATE` = 'Y'). */
 export const CUSTOMER_KINDS = Object.freeze({ INDIVIDUAL: 'individual', CORPORATE: 'corporate' });
 
-/** Digits, spaces, dashes and an optional leading +, as phone numbers are typed at the till. */
-const PHONE_PATTERN = /^\+?[\d\s-]{6,20}$/;
-
-/** Oldest date of birth accepted. */
-export const EARLIEST_BIRTH_DATE = '1900-01-01';
-
-const optionalBirthDate = z.preprocess(
-  (value) => (value === '' || value === undefined ? null : value),
-  dateOnlySchema
-    .refine((value) => value >= EARLIEST_BIRTH_DATE, 'Enter a real date of birth')
-    .refine((value) => new Date(value) <= new Date(), 'The date of birth cannot be in the future')
-    .nullable(),
-);
+const optionalBirthDate = calendarDateSchema({ label: 'date of birth', notInFuture: true });
 
 // Required here: what the legacy form required and nearly every stored customer has.
 // Date of birth and postal code were also required there but almost no record has them.
@@ -44,10 +33,7 @@ export const customerInputSchema = z.object({
   kind: z.enum([CUSTOMER_KINDS.INDIVIDUAL, CUSTOMER_KINDS.CORPORATE]),
   firstName: requiredText(LENGTH.name),
   lastName: optionalText(LENGTH.name),
-  // Saved without spaces or dashes, like the stored numbers, so a search by number finds it.
-  phone: requiredText(LENGTH.phone)
-    .regex(PHONE_PATTERN, 'Enter a phone number, e.g. 0712 345 678')
-    .transform((value) => value.replace(/[\s-]/g, '')),
+  phone: requiredPhone(LENGTH.phone),
   gender: optionalGenderSchema,
   birthDate: optionalBirthDate,
   email: optionalEmail(LENGTH.email),
