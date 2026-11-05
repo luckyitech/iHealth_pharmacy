@@ -4,6 +4,8 @@ import { NotFoundPage, RouteErrorFallback } from '@/components/feedback/error-fa
 import { AppShell } from '@/components/layout/app-shell';
 import { RequireAuth, RequirePermission } from '@/features/auth/route-guards';
 
+import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
+
 import { NAV_ITEMS } from './navigation.js';
 
 /**
@@ -13,19 +15,21 @@ import { NAV_ITEMS } from './navigation.js';
  * @returns {ReturnType<typeof createBrowserRouter>}
  */
 export function createAppRouter() {
-  const moduleRoutes = NAV_ITEMS.filter((item) => item.path !== '/').map((item) => ({
-    path: item.path.slice(1),
-    element: <RequirePermission permissions={item.permissions} />,
-    children: [
-      {
-        index: true,
-        lazy: async () => {
-          const { default: ModulePage } = await import('@/features/modules/module-page');
-          return { Component: () => <ModulePage item={item} /> };
+  const moduleRoutes = NAV_ITEMS.filter((item) => item.path !== '/' && item.id !== 'masters').map(
+    (item) => ({
+      path: item.path.slice(1),
+      element: <RequirePermission permissions={item.permissions} />,
+      children: [
+        {
+          index: true,
+          lazy: async () => {
+            const { default: ModulePage } = await import('@/features/modules/module-page');
+            return { Component: () => <ModulePage item={item} /> };
+          },
         },
-      },
-    ],
-  }));
+      ],
+    }),
+  );
 
   return createBrowserRouter([
     {
@@ -64,6 +68,33 @@ export function createAppRouter() {
                   }),
                 },
                 ...moduleRoutes,
+                {
+                  path: 'masters',
+                  element: <RequirePermission permissions={MASTERS_AREA_PERMISSIONS} />,
+                  children: [
+                    {
+                      lazy: async () => ({
+                        Component: (await import('@/features/masters/masters-layout')).default,
+                      }),
+                      children: [
+                        {
+                          index: true,
+                          lazy: async () => ({
+                            Component: (await import('@/features/masters/masters-index')).default,
+                          }),
+                        },
+                        {
+                          path: 'manufacturers',
+                          lazy: async () => ({
+                            Component: (
+                              await import('@/features/masters/manufacturers/manufacturers-page')
+                            ).default,
+                          }),
+                        },
+                      ],
+                    },
+                  ],
+                },
                 { path: '*', element: <NotFoundPage /> },
               ],
             },

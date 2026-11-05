@@ -61,3 +61,4 @@ export function hasAnyPermission(grantedIds, permissions) {
 export function hasAllPermissions(grantedIds, permissions) {
   return permissions.every((permission) => grantedIds.has(permission.id));
 }
+export * from './policies.js';

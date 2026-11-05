@@ -1,3 +1,4 @@
+import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
 import { PERMISSION_LIST } from '@ihealth/shared/permissions';
 import {
   BarChart3,
@@ -88,7 +89,7 @@ export const NAV_ITEMS = Object.freeze([
     path: '/masters',
     icon: UsersRound,
     description: 'Employees, suppliers, items and settings',
-    permissions: permissionsOf((group) => group === 'Master'),
+    permissions: MASTERS_AREA_PERMISSIONS,
   },
 ]);
 

@@ -725,4 +725,11 @@ export const PERMISSIONS = Object.freeze({
     name: 'Credit Settlement Reversal',
     active: true,
   }),
+  // Added by the new system (packages/db/sql/additive/0003-masters-view-permission.sql).
+  MASTER_MASTERS_VIEW: Object.freeze({
+    id: 900001,
+    group: 'Master',
+    name: 'Masters View',
+    active: true,
+  }),
 });

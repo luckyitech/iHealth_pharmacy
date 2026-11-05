@@ -71,8 +71,7 @@ export function createAuthGuards({ accessTokens, repository, csrf, audit }) {
    */
   const requirePermissions = (required) => async (req, res, next) => {
     const auth = getAuth(res);
-    const missing = required.filter((permission) => !auth.permissionIds.has(permission.id));
-    if (missing.length === 0) {
+    if (required.some((permission) => auth.permissionIds.has(permission.id))) {
       next();
       return;
     }
@@ -81,7 +80,7 @@ export function createAuthGuards({ accessTokens, repository, csrf, audit }) {
       outcome: AUDIT_OUTCOMES.DENIED,
       resourceType: 'route',
       resourceId: `${req.method} ${req.baseUrl}${req.route?.path ?? req.path}`,
-      details: { missing: missing.map((permission) => permission.id) },
+      details: { anyOf: required.map((permission) => permission.id) },
       ipAddress: req.ip,
     });
     throw new AppError(ERROR_CODES.FORBIDDEN);

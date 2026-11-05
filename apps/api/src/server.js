@@ -6,7 +6,10 @@ import { createMailer } from './infra/mailer.js';
 import { createRedis } from './infra/redis.js';
 import { createLogger } from './lib/logger.js';
 import { createAppInfoRoutes } from './features/app-info/app-info.routes.js';
+import { createAuditLog } from './features/audit/audit-log.js';
 import { createAuthModule } from './features/auth/auth.module.js';
+import { createLookupRoutes } from './features/lookups/lookup-routes.js';
+import { createManufacturerRoutes } from './features/masters/manufacturers.js';
 import { collectRoutes } from './routes.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -23,7 +26,9 @@ try {
   logger.warn({ err: error }, 'Redis is not reachable at startup');
 }
 
+const audit = createAuditLog(prisma, logger);
 const auth = createAuthModule({
+  audit,
   config,
   prisma,
   counters: redis,
@@ -36,7 +41,12 @@ const app = createApp({
   logger,
   prisma,
   redis,
-  routes: collectRoutes({ auth, appInfo: { routes: createAppInfoRoutes({ prisma, config }) } }),
+  routes: collectRoutes({
+    auth,
+    appInfo: { routes: createAppInfoRoutes({ prisma, config }) },
+    lookups: { routes: createLookupRoutes({ prisma }) },
+    masters: { routes: [...createManufacturerRoutes({ prisma, audit })] },
+  }),
   guards: auth.guards,
   apiRateLimit: auth.apiRateLimit,
 });
