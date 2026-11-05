@@ -59,8 +59,13 @@ function ItemFields({ form, item }) {
   return (
     <>
       <Section title="Product">
-        <TextField form={form} name="name" label="Name" required />
-        <FormField label="Description" error={form.formState.errors.description?.message}>
+        <TextField form={form} name="name" label="Name" />
+        <FormField
+          form={form}
+          name="description"
+          label="Description"
+          error={form.formState.errors.description?.message}
+        >
           {(control) => <Textarea {...control} rows={2} {...form.register('description')} />}
         </FormField>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -71,13 +76,7 @@ function ItemFields({ form, item }) {
             hint={item ? undefined : 'Leave empty to generate one.'}
           />
           <TextField form={form} name="barcode" label="Barcode" inputMode="numeric" />
-          <SelectField
-            form={form}
-            name="productKind"
-            label="Kind"
-            options={KIND_OPTIONS}
-            required
-          />
+          <SelectField form={form} name="productKind" label="Kind" options={KIND_OPTIONS} />
         </div>
       </Section>
 
@@ -88,7 +87,6 @@ function ItemFields({ form, item }) {
             name="groupId"
             selectedLabel={item?.groupName}
             label="Group"
-            required
             emptyLabel="Choose a group"
             loading={groups.isPending}
             options={groups.options}
@@ -114,7 +112,6 @@ function ItemFields({ form, item }) {
             form={form}
             name="formId"
             label="Dosage form"
-            required
             resource="masters/item-forms"
             selectedLabel={item?.formName}
             placeholder="Search dosage forms…"
@@ -123,7 +120,6 @@ function ItemFields({ form, item }) {
             form={form}
             name="manufacturerId"
             label="Manufacturer"
-            required
             resource="masters/manufacturers"
             selectedLabel={item?.manufacturerName}
             placeholder="Search manufacturers…"
@@ -147,7 +143,6 @@ function ItemFields({ form, item }) {
             name="purchaseUnitId"
             selectedLabel={item?.purchaseUnitName}
             label="Purchase unit"
-            required
             emptyLabel="Choose a unit"
             loading={units.isPending}
             options={units.options}
@@ -157,7 +152,6 @@ function ItemFields({ form, item }) {
             name="issueUnitId"
             selectedLabel={item?.issueUnitName}
             label="Issue unit"
-            required
             emptyLabel="Choose a unit"
             loading={units.isPending}
             options={units.options}
@@ -174,7 +168,6 @@ function ItemFields({ form, item }) {
             name="taxCategoryId"
             selectedLabel={item?.taxCategoryName}
             label="Tax category"
-            required
             emptyLabel="Choose a tax category"
             loading={taxes.isPending}
             options={lookupOptions(taxes)}
@@ -206,7 +199,12 @@ function ItemFields({ form, item }) {
             options={lookupOptions(latinCodes)}
           />
         </div>
-        <FormField label="Usage" error={form.formState.errors.usage?.message}>
+        <FormField
+          form={form}
+          name="usage"
+          label="Usage"
+          error={form.formState.errors.usage?.message}
+        >
           {(control) => <Textarea {...control} rows={2} {...form.register('usage')} />}
         </FormField>
       </Section>

@@ -10,6 +10,7 @@ import { useResourceList } from '@/lib/resource-api';
 import { cn } from '@/lib/utils';
 
 import { FormField } from './form-field.jsx';
+import { isRequiredField } from './use-zod-form.js';
 
 /** Matches shown at once; typing narrows them down. */
 const RESULT_LIMIT = 20;
@@ -27,7 +28,6 @@ const ACTIVE_ONLY = Object.freeze({ status: 'active' });
  * @param {string | null} [props.selectedLabel] Name of the record already chosen (from the edited item).
  * @param {(row: any) => string} [props.optionLabel] Defaults to the name, or the code for legacy rows without one.
  * @param {string} [props.placeholder]
- * @param {boolean} [props.required]
  * @param {React.ReactNode} [props.hint]
  * @returns {React.JSX.Element}
  */
@@ -39,7 +39,6 @@ export function ComboboxField({
   selectedLabel = null,
   optionLabel = (row) => row.name || row.code,
   placeholder = 'Search…',
-  required,
   hint,
 }) {
   const { field, fieldState } = useController({ name, control: form.control });
@@ -91,7 +90,7 @@ export function ComboboxField({
   const optionId = (/** @type {number} */ index) => `${listboxId}-${index}`;
 
   return (
-    <FormField label={label} required={required} error={fieldState.error?.message} hint={hint}>
+    <FormField form={form} name={name} label={label} error={fieldState.error?.message} hint={hint}>
       {(control) => (
         <Popover.Root
           open={open}
@@ -123,7 +122,7 @@ export function ComboboxField({
                 <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 opacity-50" />
               </button>
             </Popover.Trigger>
-            {hasValue && !required && (
+            {hasValue && !isRequiredField(form, name) && (
               <button
                 type="button"
                 aria-label={`Clear ${label.toLowerCase()}`}

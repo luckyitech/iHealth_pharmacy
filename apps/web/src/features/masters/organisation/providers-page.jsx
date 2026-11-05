@@ -25,9 +25,9 @@ function ProviderFields({ form, item }) {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-3">
-        <TextField form={form} name="firstName" label="First name" required />
+        <TextField form={form} name="firstName" label="First name" />
         <TextField form={form} name="middleName" label="Middle name" />
-        <TextField form={form} name="lastName" label="Last name" required />
+        <TextField form={form} name="lastName" label="Last name" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField

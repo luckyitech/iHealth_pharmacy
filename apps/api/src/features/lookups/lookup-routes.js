@@ -33,7 +33,7 @@ function codeAndDescription(code, description) {
 
 /**
  * Read-only reference lists used by forms (countries, provinces, provider types, tax categories,
- * schedule and Latin codes), from the legacy lookup tables.
+ * schedule and Latin codes, payment and return-credit types), from the legacy lookup tables.
  *
  * @param {{ prisma: import('#db').PrismaClient }} deps
  * @returns The lookup routes.
@@ -170,6 +170,38 @@ export function createLookupRoutes({ prisma }) {
                 name: codeAndDescription(row.latinShortCode, row.latinShortCodeDesc),
               })),
           ),
+        };
+      },
+    }),
+    defineRoute({
+      method: 'get',
+      path: '/lookups/payment-types',
+      summary: 'Ways of paying (cash, cheque, M-Pesa, ...)',
+      tags: ['Lookups'],
+      permissions: LOOKUP_PERMISSIONS,
+      responses: { 200: { description: 'Payment types', schema: optionsResponse } },
+      handler: async () => {
+        const rows = await prisma.paymentTypes.findMany({
+          select: { paymentTypeId: true, type: true },
+          orderBy: { type: 'asc' },
+        });
+        return { data: options(rows.map((row) => ({ id: row.paymentTypeId, name: row.type }))) };
+      },
+    }),
+    defineRoute({
+      method: 'get',
+      path: '/lookups/return-credit-types',
+      summary: 'How a supplier credits returned goods (cash, goods, credit note, both)',
+      tags: ['Lookups'],
+      permissions: LOOKUP_PERMISSIONS,
+      responses: { 200: { description: 'Return credit types', schema: optionsResponse } },
+      handler: async () => {
+        const rows = await prisma.returnCreditType.findMany({
+          select: { returnCreditTypeId: true, type: true },
+          orderBy: { returnCreditTypeId: 'asc' },
+        });
+        return {
+          data: options(rows.map((row) => ({ id: row.returnCreditTypeId, name: row.type }))),
         };
       },
     }),

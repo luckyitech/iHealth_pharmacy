@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckboxField } from '@/components/ui/checkbox-field';
 import { FormError } from '@/components/ui/form-error';
+import { RequiredLegend } from '@/components/ui/label';
 import { usePermissions } from '@/features/auth/use-permissions';
 import { api } from '@/lib/api-client';
 import { errorMessage } from '@/lib/api-error';
@@ -84,6 +85,7 @@ export default function PharmacyProfilePage() {
 
       <form noValidate onSubmit={form.handleSubmit((values) => save.mutate(values))}>
         <fieldset disabled={!canWrite || save.isPending} className="grid gap-6">
+          {canWrite && <RequiredLegend />}
           {save.isError && !applyServerErrors(save.error, () => {}) && (
             <FormError>{errorMessage(save.error)}</FormError>
           )}
@@ -92,11 +94,11 @@ export default function PharmacyProfilePage() {
               <CardTitle>Business details</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <TextField form={form} name="name" label="Pharmacy name" required />
+              <TextField form={form} name="name" label="Pharmacy name" />
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField form={form} name="taxId" label="Tax PIN" required />
-                <TextField form={form} name="phone" label="Phone" type="tel" required />
-                <TextField form={form} name="email" label="Email" type="email" required />
+                <TextField form={form} name="taxId" label="Tax PIN" />
+                <TextField form={form} name="phone" label="Phone" type="tel" />
+                <TextField form={form} name="email" label="Email" type="email" />
                 <TextField form={form} name="fax" label="Fax" type="tel" />
               </div>
               <TextField form={form} name="website" label="Website" type="url" />
@@ -122,7 +124,7 @@ export default function PharmacyProfilePage() {
               <CardDescription>The contact for regulatory and supplier matters.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-3">
-              <TextField form={form} name="contactFirstName" label="First name" required />
+              <TextField form={form} name="contactFirstName" label="First name" />
               <TextField form={form} name="contactMiddleName" label="Middle name" />
               <TextField form={form} name="contactLastName" label="Last name" />
               <TextField form={form} name="contactPhone" label="Phone" type="tel" />

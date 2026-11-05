@@ -4,6 +4,8 @@ import { loginBodySchema } from '@ihealth/shared/schemas';
 import { CircleCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+
+import { requiredFieldsOf } from '@/components/form/use-zod-form';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,6 +21,7 @@ import { useCurrentUser, useLogin } from './use-auth.js';
 
 const SIGN_IN_ERROR_ID = 'sign-in-error';
 
+const REQUIRED = requiredFieldsOf(loginBodySchema);
 /**
  * @param {string | undefined} fieldErrorId
  * @param {boolean} rejected
@@ -74,9 +77,12 @@ export default function LoginPage() {
         {login.isError && <FormError id={SIGN_IN_ERROR_ID}>{errorMessage(login.error)}</FormError>}
 
         <div className="grid gap-2">
-          <Label htmlFor="identifier">Email or username</Label>
+          <Label htmlFor="identifier" required={REQUIRED.has('identifier')}>
+            Email or username
+          </Label>
           <Input
             id="identifier"
+            aria-required={REQUIRED.has('identifier') || undefined}
             autoComplete="username"
             autoCapitalize="none"
             spellCheck={false}
@@ -95,10 +101,13 @@ export default function LoginPage() {
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" required={REQUIRED.has('password')}>
+            Password
+          </Label>
           <div className="relative">
             <Input
               id="password"
+              aria-required={REQUIRED.has('password') || undefined}
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               className="pr-11"

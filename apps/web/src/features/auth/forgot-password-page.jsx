@@ -3,6 +3,8 @@ import { forgotPasswordBodySchema } from '@ihealth/shared/schemas';
 import { useMutation } from '@tanstack/react-query';
 import { CircleCheck, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+
+import { requiredFieldsOf } from '@/components/form/use-zod-form';
 import { Link } from 'react-router';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,6 +17,7 @@ import { errorMessage } from '@/lib/api-error';
 import { requestPasswordReset } from './auth-api.js';
 import { AUTH_LINK_CLASS, AuthLayout } from './auth-layout.jsx';
 
+const REQUIRED = requiredFieldsOf(forgotPasswordBodySchema);
 /**
  * Asks for a reset link. The answer is the same whether or not the account exists.
  *
@@ -59,9 +62,12 @@ export default function ForgotPasswordPage() {
           {request.isError && <FormError>{errorMessage(request.error)}</FormError>}
 
           <div className="grid gap-2">
-            <Label htmlFor="identifier">Email or username</Label>
+            <Label htmlFor="identifier" required={REQUIRED.has('identifier')}>
+              Email or username
+            </Label>
             <Input
               id="identifier"
+              aria-required={REQUIRED.has('identifier') || undefined}
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}

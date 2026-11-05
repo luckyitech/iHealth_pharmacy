@@ -27,6 +27,8 @@ export const useProviderTypes = () => useLookup('provider-types');
 export const useTaxCategories = () => useLookup('tax-categories');
 export const useScheduleCodes = () => useLookup('schedule-codes');
 export const useLatinCodes = () => useLookup('latin-codes');
+export const usePaymentTypes = () => useLookup('payment-types');
+export const useReturnCreditTypes = () => useLookup('return-credit-types');
 
 /**
  * @param {number | null | undefined} countryId

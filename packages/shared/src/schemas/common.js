@@ -69,6 +69,20 @@ export const optionalIdSchema = z.preprocess(
   z.coerce.number().int().positive().nullable(),
 );
 
+/**
+ * Required reference to another record (a select): empty or missing gives `message`.
+ *
+ * @param {string} message e.g. "Choose a group"
+ * @returns The Zod schema.
+ */
+export const requiredIdSchema = (message) =>
+  z
+    .preprocess(
+      (value) => (value === '' || value === null ? undefined : value),
+      idSchema.optional(),
+    )
+    .pipe(z.number({ error: message }));
+
 const KENYAN_PHONE = /^(?:\+254|254|0)([17]\d{8})$/;
 
 /**

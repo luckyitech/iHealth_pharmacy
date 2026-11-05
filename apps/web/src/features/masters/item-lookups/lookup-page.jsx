@@ -45,6 +45,8 @@ function ItemGroupField({ form }) {
   const groups = useActiveOptions('masters/item-groups');
   return (
     <FormField
+      form={form}
+      name="itemGroupId"
       label="Item group"
       error={/** @type {any} */ (form.formState.errors.itemGroupId)?.message}
     >
@@ -81,11 +83,16 @@ export function lookupPageConfig({ resource, title, singular, description, schem
     return (
       <>
         <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
-          <TextField form={form} name="code" label="Code" required />
-          <TextField form={form} name="name" label="Name" required />
+          <TextField form={form} name="code" label="Code" />
+          <TextField form={form} name="name" label="Name" />
         </div>
         {'productKind' in shape && (
-          <FormField label="Type" required error={errors.productKind?.message}>
+          <FormField
+            form={form}
+            name="productKind"
+            label="Type"
+            error={errors.productKind?.message}
+          >
             {(control) => (
               <NativeSelect {...control} {...form.register('productKind')}>
                 {Object.entries(PRODUCT_KIND_LABELS).map(([value, label]) => (
@@ -108,7 +115,12 @@ export function lookupPageConfig({ resource, title, singular, description, schem
           />
         )}
         {'description' in shape && (
-          <FormField label="Description" error={errors.description?.message}>
+          <FormField
+            form={form}
+            name="description"
+            label="Description"
+            error={errors.description?.message}
+          >
             {(control) => <Textarea {...control} rows={3} {...form.register('description')} />}
           </FormField>
         )}

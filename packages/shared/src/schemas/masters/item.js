@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { idSchema, optionalIdSchema, optionalText, requiredText } from '../common.js';
+import { optionalIdSchema, optionalText, requiredIdSchema, requiredText } from '../common.js';
 import { storedId, storedText } from './address.js';
 import { PRODUCT_KINDS } from './coded-lookup.js';
 
@@ -24,11 +24,6 @@ export const MAX_REORDER_QUANTITY = 1_000_000;
 export const ITEM_CODE_PREFIX = 'IC';
 export const ITEM_CODE_DIGITS = 7;
 
-const requiredId = (/** @type {string} */ message) =>
-  z
-    .preprocess((value) => (value === '' ? undefined : value), idSchema.optional())
-    .pipe(z.number({ error: message }));
-
 const optionalQuantity = z.preprocess(
   (value) => (value === '' || value === undefined ? null : value),
   z.coerce
@@ -46,16 +41,16 @@ export const itemInputSchema = z.object({
   // Optional: most legacy items have none, and a required field would block every edit of them.
   description: optionalText(LENGTH.description),
   productKind: z.enum([PRODUCT_KINDS.MEDICAL, PRODUCT_KINDS.NON_MEDICAL]),
-  groupId: requiredId('Choose a group'),
+  groupId: requiredIdSchema('Choose a group'),
   genericNameId: optionalIdSchema,
-  formId: requiredId('Choose a dosage form'),
+  formId: requiredIdSchema('Choose a dosage form'),
   categoryId: optionalIdSchema,
   specializationId: optionalIdSchema,
-  manufacturerId: requiredId('Choose a manufacturer'),
-  purchaseUnitId: requiredId('Choose a purchase unit'),
-  issueUnitId: requiredId('Choose an issue unit'),
+  manufacturerId: requiredIdSchema('Choose a manufacturer'),
+  purchaseUnitId: requiredIdSchema('Choose a purchase unit'),
+  issueUnitId: requiredIdSchema('Choose an issue unit'),
   pack: optionalText(LENGTH.pack),
-  taxCategoryId: requiredId('Choose a tax category'),
+  taxCategoryId: requiredIdSchema('Choose a tax category'),
   barcode: optionalText(LENGTH.barcode),
   strength: optionalText(LENGTH.dose),
   specification: optionalText(LENGTH.specification),
