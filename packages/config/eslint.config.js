@@ -54,6 +54,8 @@ export default [
       'jsdoc/require-returns-type': 'off',
       'jsdoc/require-property-description': 'off',
       'jsdoc/tag-lines': 'off',
+      // tsc (checkJs) resolves JSDoc types, including globals such as NodeJS.*, more accurately than ESLint.
+      'jsdoc/no-undefined-types': 'off',
     },
   },
   {
