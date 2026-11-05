@@ -92,7 +92,9 @@ test.describe('desktop', () => {
     const panel = page.locator('[data-expanded]');
     const main = page.locator('#main-content');
 
-    await panel.hover();
+    // The mouse starts at the top-left corner, already over the column: moving there must open it.
+    await page.mouse.move(8, 8);
+    await page.mouse.move(24, 300, { steps: 4 });
     await expect(panel).toHaveAttribute('data-expanded', 'true');
     await expect.poll(async () => (await panel.boundingBox())?.width).toBe(PANEL_WIDTH);
     // The page moves along, as when the panel is pinned.
