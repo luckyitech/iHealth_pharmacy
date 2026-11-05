@@ -43,6 +43,44 @@ jobs:
       - name: Build
         run: npm run build
 
+  db-schema:
+    name: Prisma schema matches legacy schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MYSQL_PWD: ci-only
+      TEST_DATABASE_URL: mysql://root:ci-only@127.0.0.1:3306/ihealthpharm_test?allowPublicKeyRetrieval=true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Not a service container: the legacy schema needs lower_case_table_names=1 (like the Windows
+      # production server), which can only be set on the server command line at initialisation.
+      - name: Start MySQL 9.7.1
+        run: |
+          docker run -d --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD="$MYSQL_PWD" -e MYSQL_DATABASE=ihealthpharm_test \
+            mysql:9.7.1 --lower-case-table-names=1 --log-bin-trust-function-creators=1
+          for attempt in $(seq 1 60); do
+            docker exec mysql mysql -uroot -p"$MYSQL_PWD" -e "SELECT 1" ihealthpharm_test >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          docker logs mysql
+          exit 1
+
+      - name: Load legacy schema
+        run: |
+          docker exec -i -e MYSQL_PWD mysql mysql -uroot ihealthpharm_test < packages/db/sql/schema/legacy-schema.sql
+
+      - name: Schema diff
+        run: npm run db:diff -w @ihealth/db
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
