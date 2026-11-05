@@ -50,6 +50,8 @@ export default [
       ],
       'jsdoc/require-param-description': 'off',
       'jsdoc/require-returns-description': 'off',
+      // TypeScript infers return types. An untyped `@returns` keeps inference for builders such as Zod schemas.
+      'jsdoc/require-returns-type': 'off',
       'jsdoc/require-property-description': 'off',
       'jsdoc/tag-lines': 'off',
     },

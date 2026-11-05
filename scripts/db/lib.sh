@@ -4,7 +4,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCHEMA_FILE="${REPO_ROOT}/packages/db/sql/schema/legacy-schema.sql"
-SEED_FILE="${REPO_ROOT}/packages/db/sql/seed/test-seed.sql"
+SEED_DIR="${REPO_ROOT}/packages/db/sql/seed"
 DUMP_DIR="${REPO_ROOT}/packages/db/dumps"
 
 # Legacy table whose rows are scratch data rebuilt by stored procedures (about 20 GB).
