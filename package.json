@@ -52,11 +52,15 @@
     "vitest": "5.1.0"
   },
   "overrides": {
-    "minimatch": "11.0.4"
+    "minimatch": "11.0.4",
+    "glob": "14.0.3"
   },
   "allowScripts": {
     "@prisma/engines@7.10.1": true,
     "prisma@7.10.1": true,
-    "msgpackr-extract": false
+    "msgpackr-extract": false,
+    "cpu-features": false,
+    "protobufjs": false,
+    "ssh2": false
   }
 }

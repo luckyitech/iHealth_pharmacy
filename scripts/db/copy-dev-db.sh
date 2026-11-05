@@ -52,5 +52,7 @@ else
   dump_stream | strip_definers | progress | dev_mysql "${DEV_DB_NAME}"
 fi
 
+apply_additive "${DEV_DB_NAME}"
+
 tables="$(dev_mysql -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DEV_DB_NAME}'")"
 log "Done in $((SECONDS - started))s: ${tables} tables and views in Docker database '${DEV_DB_NAME}'"

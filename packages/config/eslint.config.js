@@ -59,9 +59,17 @@ export default [
     },
   },
   {
-    files: ['**/*.config.{js,mjs,cjs}', '**/*.{test,spec}.{js,jsx}'],
+    files: [
+      '**/*.config.{js,mjs,cjs}',
+      '**/*.{test,spec}.{js,jsx}',
+      '**/test/**/*.js',
+      '**/e2e/**/*.js',
+    ],
     rules: {
       'jsdoc/require-jsdoc': 'off',
+      'jsdoc/require-returns': 'off',
+      // Test doubles stand in for typed collaborators; precise types add noise without catching bugs.
+      'jsdoc/reject-any-type': 'off',
     },
   },
   prettier,

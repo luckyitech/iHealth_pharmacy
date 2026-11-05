@@ -13,6 +13,7 @@ dev_mysql -e "DROP DATABASE IF EXISTS \`${DEV_DB_TEST_NAME}\`;
 
 log "Loading schema"
 dev_mysql "${DEV_DB_TEST_NAME}" <"${SCHEMA_FILE}"
+apply_additive "${DEV_DB_TEST_NAME}"
 for seed in "${SEED_DIR}"/*.sql; do
   log "Loading seed $(basename "${seed}")"
   dev_mysql "${DEV_DB_TEST_NAME}" <"${seed}"

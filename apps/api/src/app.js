@@ -1,4 +1,5 @@
 import { apiReference } from '@scalar/express-api-reference';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
@@ -23,6 +24,7 @@ const SERVER_ERROR_STATUS = 500;
  * @property {{ ping: () => Promise<unknown> }} redis
  * @property {readonly ReturnType<typeof import('./http/define-route.js').defineRoute>[]} [routes]
  * @property {import('./http/mount-routes.js').MountOptions['guards']} [guards]
+ * @property {import('express').RequestHandler} [apiRateLimit] Applied to every /api/v1 request.
  */
 
 /**
@@ -45,7 +47,7 @@ function corsOptions(allowList) {
  * @param {AppDependencies} deps
  * @returns {import('express').Express}
  */
-export function createApp({ config, logger, prisma, redis, routes = [], guards }) {
+export function createApp({ config, logger, prisma, redis, routes = [], guards, apiRateLimit }) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -82,6 +84,7 @@ export function createApp({ config, logger, prisma, redis, routes = [], guards }
   app.use(helmet());
   app.use(cors(corsOptions(config.corsOrigins)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  app.use(cookieParser());
 
   app.use('/health', createHealthRouter({ prisma, redis }));
 
@@ -89,6 +92,7 @@ export function createApp({ config, logger, prisma, redis, routes = [], guards }
   app.get(`${API_PREFIX}/openapi.json`, (_req, res) => {
     res.json(openApiDocument);
   });
+  if (apiRateLimit) app.use(API_PREFIX, apiRateLimit);
   app.use(API_PREFIX, mountRoutes(routes, { guards, validateResponses: !config.isProduction }));
 
   app.use(notFoundHandler());

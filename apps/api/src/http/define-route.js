@@ -35,6 +35,7 @@
  * @property {RouteAccess} [access] Defaults to `authenticated`: routes are private unless opened explicitly.
  * @property {import('@ihealth/shared/permissions').PermissionDefinition[]} [permissions] All are required.
  * @property {boolean} [csrf] Set to false only for endpoints that cannot carry a CSRF token (e.g. login).
+ * @property {import('express').RequestHandler[]} [before] Extra middleware run after the guards (e.g. rate limits).
  * @property {{ params?: import('zod').ZodType, query?: import('zod').ZodType, body?: import('zod').ZodType }} [request]
  * @property {Record<number, RouteResponse>} responses The first 2xx entry is the success status.
  * @property {(context: RouteContext) => Promise<unknown> | unknown} handler Returns the response body.
@@ -60,6 +61,7 @@ export function defineRoute(definition) {
     access: 'authenticated',
     csrf: true,
     permissions: [],
+    before: [],
     ...definition,
     successStatus,
   });

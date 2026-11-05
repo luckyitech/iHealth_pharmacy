@@ -17,6 +17,22 @@ loadEnv({ path: path.resolve(packageRoot, '../../.env'), quiet: true });
 
 const NO_DIFFERENCE = 0;
 const HAS_DIFFERENCE = 2;
+// Additive tables of the new system (packages/db/sql/additive) are not part of the legacy schema.
+const ADDITIVE_TABLE = /`ih_\w+`/;
+
+/**
+ * Drops the statements that only concern additive tables from the diff script.
+ *
+ * @param {string} script
+ * @returns {string}
+ */
+function withoutAdditiveTables(script) {
+  return script
+    .split(/\n(?=-- )/)
+    .filter((statement) => !ADDITIVE_TABLE.test(statement))
+    .join('\n')
+    .trim();
+}
 
 const url = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!url) {
@@ -39,8 +55,13 @@ const result = spawnSync(
   { cwd: packageRoot, env: { ...process.env, DATABASE_URL: url }, encoding: 'utf8' },
 );
 
-if (result.status === NO_DIFFERENCE) {
-  process.stdout.write('Prisma schema matches the reference database.\n');
+const remaining = result.status === HAS_DIFFERENCE ? withoutAdditiveTables(result.stdout) : '';
+
+if (result.status === NO_DIFFERENCE || (result.status === HAS_DIFFERENCE && remaining === '')) {
+  process.stdout.write(
+    'Prisma schema matches the reference database (additive ih_* tables excluded).\n',
+  );
+  process.exit(NO_DIFFERENCE);
 } else if (result.status === HAS_DIFFERENCE) {
   process.stderr.write(
     'Prisma schema and reference database differ. SQL that would reconcile them (NOT applied):\n\n',
