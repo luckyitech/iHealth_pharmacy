@@ -46,13 +46,16 @@ export function useCashiers() {
  * client, so the session cookie and the usual error handling apply.
  *
  * @param {number} id
+ * @param {{ original?: boolean }} [options] `original` right after the sale; the server gives it once.
  * @returns {Promise<void>}
  */
-export async function openReceipt(id) {
+export async function openReceipt(id, { original = false } = {}) {
   // Opened before the request, so the browser does not treat it as an unrequested pop-up.
   const tab = window.open('', '_blank');
   try {
-    const blob = await api.get(`${BILLS}/${id}/receipt`).blob();
+    const blob = await api
+      .get(`${BILLS}/${id}/receipt`, original ? { searchParams: { original: 'true' } } : {})
+      .blob();
     const url = URL.createObjectURL(blob);
     if (tab) tab.location.href = url;
     else window.location.assign(url);

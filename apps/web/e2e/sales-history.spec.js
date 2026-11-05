@@ -110,8 +110,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('lists bills, opens one, and reprints its receipt', async ({ page }) => {
-  await page.goto('/sales');
-  await expect(page).toHaveURL(/\/sales\/history$/);
+  await page.goto('/sales/history');
   await page.getByText('TSB0102260001').click();
 
   const dialog = page.getByRole('dialog', { name: 'Bill TSB0102260001' });

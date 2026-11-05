@@ -1,16 +1,24 @@
 import { POLICIES } from '@ihealth/shared/permissions';
-import { History } from 'lucide-react';
+import { History, ScanBarcode } from 'lucide-react';
 
 /**
  * @typedef {import('@/app/navigation').NavSubItem} NavSubItem
  */
 
 /**
- * Sales screens, in menu order. Billing and returns join as they are built.
+ * Sales screens, in menu order. Returns join when they are built.
  *
  * @type {readonly NavSubItem[]}
  */
 export const SALES_SECTIONS = Object.freeze([
+  {
+    id: 'sales-new',
+    label: 'New sale',
+    path: '/sales/new',
+    group: 'Sales',
+    icon: ScanBarcode,
+    permissions: POLICIES.sales.sell,
+  },
   {
     id: 'sales-history',
     label: 'Sales history',

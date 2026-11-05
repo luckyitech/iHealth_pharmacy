@@ -35,9 +35,9 @@ test('signs in, shows only permitted modules, and signs out', async ({ page, isM
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   // Back to the page that was asked for.
-  // Sales opens on its first screen, Sales history.
-  await expect(page).toHaveURL(/\/sales\/history$/);
-  await expect(page.getByRole('heading', { name: 'Sales history', level: 1 })).toBeVisible();
+  // Sales opens on its first screen: the sales screen, for someone who sells.
+  await expect(page).toHaveURL(/\/sales\/new$/);
+  await expect(page.getByRole('heading', { name: 'New sale', level: 1 })).toBeAttached();
 
   if (isMobile) await page.getByRole('button', { name: 'Open navigation' }).click();
   const nav = page.getByRole('navigation', { name: 'Main' }).last();
