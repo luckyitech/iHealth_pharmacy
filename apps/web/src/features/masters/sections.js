@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Hospital,
   IdCard,
+  Link2,
   Layers,
   Package,
   Pill,
@@ -61,6 +62,7 @@ export const MASTER_SECTIONS = Object.freeze([
   ]),
   ...sections('Suppliers and makers', [
     ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
+    ['item-suppliers', 'Item suppliers', Link2],
     ['manufacturers', 'Manufacturers', Factory],
   ]),
   ...sections('Customers', [['customers', 'Customers', Users]]),

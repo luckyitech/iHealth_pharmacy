@@ -7,3 +7,4 @@ export * from './supplier.js';
 export * from './customer.js';
 export * from './employee.js';
 export * from './employee-access.js';
+export * from './item-supplier.js';

@@ -30,13 +30,15 @@ export function isFieldError(error) {
  *
  * @param {import('./master-resource-page.jsx').MasterResourceConfig} config
  * @param {any | null} item The record, or null for a new one.
- * @param {{ onSaved: () => void }} options
+ * @param {{ onSaved: () => void, defaults?: Record<string, unknown> }} options Defaults apply to a new record only.
  * @returns The form, the save mutation, whether the record is new, `saveValues` and any error that is not about a field.
  */
-export function useRecordForm(config, item, { onSaved }) {
+export function useRecordForm(config, item, { onSaved, defaults }) {
   const isNew = item === null;
   const save = useSaveResource(config.resource);
-  const form = useZodForm(config.schema, { defaultValues: config.toFormValues(item) });
+  const form = useZodForm(config.schema, {
+    defaultValues: { ...config.toFormValues(item), ...(isNew ? defaults : undefined) },
+  });
 
   /**
    * Saves validated values. A field error from the API goes on its field (the promise resolves

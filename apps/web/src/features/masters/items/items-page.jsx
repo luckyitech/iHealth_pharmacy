@@ -11,6 +11,7 @@ import { useLatinCodes, useScheduleCodes, useTaxCategories } from '@/lib/lookups
 import { useResourceOptions } from '@/lib/resource-api';
 
 import { formValuesFor, nameCell } from '../master-columns.jsx';
+import { ITEM_SUPPLIERS_TAB } from '../item-suppliers/link-tabs.js';
 import { MasterResourcePage } from '../master-resource-page.jsx';
 
 const KIND_OPTIONS = Object.freeze([
@@ -245,6 +246,7 @@ const CONFIG = {
   recordCode: (item) => item.code,
   writePermissions: POLICIES.masters.write,
   recordName: (item) => item.name || 'Unnamed item',
+  tabs: [ITEM_SUPPLIERS_TAB],
 };
 
 /**

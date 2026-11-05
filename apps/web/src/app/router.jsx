@@ -167,6 +167,14 @@ export function createAppRouter() {
                           }),
                         },
                         {
+                          path: 'item-suppliers',
+                          lazy: async () => ({
+                            Component: (
+                              await import('@/features/masters/item-suppliers/item-suppliers-page')
+                            ).default,
+                          }),
+                        },
+                        {
                           path: 'manufacturers',
                           lazy: async () => ({
                             Component: (

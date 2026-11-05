@@ -11,6 +11,7 @@ import { createCustomerRoutes } from '../../src/features/masters/customers.js';
 import { createEmployeeRoutes } from '../../src/features/masters/employees.js';
 import { createHospitalRoutes } from '../../src/features/masters/hospitals.js';
 import { createItemLookupRoutes } from '../../src/features/masters/item-lookups.js';
+import { createItemSupplierRoutes } from '../../src/features/masters/item-suppliers.js';
 import { createItemRoutes } from '../../src/features/masters/items.js';
 import { createManufacturerRoutes } from '../../src/features/masters/manufacturers.js';
 import { createPharmacyProfileRoutes } from '../../src/features/masters/pharmacy-profile.js';
@@ -58,6 +59,7 @@ beforeAll(async () => {
           ...createPharmacyProfileRoutes({ prisma: db.prisma, audit, config }),
           ...createItemRoutes({ prisma: db.prisma, audit, config }),
           ...createSupplierRoutes({ prisma: db.prisma, audit }),
+          ...createItemSupplierRoutes({ prisma: db.prisma, audit }),
           ...createCustomerRoutes({ prisma: db.prisma, audit, config }),
           ...createEmployeeRoutes({ prisma: db.prisma, audit, config }),
         ],
@@ -816,5 +818,136 @@ describe('employees', () => {
     const response = await admin.agent.get('/api/v1/masters/employees?status=all&pageSize=100');
     expect(response.status).toBe(200);
     expect(response.body.meta.total).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('item suppliers', () => {
+  const RESOURCE_PATH = '/api/v1/masters/item-suppliers';
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let admin;
+  /** @type {Record<string, number>} */
+  const ids = {};
+
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    await db.prisma
+      .$executeRaw`INSERT INTO items (ITEM_NM, ITEM_CD, ACTIVE_S) VALUES ('Linkcillin 250mg', 'LNK250', 'Y'), ('Linkamol 1g', 'LNK1000', 'Y')`;
+    await db.prisma
+      .$executeRaw`INSERT INTO supplier (SP_NAME, ACTIVE_S) VALUES ('Link Distributors', 'Y'), ('Second Link Ltd', 'Y')`;
+    const [first, second] =
+      await db.select`SELECT ITEM_ID AS id FROM items WHERE ITEM_CD LIKE 'LNK%' ORDER BY ITEM_CD DESC`;
+    const [supplierA, supplierB] =
+      await db.select`SELECT SUPPLIER_ID AS id FROM supplier WHERE SP_NAME LIKE '%Link%' ORDER BY SP_NAME`;
+    Object.assign(ids, {
+      item: first.id,
+      otherItem: second.id,
+      supplier: supplierA.id,
+      otherSupplier: supplierB.id,
+    });
+  });
+
+  const link = () => ({
+    itemId: ids.item,
+    supplierId: ids.supplier,
+    priority: 1,
+    unitRate: '1250.50',
+    discountPercent: '2.5',
+    validUntil: '2026-12-31',
+  });
+
+  /** @param {Record<string, unknown>} body */
+  const post = (body) => admin.agent.post(RESOURCE_PATH).set('x-csrf-token', admin.csrf).send(body);
+
+  it('links a supplier to an item, with the names, the validity date and the legacy columns', async () => {
+    const response = await post(link());
+    expect(response.status).toBe(201);
+    expect(response.body.data).toMatchObject({
+      itemName: 'Linkcillin 250mg',
+      itemCode: 'LNK250',
+      supplierName: 'Link Distributors',
+      priority: 1,
+      unitRate: 1250.5,
+      discountPercent: 2.5,
+      validUntil: '2026-12-31',
+      active: true,
+      duplicate: false,
+      itemMissing: false,
+      supplierMissing: false,
+    });
+    const [row] =
+      await db.select`SELECT CAST(VALIDITY AS CHAR) AS validity, CREATION_USER_ID AS createdBy, CREATION_TS IS NOT NULL AS stamped FROM items_supplier WHERE ITEM_SUPPLIER_ID = ${response.body.data.id}`;
+    expect(row).toMatchObject({ validity: '2026-12-31', createdBy: '1' });
+    expect(Number(row.stamped)).toBe(1);
+  });
+
+  it('refuses the same pair twice, a missing item, and a discount above 100%', async () => {
+    const twice = await post(link());
+    expect(twice.status).toBe(409);
+    expect(twice.body.error.details).toEqual([
+      { path: 'body.supplierId', message: 'This supplier is already linked to this item' },
+    ]);
+
+    const missing = await post({ ...link(), itemId: 999_999 });
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.details).toEqual([
+      { path: 'body.itemId', message: 'This item no longer exists' },
+    ]);
+
+    const discount = await post({ ...link(), supplierId: ids.otherSupplier, discountPercent: 101 });
+    expect(discount.status).toBe(400);
+  });
+
+  it('checks the pair again when an edit moves a link onto one that exists', async () => {
+    const other = await post({ ...link(), supplierId: ids.otherSupplier, priority: 2 });
+    expect(other.status).toBe(201);
+    const clash = await admin.agent
+      .patch(`${RESOURCE_PATH}/${other.body.data.id}`)
+      .set('x-csrf-token', admin.csrf)
+      .send({ supplierId: ids.supplier });
+    expect(clash.status).toBe(409);
+    const rate = await admin.agent
+      .patch(`${RESOURCE_PATH}/${other.body.data.id}`)
+      .set('x-csrf-token', admin.csrf)
+      .send({ unitRate: 990 });
+    expect(rate.body.data).toMatchObject({ unitRate: 990, priority: 2 });
+  });
+
+  it('flags old duplicates and links to deleted items, keeps them editable, and filters by them', async () => {
+    // Old data: the pair stored twice, and a link to an item that is gone.
+    await db.prisma
+      .$executeRaw`INSERT INTO items_supplier (ITEM_ID, SUPPLIER_ID, SUPPLIER_PRIORITY, UNIT_RATE, DISCOUNT_PERCENTAGE, VALIDITY, ACTIVE_S) VALUES (${ids.otherItem}, ${ids.supplier}, 1, 10, 0, '2020-01-01', 'Y'), (${ids.otherItem}, ${ids.supplier}, NULL, 12, 0, '2020-01-01', NULL), (888888, ${ids.supplier}, 1, 5, 0, '2020-01-01', 'Y')`;
+
+    const duplicates = await admin.agent.get(`${RESOURCE_PATH}?issue=duplicate`);
+    expect(duplicates.body.data).toHaveLength(2);
+    expect(duplicates.body.data.every((/** @type {any} */ row) => row.duplicate)).toBe(true);
+    // A stored link without a priority or status is shown as it is, counts as active, and sorts last.
+    expect(duplicates.body.data.map((/** @type {any} */ row) => row.priority)).toEqual([1, null]);
+
+    const missing = await admin.agent.get(`${RESOURCE_PATH}?issue=missingRecord`);
+    expect(missing.body.data).toHaveLength(1);
+    expect(missing.body.data[0]).toMatchObject({ itemMissing: true, itemName: null });
+
+    // Changing only the rate of an old duplicate is allowed.
+    const edit = await admin.agent
+      .patch(`${RESOURCE_PATH}/${duplicates.body.data[0].id}`)
+      .set('x-csrf-token', admin.csrf)
+      .send({ unitRate: 11 });
+    expect(edit.status).toBe(200);
+  });
+
+  it("lists an item's suppliers and a supplier's items, and searches by either name", async () => {
+    const byItem = await admin.agent.get(`${RESOURCE_PATH}?itemId=${ids.item}&sort=priority`);
+    expect(byItem.body.data.map((/** @type {any} */ row) => row.supplierName)).toEqual([
+      'Link Distributors',
+      'Second Link Ltd',
+    ]);
+    const bySupplier = await admin.agent.get(`${RESOURCE_PATH}?supplierId=${ids.otherSupplier}`);
+    expect(bySupplier.body.data.map((/** @type {any} */ row) => row.itemCode)).toEqual(['LNK250']);
+    const search = await admin.agent.get(`${RESOURCE_PATH}?q=linkamol&status=all`);
+    expect(search.body.data).toHaveLength(2);
+    const priority = await admin.agent.get(`${RESOURCE_PATH}?priority=2`);
+    expect(priority.body.data.map((/** @type {any} */ row) => row.supplierName)).toEqual([
+      'Second Link Ltd',
+    ]);
   });
 });
