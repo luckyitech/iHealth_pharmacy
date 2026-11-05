@@ -1,0 +1,93 @@
+import { z } from 'zod';
+
+import { optionalText } from '../common.js';
+import { saleQuoteBodySchema } from './quote.js';
+import { saleCustomerShape } from './sale.js';
+
+/** Longest search the till sends: a barcode, an item code or part of a name. */
+export const MAX_TILL_SEARCH_LENGTH = 50;
+/** Shortest customer search, so a single letter does not list everyone. */
+export const MIN_CUSTOMER_SEARCH_LENGTH = 2;
+/** Length of the note a cashier may add to a held sale. */
+const NOTE_LENGTH = 100;
+
+const text = z.string().nullable();
+
+export const batchSearchQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(1, 'Type or scan something to search')
+    .max(MAX_TILL_SEARCH_LENGTH, `Use at most ${MAX_TILL_SEARCH_LENGTH} characters`),
+});
+
+/** A batch the till can sell from, with its label price. Never its cost. */
+export const sellableBatchSchema = z.object({
+  stockId: z.number().int(),
+  itemId: z.number().int().nullable(),
+  itemName: text,
+  itemCode: text,
+  genericName: text,
+  batchNo: text,
+  barcode: text,
+  expiryDate: text,
+  expired: z.boolean(),
+  available: z.number(),
+  /** Price per unit, VAT included. */
+  labelPrice: z.string(),
+  vatPercent: z.number(),
+});
+
+export const batchSearchSchema = z.object({
+  batches: z.array(sellableBatchSchema),
+  /** The search was a barcode that matched exactly, so the till may add the item straight away. */
+  scanned: z.boolean(),
+});
+
+export const tillCustomerQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(MIN_CUSTOMER_SEARCH_LENGTH, `Type at least ${MIN_CUSTOMER_SEARCH_LENGTH} characters`)
+    .max(MAX_TILL_SEARCH_LENGTH, `Use at most ${MAX_TILL_SEARCH_LENGTH} characters`),
+});
+
+/** Just enough to put a registered customer on a bill. */
+export const tillCustomerSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  phone: text,
+});
+
+/** Parking a sale: what was chosen and for whom, never prices. */
+export const heldSaleBodySchema = saleQuoteBodySchema.extend({
+  ...saleCustomerShape,
+  note: optionalText(NOTE_LENGTH),
+});
+
+export const heldSaleSummarySchema = z.object({
+  id: z.number().int(),
+  customerName: text,
+  note: text,
+  lineCount: z.number().int(),
+  /** What the sale came to when it was held; it is priced again on recall. */
+  net: z.string(),
+  heldBy: text,
+  heldAt: z.string(),
+});
+
+/** A recalled sale, ready to be put back on the till. */
+export const heldSaleSchema = z.object({
+  id: z.number().int(),
+  customerId: z.number().int().nullable(),
+  customerName: text,
+  customerPhone: text,
+  note: text,
+  lines: z.array(
+    z.object({
+      stockId: z.number().int(),
+      quantity: z.number().int(),
+      discountPercent: z.number(),
+    }),
+  ),
+});

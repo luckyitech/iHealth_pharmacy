@@ -23,6 +23,7 @@ import { createSupplierRoutes } from './features/masters/suppliers.js';
 import { createTermsRoutes } from './features/masters/terms.js';
 import { createSalesBillRoutes } from './features/sales/bills.routes.js';
 import { createSaleQuoteRoutes } from './features/sales/quote.routes.js';
+import { createTillRoutes } from './features/sales/till.routes.js';
 import { collectRoutes } from './routes.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -88,6 +89,7 @@ const app = createApp({
       routes: [
         ...createSalesBillRoutes({ prisma, audit, config }),
         ...createSaleQuoteRoutes({ prisma, config }),
+        ...createTillRoutes({ prisma, audit, config }),
       ],
     },
   }),

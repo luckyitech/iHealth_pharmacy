@@ -14,6 +14,13 @@ export const MPESA_CODE_PATTERN = /^[A-Z0-9]{10}$/;
 /** Column lengths of the legacy `sales` table. */
 const LENGTH = Object.freeze({ customerName: 100, customerPhone: 20, remarks: 500 });
 
+/** Who the sale is for: a registered customer, or a name and phone typed on the bill. */
+export const saleCustomerShape = Object.freeze({
+  customerId: z.coerce.number().int().positive().optional(),
+  customerName: optionalText(LENGTH.customerName),
+  customerPhone: optionalText(LENGTH.customerPhone),
+});
+
 export const salePaymentSchema = z
   .object({
     method: z.enum(SALE_PAYMENT_METHODS, { error: 'Choose how they paid' }),
@@ -42,9 +49,7 @@ export const salePaymentSchema = z
 export const saleBodySchema = saleQuoteBodySchema.extend({
   /** Made by the till once per sale, so a repeated request cannot sell twice. */
   requestKey: z.uuid('A sale needs a request key'),
-  customerId: z.coerce.number().int().positive().optional(),
-  customerName: optionalText(LENGTH.customerName),
-  customerPhone: optionalText(LENGTH.customerPhone),
+  ...saleCustomerShape,
   payments: z
     .array(salePaymentSchema)
     .min(1, 'Add how they paid')
