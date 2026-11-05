@@ -9,6 +9,7 @@ import { createAppInfoRoutes } from './features/app-info/app-info.routes.js';
 import { createAuditLog } from './features/audit/audit-log.js';
 import { createAuthModule } from './features/auth/auth.module.js';
 import { createLookupRoutes } from './features/lookups/lookup-routes.js';
+import { createItemLookupRoutes } from './features/masters/item-lookups.js';
 import { createManufacturerRoutes } from './features/masters/manufacturers.js';
 import { collectRoutes } from './routes.js';
 
@@ -45,7 +46,12 @@ const app = createApp({
     auth,
     appInfo: { routes: createAppInfoRoutes({ prisma, config }) },
     lookups: { routes: createLookupRoutes({ prisma }) },
-    masters: { routes: [...createManufacturerRoutes({ prisma, audit })] },
+    masters: {
+      routes: [
+        ...createManufacturerRoutes({ prisma, audit }),
+        ...createItemLookupRoutes({ prisma, audit }),
+      ],
+    },
   }),
   guards: auth.guards,
   apiRateLimit: auth.apiRateLimit,

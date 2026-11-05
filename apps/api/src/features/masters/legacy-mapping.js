@@ -1,12 +1,12 @@
 /** Helpers shared by the master resources for the legacy column conventions. */
 
 /**
- * Legacy `ACTIVE_S`: 'Y', 'N' or NULL (old rows); NULL counts as active, as in the legacy app.
+ * Legacy `ACTIVE_S`: 'Y', 'N', lowercase variants or NULL (old rows); NULL counts as active, as in the legacy app.
  *
  * @param {string | null | undefined} flag
  * @returns {boolean}
  */
-export const isActive = (flag) => flag !== 'N';
+export const isActive = (flag) => flag?.toUpperCase() !== 'N';
 
 /**
  * Legacy text columns often carry stray spaces; empty strings are shown as missing.

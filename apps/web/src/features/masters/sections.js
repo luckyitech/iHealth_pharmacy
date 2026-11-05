@@ -1,5 +1,5 @@
 import { POLICIES } from '@ihealth/shared/permissions';
-import { Factory } from 'lucide-react';
+import { Factory, FlaskConical, Layers, Pill, Ruler, Stethoscope, Tags } from 'lucide-react';
 
 /**
  * @typedef {object} MasterSection
@@ -16,10 +16,64 @@ import { Factory } from 'lucide-react';
 export const MASTER_SECTIONS = Object.freeze(
   /** @type {MasterSection[]} */ ([
     {
+      id: 'item-categories',
+      label: 'Categories',
+      path: 'item-categories',
+      group: 'Products',
+      description: 'Product categories',
+      icon: Tags,
+      permissions: POLICIES.masters.read,
+    },
+    {
+      id: 'item-groups',
+      label: 'Groups',
+      path: 'item-groups',
+      group: 'Products',
+      description: 'Item groups',
+      icon: Layers,
+      permissions: POLICIES.masters.read,
+    },
+    {
+      id: 'item-forms',
+      label: 'Dosage forms',
+      path: 'item-forms',
+      group: 'Products',
+      description: 'Dosage forms',
+      icon: Pill,
+      permissions: POLICIES.masters.read,
+    },
+    {
+      id: 'generic-names',
+      label: 'Generic names',
+      path: 'generic-names',
+      group: 'Products',
+      description: 'Active ingredients',
+      icon: FlaskConical,
+      permissions: POLICIES.masters.read,
+    },
+    {
+      id: 'units-of-measure',
+      label: 'Units of measure',
+      path: 'units-of-measure',
+      group: 'Products',
+      description: 'Units',
+      icon: Ruler,
+      permissions: POLICIES.masters.read,
+    },
+    {
+      id: 'specializations',
+      label: 'Specializations',
+      path: 'specializations',
+      group: 'Products',
+      description: 'Specialties',
+      icon: Stethoscope,
+      permissions: POLICIES.masters.read,
+    },
+    {
       id: 'manufacturers',
       label: 'Manufacturers',
       path: 'manufacturers',
-      group: 'Products',
+      group: 'Suppliers and makers',
       description: 'Companies that make the products you stock',
       icon: Factory,
       permissions: POLICIES.masters.read,
