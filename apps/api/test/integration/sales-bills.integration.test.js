@@ -6,6 +6,7 @@ import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createSalesBillRoutes } from '../../src/features/sales/bills.routes.js';
+import { createSaleQuoteRoutes } from '../../src/features/sales/quote.routes.js';
 import { collectRoutes } from '../../src/routes.js';
 import { buildTestApp, TEST_ENV } from '../helpers.js';
 import { startTestDatabase } from './database.js';
@@ -38,7 +39,12 @@ beforeAll(async () => {
     redis: db.redis,
     routes: collectRoutes({
       auth,
-      sales: { routes: createSalesBillRoutes({ prisma: db.prisma, audit, config }) },
+      sales: {
+        routes: [
+          ...createSalesBillRoutes({ prisma: db.prisma, audit, config }),
+          ...createSaleQuoteRoutes({ prisma: db.prisma, config }),
+        ],
+      },
     }),
     guards: auth.guards,
   });
@@ -59,7 +65,7 @@ beforeAll(async () => {
   const [first, second] =
     await db.select`SELECT ITEM_ID AS id FROM items WHERE ITEM_CD IN ('TST500', 'SMP250') ORDER BY ITEM_CD DESC`;
   await db.prisma
-    .$executeRaw`INSERT INTO stock (ITEM_ID, PHARMACY_ID, QUANTITY, BATCH_NO, EXPIRY_DT) VALUES (${first.id}, 1, 100, 'BATCH-OK', '2030-12-31'), (${second.id}, 1, 100, 'BATCH-OLD', '2026-01-31')`;
+    .$executeRaw`INSERT INTO stock (ITEM_ID, PHARMACY_ID, QUANTITY, BATCH_NO, EXPIRY_DT, UNIT_SALE_RATE, MRP, TAX_CATEGORY_ID, UNIT_PURCHASE_RATE) VALUES (${first.id}, 1, 100, 'BATCH-OK', '2030-12-31', 116, 116, ${tax.id}, 80), (${second.id}, 1, 3, 'BATCH-OLD', '2026-01-31', 20.25, 20.25, NULL, 15)`;
   const [okBatch, oldBatch] =
     await db.select`SELECT STOCK_ID AS id FROM stock WHERE BATCH_NO IN ('BATCH-OK', 'BATCH-OLD') ORDER BY BATCH_NO`;
 
@@ -81,6 +87,8 @@ beforeAll(async () => {
   ids.paid = bills[0].id;
   ids.cancelled = bills[1].id;
   ids.credit = bills[2].id;
+  ids.okBatch = okBatch.id;
+  ids.oldBatch = oldBatch.id;
   await db.prisma.$executeRaw`
     INSERT INTO sales_items (BILL_ID, ITEM_ID, STOCK_ID, SALE_QTY, MRP, UNIT_SALE_PRICE, DISCOUNT_PERCENTAGE,
       VAT, SALE_AMOUNT, BATCH_NO, TAX_CATEGORY_ID)
@@ -98,9 +106,13 @@ afterAll(async () => {
  */
 async function signIn(identifier, password) {
   const agent = request.agent(app);
-  await agent.post('/api/v1/auth/login').send({ identifier, password });
+  const response = await agent.post('/api/v1/auth/login').send({ identifier, password });
+  csrfTokens.set(agent, response.body.data?.csrfToken);
   return agent;
 }
+
+/** @type {WeakMap<object, string>} */
+const csrfTokens = new WeakMap();
 
 describe('sales history', () => {
   /** @type {import('supertest').Agent} */
@@ -209,5 +221,87 @@ describe('sales history', () => {
     ]);
     const admin = await signIn('test.admin', 'Test-Admin-Pass-1');
     expect((await admin.get(BILLS)).status).toBe(403);
+  });
+});
+
+describe('pricing a sale', () => {
+  /** @type {import('supertest').Agent} */
+  let cashier;
+
+  beforeAll(async () => {
+    cashier = await signIn('test.cashier', 'Test-Cashier-Pass-1');
+  });
+
+  /** @param {object} body */
+  const quote = (body) =>
+    cashier
+      .post('/api/v1/sales/quote')
+      .set('x-csrf-token', /** @type {string} */ (csrfTokens.get(cashier)))
+      .send(body);
+
+  it('prices from the batches, not from the till, and rounds the net', async () => {
+    const response = await quote({
+      lines: [
+        { stockId: ids.okBatch, quantity: 1 },
+        { stockId: ids.oldBatch, quantity: 2, discountPercent: 10 },
+      ],
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.data.totals).toEqual({
+      gross: '156.50',
+      discount: '4.05',
+      vat: '16.00',
+      subtotal: '152.45',
+      roundedOff: '-0.45',
+      net: '152.00',
+    });
+    const [first, second] = response.body.data.lines;
+    expect(first).toMatchObject({
+      itemName: 'Testamol 500mg',
+      labelPrice: '116.00',
+      unitPrice: '100.0000',
+      vatPercent: 16,
+      taxCode: 'A',
+      amount: '116.00',
+      warnings: [],
+    });
+    expect(second).toMatchObject({ amount: '36.45', warnings: ['expired'] });
+    // Costs and profit never reach the till.
+    expect(JSON.stringify(response.body)).not.toMatch(/profit|cost/i);
+  });
+
+  it('warns when the units asked for exceed the batch, across lines', async () => {
+    // 3 units stocked, plus 1 put back by the legacy trigger when the cancelled bill's line was saved.
+    const [batch] =
+      await db.select`SELECT QUANTITY AS quantity FROM stock WHERE STOCK_ID = ${ids.oldBatch}`;
+    expect(Number(batch.quantity)).toBe(4);
+    const fits = await quote({ lines: [{ stockId: ids.oldBatch, quantity: 4 }] });
+    expect(fits.body.data.lines[0].warnings).toEqual(['expired']);
+    const response = await quote({
+      lines: [
+        { stockId: ids.oldBatch, quantity: 3 },
+        { stockId: ids.oldBatch, quantity: 2 },
+      ],
+    });
+    expect(response.body.data.lines[0].warnings).toEqual(['expired', 'insufficientStock']);
+  });
+
+  it('refuses unknown batches, bad quantities, and people who may not sell', async () => {
+    const unknown = await quote({ lines: [{ stockId: 999999, quantity: 1 }] });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.error.details).toEqual([
+      { path: 'body.lines.0.stockId', message: 'This batch no longer exists' },
+    ]);
+    const bad = await quote({ lines: [{ stockId: ids.okBatch, quantity: 1.5 }] });
+    expect(bad.status).toBe(400);
+    const empty = await quote({ lines: [] });
+    expect(empty.status).toBe(400);
+
+    const admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    const refused = await admin
+      .post('/api/v1/sales/quote')
+      .set('x-csrf-token', /** @type {string} */ (csrfTokens.get(admin)))
+      .send({ lines: [{ stockId: ids.okBatch, quantity: 1 }] });
+    expect(refused.status).toBe(403);
   });
 });
