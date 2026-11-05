@@ -28,7 +28,7 @@ export function buildTestApp(overrides = {}) {
     /** @type {unknown} */ ({ $queryRaw: async () => [{ 1: 1 }] })
   );
   return createApp({
-    config: loadConfig(TEST_ENV),
+    config: overrides.config ?? loadConfig(TEST_ENV),
     logger: pino({ level: 'silent' }),
     prisma: fakePrisma,
     redis: { ping: async () => 'PONG' },

@@ -1,4 +1,5 @@
-import { APP_VERSION, PHARMACY_LOCATION, PHARMACY_NAME, PRODUCT_NAME } from '@/app/app-info';
+import { APP_VERSION, PRODUCT_NAME } from '@/app/app-info';
+import { useAppInfo } from '@/app/use-app-info';
 import { Wordmark } from '@/components/layout/wordmark';
 
 /**
@@ -9,14 +10,17 @@ import { Wordmark } from '@/components/layout/wordmark';
  * @returns {React.JSX.Element}
  */
 export function AuthLayout({ title, description, children }) {
+  const { data: info } = useAppInfo();
+  const pharmacyName = info?.pharmacy?.name;
+  const footer = [PRODUCT_NAME, `v${APP_VERSION}`, info?.pharmacy?.city]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <div className="grid min-h-svh grid-rows-[auto_1fr] bg-background lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-1">
       <aside className="flex flex-col justify-between gap-6 bg-brand px-6 py-5 text-brand-foreground lg:px-12 lg:py-10">
         <Wordmark inverted className="text-lg" />
         <div className="hidden max-w-sm lg:block">
-          {PHARMACY_NAME !== PRODUCT_NAME && (
-            <p className="mb-2 text-2xl leading-snug font-medium">{PHARMACY_NAME}</p>
-          )}
+          {pharmacyName && <p className="mb-2 text-2xl leading-snug font-medium">{pharmacyName}</p>}
           <p className="text-xl leading-snug text-brand-foreground/85">
             Point of sale and stock for your pharmacy.
           </p>
@@ -35,9 +39,7 @@ export function AuthLayout({ title, description, children }) {
           </div>
         </div>
 
-        <footer className="mt-10 text-xs text-muted-foreground">
-          {PRODUCT_NAME} · v{APP_VERSION} · {PHARMACY_LOCATION}
-        </footer>
+        <footer className="mt-10 text-xs text-muted-foreground">{footer}</footer>
       </main>
     </div>
   );

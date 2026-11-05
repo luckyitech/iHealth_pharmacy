@@ -39,6 +39,20 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().min(3).default('iHealth Pharmacy <no-reply@ihealth.local>'),
+  // Which pharmacy record this installation presents (sign-in page, emails). Empty = the first active one.
+  PHARMACY_ID: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
+  // Regional settings. The legacy database has no table for them, so they are deployment configuration.
+  APP_LOCALE: z.string().min(2).default('en-KE'),
+  APP_CURRENCY: z.string().length(3).default('KES'),
+  APP_TIME_ZONE: z.string().min(1).default('Africa/Nairobi'),
+  // Offset the legacy data is stored in (MySQL session time zone).
+  DB_TIME_ZONE: z
+    .string()
+    .regex(/^[+-]\d{2}:\d{2}$/, 'must look like +03:00')
+    .default('+03:00'),
 });
 
 /**
@@ -53,6 +67,8 @@ const envSchema = z.object({
  * @property {{ accessSecret: string, refreshSecret: string, csrfSecret: string, cookieSecure: boolean }} auth
  * @property {string} appUrl
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
+ * @property {number | undefined} pharmacyId
+ * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
 /**
@@ -96,6 +112,13 @@ export function loadConfig(env) {
       user: values.SMTP_USER || undefined,
       pass: values.SMTP_PASS || undefined,
       from: values.MAIL_FROM,
+    }),
+    pharmacyId: values.PHARMACY_ID,
+    region: Object.freeze({
+      locale: values.APP_LOCALE,
+      currency: values.APP_CURRENCY,
+      timeZone: values.APP_TIME_ZONE,
+      dbTimeZone: values.DB_TIME_ZONE,
     }),
   });
 }

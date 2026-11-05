@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addMoney,
   compareMoney,
-  formatKes,
+  formatMoney,
   moneySchema,
   moneyToString,
   multiplyMoney,
@@ -45,9 +45,11 @@ describe('money arithmetic', () => {
     expect(moneyToString(addMoney('99999999999999.99', '0.01'))).toBe('100000000000000.00');
   });
 
-  it('formats Kenyan shillings', () => {
-    expect(formatKes('1250.5')).toMatch(/1,250\.50/);
-    expect(formatKes('1250.5')).toMatch(/Ksh|KES/);
+  it('formats in the configured locale and currency', () => {
+    const kenya = { locale: 'en-KE', currency: 'KES' };
+    expect(formatMoney('1250.5', kenya)).toMatch(/1,250\.50/);
+    expect(formatMoney('1250.5', kenya)).toMatch(/Ksh|KES/);
+    expect(formatMoney('1250.5', { locale: 'en-US', currency: 'USD' })).toBe('$1,250.50');
   });
 });
 

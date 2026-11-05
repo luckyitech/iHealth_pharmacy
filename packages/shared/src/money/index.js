@@ -1,9 +1,7 @@
 import Decimal from 'decimal.js';
 import { z } from 'zod';
 
-import { CURRENCY, LOCALE } from '../locale.js';
-
-/** Kenyan shillings have two decimal places (cents). */
+/** Amounts are kept to two decimal places (cents), as in the legacy system. */
 export const MONEY_SCALE = 2;
 
 /**
@@ -99,21 +97,30 @@ export function moneyToString(value) {
   return roundMoney(value).toFixed(MONEY_SCALE);
 }
 
-const kesFormatter = new Intl.NumberFormat(LOCALE, {
-  style: 'currency',
-  currency: CURRENCY,
-  minimumFractionDigits: MONEY_SCALE,
-  maximumFractionDigits: MONEY_SCALE,
-});
+/** @type {Map<string, Intl.NumberFormat>} */
+const formatters = new Map();
 
 /**
- * Display format, e.g. `Ksh 1,250.50`. Goes through a string, so large values never lose precision.
+ * Display format for the installation's currency, e.g. `Ksh 1,250.50` for `{ locale: 'en-KE', currency: 'KES' }`.
+ * Goes through a string, so large values never lose precision. Locale and currency come from GET /app-info.
  *
  * @param {MoneyInput} value
+ * @param {{ locale: string, currency: string }} region
  * @returns {string}
  */
-export function formatKes(value) {
-  return kesFormatter.format(/** @type {`${number}`} */ (moneyToString(value)));
+export function formatMoney(value, { locale, currency }) {
+  const key = `${locale}|${currency}`;
+  let formatter = formatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: MONEY_SCALE,
+      maximumFractionDigits: MONEY_SCALE,
+    });
+    formatters.set(key, formatter);
+  }
+  return formatter.format(/** @type {`${number}`} */ (moneyToString(value)));
 }
 
 /**

@@ -11,6 +11,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const sqlRoot = path.resolve(here, '../../../../packages/db/sql');
 const ROOT_PASSWORD = 'integration-only';
 const DATABASE = 'ihealthpharm_test';
+const DB_TIME_ZONE = '+03:00';
 
 /**
  * @param {string} folder
@@ -35,7 +36,7 @@ export async function startTestDatabase() {
       .withCommand([
         '--lower-case-table-names=1',
         '--log-bin-trust-function-creators=1',
-        '--default-time-zone=+03:00',
+        `--default-time-zone=${DB_TIME_ZONE}`,
       ])
       .withCopyFilesToContainer(
         files.map((source, index) => ({
@@ -57,7 +58,7 @@ export async function startTestDatabase() {
   }
 
   const url = `mysql://root:${ROOT_PASSWORD}@${mysql.getHost()}:${mysql.getPort()}/${DATABASE}?allowPublicKeyRetrieval=true`;
-  const prisma = createPrismaClient({ url });
+  const prisma = createPrismaClient({ url, timezone: DB_TIME_ZONE });
   const redis = new Redis(redisContainer.getConnectionUrl());
 
   return {
