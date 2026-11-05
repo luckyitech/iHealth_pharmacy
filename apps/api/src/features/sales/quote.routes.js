@@ -9,50 +9,16 @@ import {
   saleQuoteSchema,
 } from '@ihealth/shared/schemas';
 
-import { Prisma } from '#db';
-
 import { defineRoute } from '../../http/define-route.js';
 import { validationFailed } from '../../lib/errors.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
-
-/** `YYYY-MM-DD` in a time zone. */
-const ISO_DATE_LOCALE = 'en-CA'; // hardcode-ok: a locale that formats dates as YYYY-MM-DD, used only to build text
-
-/**
- * @param {string} timeZone
- * @returns {string} Today's date in that time zone.
- */
-const todayIn = (timeZone) =>
-  new Intl.DateTimeFormat(ISO_DATE_LOCALE, { timeZone }).format(new Date());
+import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
 
 /**
  * @param {unknown} value
  * @returns {string | null}
  */
 const textOrNull = (value) => String(value ?? '').trim() || null;
-
-/**
- * Reads the batches of a sale with what pricing needs. Raw SQL: some legacy expiry dates are zero.
- *
- * @param {import('#db').PrismaClient} prisma
- * @param {number[]} stockIds
- * @param {number} pharmacyId
- * @returns {Promise<Map<number, Record<string, any>>>}
- */
-export async function loadBatches(prisma, stockIds, pharmacyId) {
-  /** @type {Record<string, any>[]} */
-  const rows = await prisma.$queryRaw`
-    SELECT st.STOCK_ID AS stockId, st.ITEM_ID AS itemId, it.ITEM_NM AS itemName, it.ITEM_CD AS itemCode,
-      st.BATCH_NO AS batchNo, CAST(st.EXPIRY_DT AS CHAR) AS expiryDate, st.QUANTITY AS available,
-      st.UNIT_SALE_RATE AS labelPrice, COALESCE(tc.CATEGORY_VALUE, st.VAT, 0) AS vatPercent,
-      tc.CATEGORY_CODE AS taxCode, st.UNIT_PURCHASE_RATE AS unitCost,
-      st.PURCHASE_DISCOUNT_PERCENTAGE AS costDiscountPercent
-    FROM stock st
-      LEFT JOIN items it ON it.ITEM_ID = st.ITEM_ID
-      LEFT JOIN taxcategory tc ON tc.TAXCATEGORY_ID = st.TAX_CATEGORY_ID
-    WHERE st.STOCK_ID IN (${Prisma.join(stockIds)}) AND st.PHARMACY_ID = ${pharmacyId}`;
-  return new Map(rows.map((row) => [Number(row.stockId), row]));
-}
 
 /**
  * Prices a sale the way the server will charge it: the till sends batches, quantities and discounts,
@@ -116,8 +82,7 @@ export function createSaleQuoteRoutes({ prisma, config }) {
           data: {
             lines: lines.map((line, index) => {
               const batch = /** @type {Record<string, any>} */ (batches.get(line.stockId));
-              const expiryDate = textOrNull(batch.expiryDate);
-              const validExpiry = expiryDate && !expiryDate.startsWith('0000') ? expiryDate : null;
+              const validExpiry = batchExpiry(batch.expiryDate);
               const available = Number(batch.available ?? 0);
               /** @type {string[]} */
               const warnings = [];

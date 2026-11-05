@@ -5,10 +5,12 @@ import {
   billListFiltersShape,
   billSummarySchema,
   cashierOptionSchema,
+  completedSaleSchema,
   createListQuerySchema,
   dataResponseSchema,
   idParamsSchema,
   listResponseSchema,
+  saleBodySchema,
 } from '@ihealth/shared/schemas';
 import { z } from 'zod';
 
@@ -23,6 +25,7 @@ import {
   toBillDetail,
   toBillSummary,
 } from './bills.repository.js';
+import { createSaleService } from './complete-sale.js';
 import { renderReceipt } from './receipt-pdf.js';
 
 const PATH = '/sales/bills';
@@ -53,6 +56,7 @@ const localStamp = (date, timeZone) =>
  */
 export function createSalesBillRoutes({ prisma, audit, config }) {
   const bills = createBillsRepository(prisma);
+  const sales = createSaleService({ prisma, config });
   const listQuery = createListQuerySchema({
     sortable: BILL_SORTABLE,
     defaultSort: /** @type {any} */ ('-billDate'),
@@ -111,6 +115,30 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
             totalPages: Math.ceil(total / query.pageSize),
           },
         };
+      },
+    }),
+
+    defineRoute({
+      method: 'post',
+      path: PATH,
+      summary: 'Complete a sale',
+      description:
+        'Send the batches, quantities, discounts and payments; prices and totals are worked out here. ' +
+        'Repeating a request with the same `requestKey` returns the bill already saved.',
+      tags: TAGS,
+      permissions: POLICIES.sales.sell,
+      request: { body: saleBodySchema },
+      responses: {
+        201: { description: 'The saved bill', schema: dataResponseSchema(completedSaleSchema) },
+      },
+      handler: async ({ req, res, input }) => {
+        const pharmacyId = await currentPharmacyId(prisma, config);
+        const { billId, change, repeated } = await sales.complete(/** @type {any} */ (input.body), {
+          employeeId: getAuth(res).employeeId,
+          pharmacyId,
+        });
+        if (!repeated) await record(req, 'create', billId);
+        return { data: { ...(await findOrFail(billId, pharmacyId)), change } };
       },
     }),
 

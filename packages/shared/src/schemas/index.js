@@ -4,3 +4,4 @@ export * from './auth.js';
 export * from './masters/index.js';
 export * from './sales/bills.js';
 export * from './sales/quote.js';
+export * from './sales/sale.js';

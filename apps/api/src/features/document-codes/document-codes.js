@@ -2,7 +2,7 @@ import { AppError } from '../../lib/errors.js';
 import { ERROR_CODES } from '@ihealth/shared/errors';
 
 /** Counter names in the legacy `generateuniquecode` table, by document kind. */
-export const DOCUMENT_KINDS = Object.freeze({ EMPLOYEE: 'EM' });
+export const DOCUMENT_KINDS = Object.freeze({ EMPLOYEE: 'EM', SALE: 'SB' });
 
 /**
  * Only the numeric day, month and year parts are read, so the locale affects nothing but the
