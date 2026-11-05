@@ -32,6 +32,8 @@ export function SidePanel({ section }) {
   const panel = useRef(/** @type {HTMLDivElement | null} */ (null));
   // Click events do not say reliably in every browser whether they came from a finger.
   const lastPointer = useRef('mouse');
+  /** Whether the pending timer opens (true) or closes (false) the panel. */
+  const pending = useRef(/** @type {boolean | undefined} */ (undefined));
   const hasPages = Boolean(section?.children?.length);
   const expanded = hasPages && (pinned || hovered);
 
@@ -42,7 +44,11 @@ export function SidePanel({ section }) {
   const schedule = (open, delay) => {
     if (!hasPages) return;
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setHovered(open), delay);
+    pending.current = open;
+    timer.current = setTimeout(() => {
+      pending.current = undefined;
+      setHovered(open);
+    }, delay);
   };
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -80,6 +86,11 @@ export function SidePanel({ section }) {
           expanded ? 'w-60' : 'w-16',
         )}
         onPointerEnter={(event) => event.pointerType === 'mouse' && schedule(true, OPEN_DELAY_MS)}
+        // A mouse already resting on the column when the page loads never "enters" it: open on move too.
+        onPointerMove={(event) => {
+          if (event.pointerType === 'mouse' && !hovered && pending.current !== true)
+            schedule(true, OPEN_DELAY_MS);
+        }}
         onPointerLeave={(event) => event.pointerType === 'mouse' && schedule(false, CLOSE_DELAY_MS)}
         onPointerDown={(event) => {
           lastPointer.current = event.pointerType;
