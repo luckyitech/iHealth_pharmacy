@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { jsonResponse, renderRoutes, stubApi } from '@/test/render';
+import { confirmChange, jsonResponse, renderRoutes, stubApi } from '@/test/render';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 
 import ManufacturersPage from './manufacturers-page.jsx';
@@ -79,6 +79,7 @@ describe('ManufacturersPage', () => {
     const panel = await screen.findByRole('dialog');
     await userEvent.type(within(panel).getByLabelText('Name'), 'Cipla Kenya');
     await userEvent.click(within(panel).getByRole('button', { name: 'Create manufacturer' }));
+    await confirmChange();
     expect(
       await within(panel).findByText('A manufacturer with this name already exists'),
     ).toBeInTheDocument();

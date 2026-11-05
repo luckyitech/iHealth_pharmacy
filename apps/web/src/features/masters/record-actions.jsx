@@ -1,7 +1,6 @@
 /* eslint-disable jsdoc/reject-any-type -- generic over every resource: row shapes come from each master's Zod schema */
 import { MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/feedback/confirm-dialog';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSetResourceActive } from '@/lib/resource-api';
+import { notify } from '@/lib/notify';
 
 /**
  * The record's secondary actions (deactivate or restore), in a "More" menu so they never sit
@@ -55,7 +55,21 @@ export function RecordActionsMenu({ config, item, onDone }) {
         confirmLabel={inactive ? 'Restore' : 'Deactivate'}
         onConfirm={async () => {
           await setActive.mutateAsync({ id: item.id, active: inactive });
-          toast.success(inactive ? 'Restored' : 'Deactivated');
+          if (inactive) notify.success(`"${name}" restored`);
+          else
+            notify.success(`"${name}" deactivated`, {
+              action: {
+                label: 'Undo',
+                onClick: () =>
+                  setActive.mutate(
+                    { id: item.id, active: true },
+                    {
+                      onSuccess: () => notify.success(`"${name}" restored`),
+                      onError: (error) => notify.error(error),
+                    },
+                  ),
+              },
+            });
           onDone();
         }}
       />

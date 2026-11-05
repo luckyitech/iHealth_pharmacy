@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { RequiredLegend } from '@/components/ui/label';
 import { usePermissions } from '@/features/auth/use-permissions';
+import { useConfirm } from '@/hooks/use-confirm';
 import { errorMessage } from '@/lib/api-error';
+import { describeChanges } from '@/lib/form-changes';
 import { cn } from '@/lib/utils';
 
 import { RecordActionsMenu, StatusBadge } from './record-actions.jsx';
@@ -34,9 +36,11 @@ const SIZES = Object.freeze({
  * @returns {React.JSX.Element}
  */
 export function RecordDialog({ config, item, canWrite, onClose }) {
-  const { form, save, isNew, onSubmit, formError } = useRecordForm(config, item, {
+  const { form, save, isNew, saveValues, formError } = useRecordForm(config, item, {
     onSaved: onClose,
   });
+  const confirmation = useConfirm();
+  const title = isNew ? `New ${config.singular}` : config.recordName(item);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   // Extra tabs (e.g. an employee's sign-in and access) exist only for saved records.
   const { hasAny } = usePermissions();
@@ -48,7 +52,43 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
   const large = config.dialogSize === 'large';
 
   useFocusFirstField(body, item?.id ?? 'new');
-  useSaveShortcut(canWrite && onDetails, () => void onSubmit());
+  // Saving always asks first: edits can be made by mistake. Ctrl+S opens the same question.
+  /**
+   * @param {Record<string, unknown>} values Validated values.
+   * @returns {void}
+   */
+  const askToSave = (values) => {
+    if (isNew) {
+      const code = config.recordCode?.(values);
+      confirmation.ask({
+        title: `Create this ${config.singular}?`,
+        changes: [
+          { label: 'Name', to: config.recordName(values) },
+          ...(code ? [{ label: 'Code', to: String(code) }] : []),
+        ],
+        confirmLabel: `Create ${config.singular}`,
+        onConfirm: () => saveValues(values),
+      });
+      return;
+    }
+    confirmation.ask({
+      title: 'Save these changes?',
+      description: title,
+      changes: describeChanges(
+        body.current,
+        /** @type {Record<string, unknown>} */ (form.formState.defaultValues ?? {}),
+        form.getValues(),
+      ),
+      confirmLabel: 'Save changes',
+      onConfirm: () => saveValues(values),
+    });
+  };
+  /**
+   * @param {React.BaseSyntheticEvent} [event]
+   * @returns {Promise<void>}
+   */
+  const onSubmit = (event) => form.handleSubmit(askToSave)(event);
+  useSaveShortcut(canWrite && onDetails && (isNew || dirty), () => void onSubmit());
   // A reload or closed tab with unsaved changes gets the browser's own warning.
   useEffect(() => {
     if (!dirty) return undefined;
@@ -63,7 +103,6 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
 
   // Escape, the backdrop and the close button all come through here.
   const requestClose = () => (dirty ? setConfirmingDiscard(true) : onClose());
-  const title = isNew ? `New ${config.singular}` : config.recordName(item);
   const code = item && config.recordCode?.(item);
   const sections = large && onDetails ? (config.sections ?? []) : [];
   const activeTab = tabs.find((candidate) => candidate.id === tab);
@@ -194,7 +233,7 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
                 <Button type="button" variant="outline" onClick={requestClose}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={save.isPending}>
+                <Button type="submit" disabled={save.isPending || (!isNew && !dirty)}>
                   {save.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
                   {isNew ? `Create ${config.singular}` : 'Save changes'}
                 </Button>
@@ -211,6 +250,7 @@ export function RecordDialog({ config, item, canWrite, onClose }) {
               <activeTab.Component item={item} canWrite={canWrite} />
             </div>
           )}
+          {confirmation.dialog}
           <ConfirmDialog
             open={confirmingDiscard}
             onOpenChange={setConfirmingDiscard}

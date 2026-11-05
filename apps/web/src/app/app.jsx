@@ -2,9 +2,10 @@ import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider } from 'react-router';
-import { Toaster } from 'sonner';
 
 import { AppErrorFallback } from '@/components/feedback/error-fallbacks';
+import { Toaster } from '@/components/ui/sonner';
+import { notify } from '@/lib/notify';
 import { CURRENT_USER_KEY } from '@/features/auth/use-auth';
 import { onPasswordChangeRequired, onSessionEnded } from '@/lib/api-client';
 import { createQueryClient } from '@/lib/query-client';
@@ -39,6 +40,7 @@ function SessionWatcher() {
   const queryClient = useQueryClient();
   useEffect(() => {
     const stopSession = onSessionEnded(() => {
+      notify.info('Your session has ended. Sign in again to continue.', { id: 'session-ended' });
       queryClient.clear();
       queryClient.setQueryData(CURRENT_USER_KEY, null);
     });
@@ -67,7 +69,7 @@ export function App() {
         <ThemeSync />
         <SessionWatcher />
         <RouterProvider router={router} />
-        <Toaster theme={theme} richColors closeButton position="top-right" />
+        <Toaster theme={theme} />
       </QueryClientProvider>
     </ErrorBoundary>
   );

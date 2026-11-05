@@ -1,19 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ERROR_CODES } from '@ihealth/shared/error-codes';
 import { loginBodySchema } from '@ihealth/shared/schemas';
-import { CircleCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { requiredFieldsOf } from '@/components/form/use-zod-form';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { errorMessage, isApiError } from '@/lib/api-error';
+import { notify } from '@/lib/notify';
 
 import { AUTH_LINK_CLASS, AuthLayout } from './auth-layout.jsx';
 import { safeRedirect } from './safe-redirect.js';
@@ -38,6 +38,13 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const redirectTo = safeRedirect(searchParams.get('redirect'));
   const passwordChanged = searchParams.get('reset') === 'done';
+  useEffect(() => {
+    // Shown once; the id stops a second copy when React runs effects twice in development.
+    if (passwordChanged)
+      notify.success('Your password has been changed. Sign in with your new password.', {
+        id: 'password-reset-done',
+      });
+  }, [passwordChanged]);
   const { data: user } = useCurrentUser();
   const login = useLogin();
   const [showPassword, setShowPassword] = useState(false);
@@ -65,14 +72,6 @@ export default function LoginPage() {
 
   return (
     <AuthLayout title="Sign in" description="Use your work email or username.">
-      {passwordChanged && !login.isError && (
-        <Alert role="status" className="mb-5">
-          <CircleCheck aria-hidden="true" />
-          <AlertDescription>
-            Your password has been changed. Sign in with your new password.
-          </AlertDescription>
-        </Alert>
-      )}
       <form className="grid gap-5" noValidate onSubmit={onSubmit}>
         {login.isError && <FormError id={SIGN_IN_ERROR_ID}>{errorMessage(login.error)}</FormError>}
 

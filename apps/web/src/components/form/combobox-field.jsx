@@ -106,6 +106,8 @@ export function ComboboxField({
                 ref={field.ref}
                 type="button"
                 role="combobox"
+                data-field={name}
+                data-initial-label={selectedLabel ?? ''}
                 aria-expanded={open}
                 aria-controls={listboxId}
                 onBlur={field.onBlur}

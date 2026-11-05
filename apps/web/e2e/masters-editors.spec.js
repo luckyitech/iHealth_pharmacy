@@ -57,7 +57,10 @@ async function mockMastersApi(page) {
     if (path === 'auth/me') return json({ data: user });
     if (path === 'auth/csrf') return json({ data: { csrfToken: 'smoke' } });
     if (path.startsWith('lookups/')) return json({ data: [] });
-    if (/^masters\/[\w-]+\/\d+$/.test(path)) return json({ data: RECORD });
+    if (/^masters\/[\w-]+\/\d+$/.test(path)) {
+      const body = route.request().method() === 'PATCH' ? route.request().postDataJSON() : {};
+      return json({ data: { ...RECORD, ...body } });
+    }
     if (/^masters\/[\w-]+$/.test(path))
       return json({ data: [RECORD], meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 } });
     return route.fulfill({
@@ -101,3 +104,29 @@ for (const master of MASTERS) {
     await expect(page.getByRole('dialog', { name: master.title ?? 'Smoke Record' })).toBeVisible();
   });
 }
+
+test('asks before saving, lists the change, and saves only after confirming', async ({ page }) => {
+  /** @type {unknown[]} */
+  const patches = [];
+  page.on('request', (request) => {
+    if (request.method() === 'PATCH') patches.push(request.postDataJSON());
+  });
+  await page.goto('/masters/hospitals?edit=1');
+  const dialog = page.getByRole('dialog', { name: 'Smoke Record' });
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  await dialog.getByLabel('Phone').fill('0700000999');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+
+  const question = page.getByRole('alertdialog', { name: 'Save these changes?' });
+  await expect(question.getByText('0700000999')).toBeVisible();
+  await expect(question.getByRole('button', { name: 'Go back' })).toBeFocused();
+  await question.getByRole('button', { name: 'Go back' }).click();
+  await expect(question).toBeHidden();
+  expect(patches).toHaveLength(0);
+
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(question).toBeVisible();
+  await question.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toBeHidden();
+  expect(patches).toEqual([expect.objectContaining({ phone: '0700000999' })]);
+});
