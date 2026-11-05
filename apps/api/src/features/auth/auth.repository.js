@@ -4,7 +4,7 @@
  * (Prisma tagged templates; values are always bound, never interpolated).
  */
 
-/** @typedef {import('@ihealth/db').PrismaClient} PrismaClient */
+/** @typedef {import('#db').PrismaClient} PrismaClient */
 
 /**
  * @typedef {object} CredentialsRecord

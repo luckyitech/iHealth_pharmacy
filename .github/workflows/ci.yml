@@ -79,10 +79,10 @@ jobs:
 
       - name: Load legacy schema
         run: |
-          docker exec -i -e MYSQL_PWD mysql mysql -uroot ihealthpharm_test < packages/db/sql/schema/legacy-schema.sql
+          docker exec -i -e MYSQL_PWD mysql mysql -uroot ihealthpharm_test < apps/api/db/sql/schema/legacy-schema.sql
 
       - name: Schema diff
-        run: npm run db:diff -w @ihealth/db
+        run: npm run db:diff -w @ihealth/api
 
   integration:
     name: API integration tests (MySQL 9.7.1 + Redis via Testcontainers)

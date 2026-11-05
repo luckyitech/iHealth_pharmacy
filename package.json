@@ -30,7 +30,7 @@
     "db:copy": "scripts/db/copy-dev-db.sh",
     "db:schema:dump": "scripts/db/dump-test-schema.sh",
     "db:test:load": "scripts/db/load-test-db.sh",
-    "postinstall": "npm run build -w @ihealth/db",
+    "postinstall": "npm run db:generate -w @ihealth/api",
     "db:dev-admin": "node apps/api/scripts/create-dev-admin.js",
     "db:dev-test-passwords": "node apps/api/scripts/set-dev-test-passwords.js",
     "check:hardcodes": "node scripts/quality/check-hardcodes.js"

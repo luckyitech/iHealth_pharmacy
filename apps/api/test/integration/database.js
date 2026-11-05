@@ -2,13 +2,13 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createPrismaClient } from '@ihealth/db';
+import { createPrismaClient } from '#db';
 import { MySqlContainer } from '@testcontainers/mysql';
 import { RedisContainer } from '@testcontainers/redis';
 import { Redis } from 'ioredis';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const sqlRoot = path.resolve(here, '../../../../packages/db/sql');
+const sqlRoot = path.resolve(here, '../../db/sql');
 const ROOT_PASSWORD = 'integration-only';
 const DATABASE = 'ihealthpharm_test';
 const DB_TIME_ZONE = '+03:00';

@@ -10,7 +10,8 @@ The rebuild has a web app, an API and code that both need (validation schemas, p
 
 ## Decision
 
-- One repository with npm workspaces: `apps/web`, `apps/api`, `packages/shared`, `packages/db` and `packages/config`.
+- One repository with npm workspaces: `apps/web` (everything the browser runs), `apps/api` (everything the server runs, including the database models and SQL in `apps/api/db`), `packages/shared` (rules used by both) and `packages/config` (lint and format tooling).
+  The database code first lived in its own `packages/db` workspace; it moved into `apps/api/db` so all server code is in one place.
 - Turborepo orchestrates `build`, `test` and `dev` across workspaces, with caching.
 - npm is the only package manager. pnpm and yarn are not used.
 - The runtime is Node.js 24 LTS, pinned in `.nvmrc`, in `engines` and in CI.

@@ -4,7 +4,7 @@
 #   scripts/db/copy-dev-db.sh [--yes] [--keep-dump]
 #
 #   --yes        do not ask before replacing the Docker development database
-#   --keep-dump  also keep a gzipped copy of the dump in packages/db/dumps/ (git-ignored)
+#   --keep-dump  also keep a gzipped copy of the dump in apps/api/db/dumps/ (git-ignored)
 #
 # The legacy server is only read: mysqldump runs one consistent-snapshot transaction (--single-transaction).
 # Rows of stock_movement_working are skipped (scratch data, about 20 GB); its structure is copied.

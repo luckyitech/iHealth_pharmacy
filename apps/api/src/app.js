@@ -21,7 +21,7 @@ const SERVER_ERROR_STATUS = 500;
  * @typedef {object} AppDependencies
  * @property {Readonly<import('./config/env.js').Config>} config
  * @property {import('pino').Logger} logger
- * @property {import('@ihealth/db').PrismaClient} prisma
+ * @property {import('#db').PrismaClient} prisma
  * @property {{ ping: () => Promise<unknown> }} redis
  * @property {readonly ReturnType<typeof import('./http/define-route.js').defineRoute>[]} [routes]
  * @property {import('./http/mount-routes.js').MountOptions['guards']} [guards]

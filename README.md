@@ -42,22 +42,31 @@ npm run dev            # API on http://localhost:4000, web app on http://localho
 | `npm run typecheck` | Type-checks the JavaScript through JSDoc (`tsc`, no emit) |
 | `npm run check`     | Everything CI runs, in order                              |
 
-## Repository layout
+## Where things live
+
+Frontend code is in `apps/web`, backend code is in `apps/api`. The two small packages hold only what both sides share, or tooling.
 
 ```
 apps/
-  web/          React 19 + Vite single-page app
-  api/          Express 5 REST API (/api/v1)
+  web/            Everything the browser runs: React pages, components, forms, the API client
+    src/features/   one folder per feature (auth, masters, ...)
+  api/            Everything the server runs: the REST API and the database
+    src/            Express app; src/features/<feature>/ holds routes (controllers), service (rules), repository (queries)
+    db/             Database models and SQL: prisma/schema.prisma (one model per legacy table),
+                    sql/additive/ (tables the new system adds), sql/seed/ (test data), scripts/
+    test/           API tests (unit, and integration against MySQL in Docker)
 packages/
-  shared/       Zod schemas, permission constants, error codes, money helpers
-  db/           Prisma client introspected from the legacy schema, additive SQL
-  config/       Shared ESLint and Prettier configuration
-docs/
-  adr/          Architecture decision records
-  runbooks/     Operational how-tos
+  shared/         Rules used by BOTH web and api: Zod validation schemas, permission names and
+                  policies, error codes, money maths. Kept separate so the browser and the server
+                  can never disagree, without copying code into each app.
+  config/         ESLint and Prettier settings only (no app code).
+scripts/          Developer scripts: copy the legacy database into Docker, quality checks
+docs/             Architecture decisions (adr/), runbooks, deviations from the legacy system
 ```
 
-See each workspace's README for details: [web](apps/web/README.md), [api](apps/api/README.md), [db](packages/db/README.md), [shared](packages/shared/README.md).
+Background jobs, when needed, will run from the API code too, as a second entry point (`apps/api/src/worker.js`) next to `server.js`.
+
+See each part's README for details: [web](apps/web/README.md), [api](apps/api/README.md), [database](apps/api/db/README.md), [shared](packages/shared/README.md).
 
 ## Conventions
 

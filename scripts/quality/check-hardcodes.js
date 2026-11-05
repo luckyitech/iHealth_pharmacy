@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const SOURCE_DIRS = ['apps/api/src', 'apps/web/src', 'packages/shared/src', 'packages/db/src'];
+const SOURCE_DIRS = ['apps/api/src', 'apps/web/src', 'packages/shared/src', 'apps/api/db/src'];
 const ALLOWED_FILES = new Set(['apps/api/src/config/env.js']);
 const IGNORED = /(^|\/)(node_modules|dist|test|__tests__)\/|\.test\.jsx?$|\.spec\.jsx?$/;
 const MARKER = 'hardcode-ok:';

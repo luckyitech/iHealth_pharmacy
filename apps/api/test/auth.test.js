@@ -47,7 +47,7 @@ beforeEach(() => {
   repository = createMemoryAuthRepository();
   auditEntries = [];
   sentMail = [];
-  const prisma = /** @type {import('@ihealth/db').PrismaClient} */ (
+  const prisma = /** @type {import('#db').PrismaClient} */ (
     /** @type {unknown} */ ({
       $queryRaw: async () => [{ 1: 1 }],
       $executeRaw: async (

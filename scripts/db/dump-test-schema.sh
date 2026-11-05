@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Writes the legacy schema (no data) to packages/db/sql/schema/legacy-schema.sql for tests and CI.
+# Writes the legacy schema (no data) to apps/api/db/sql/schema/legacy-schema.sql for tests and CI.
 # Reads from the legacy server only. AUTO_INCREMENT counters and definers are stripped,
 # so the file has no row data and the same schema always gives the same file.
 source "$(dirname "$0")/lib.sh"

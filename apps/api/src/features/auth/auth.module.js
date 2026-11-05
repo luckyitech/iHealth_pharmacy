@@ -13,7 +13,7 @@ import { createAccessTokens } from './tokens.js';
  *
  * @param {object} deps
  * @param {Readonly<import('../../config/env.js').Config>} deps.config
- * @param {import('@ihealth/db').PrismaClient} deps.prisma
+ * @param {import('#db').PrismaClient} deps.prisma
  * @param {import('./login-throttle.js').CounterStore} deps.counters Redis in production, a fake in tests.
  * @param {import('ioredis').Redis} [deps.redis] Shared rate-limit counters; in memory when absent.
  * @param {import('pino').Logger} deps.logger

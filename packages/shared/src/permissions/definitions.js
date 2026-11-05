@@ -1,5 +1,5 @@
 // Generated from the legacy `pharma_access` table. Ids, groups and names are copied exactly, typos included,
-// so they match production. Regenerate with `npm run permissions:generate -w @ihealth/db`.
+// so they match production. Regenerate with `npm run permissions:generate -w @ihealth/api`.
 
 /**
  * @typedef {object} PermissionDefinition
@@ -725,7 +725,7 @@ export const PERMISSIONS = Object.freeze({
     name: 'Credit Settlement Reversal',
     active: true,
   }),
-  // Added by the new system (packages/db/sql/additive/0003-masters-view-permission.sql).
+  // Added by the new system (apps/api/db/sql/additive/0003-masters-view-permission.sql).
   MASTER_MASTERS_VIEW: Object.freeze({
     id: 900001,
     group: 'Master',

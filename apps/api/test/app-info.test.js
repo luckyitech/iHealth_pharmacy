@@ -10,7 +10,7 @@ const PHARMACIES = [
   { pharmacyId: 2, pharmacyNm: 'Second Branch', cityNm: null, countryId: null, activeS: 'Y' },
 ];
 
-const prisma = /** @type {import('@ihealth/db').PrismaClient} */ (
+const prisma = /** @type {import('#db').PrismaClient} */ (
   /** @type {unknown} */ ({
     $queryRaw: async () => [],
     pharmacy: {

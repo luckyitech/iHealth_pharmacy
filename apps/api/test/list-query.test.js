@@ -30,7 +30,7 @@ describe('withTransaction', () => {
   it('passes the work and default limits to Prisma', async () => {
     /** @type {unknown[]} */
     const calls = [];
-    const prisma = /** @type {import('@ihealth/db').PrismaClient} */ (
+    const prisma = /** @type {import('#db').PrismaClient} */ (
       /** @type {unknown} */ ({
         $transaction: async (
           /** @type {(tx: string) => unknown} */ work,

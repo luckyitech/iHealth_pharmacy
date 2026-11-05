@@ -24,7 +24,7 @@ export const TEST_ENV = Object.freeze({
  * @returns {import('express').Express}
  */
 export function buildTestApp(overrides = {}) {
-  const fakePrisma = /** @type {import('@ihealth/db').PrismaClient} */ (
+  const fakePrisma = /** @type {import('#db').PrismaClient} */ (
     /** @type {unknown} */ ({ $queryRaw: async () => [{ 1: 1 }] })
   );
   return createApp({
