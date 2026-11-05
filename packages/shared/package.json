@@ -12,6 +12,7 @@
     "./errors": "./src/errors/index.js",
     "./money": "./src/money/index.js",
     "./units": "./src/units/index.js",
+    "./pricing": "./src/pricing/index.js",
     "./error-codes": "./src/errors/codes.js"
   },
   "scripts": {

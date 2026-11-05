@@ -23,6 +23,8 @@ export const POLICIES = Object.freeze({
   }),
   // Anyone who sold or approved in the legacy Sales module may look up past bills.
   sales: Object.freeze({
+    // Pricing and completing a sale: the legacy "Sales Billing Submission".
+    sell: Object.freeze([PERMISSIONS.SALES_SALES_BILLING_SUBMISSION]),
     read: Object.freeze([
       PERMISSIONS.SALES_SALES_BILLING_SUBMISSION,
       PERMISSIONS.SALES_SALES_BILLING_BONUS_ITEMS_APPROVAL,
