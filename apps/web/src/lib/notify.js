@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 
-import { errorMessage } from './api-error.js';
+import { errorMessage, isApiError } from './api-error.js';
 
 /** How long notifications stay, in milliseconds. Errors stay longer: they may need acting on. */
 export const NOTIFY_DURATION = Object.freeze({ SHORT: 4000, ERROR: 8000 });
@@ -42,6 +42,26 @@ export const notify = Object.freeze({
       duration: NOTIFY_DURATION.ERROR,
       ...options,
     }),
+
+  /**
+   * A failed action: what failed as the headline, why and what to do as the second line, and the
+   * request's reference when the API gave one, so support can find it in the logs.
+   *
+   * @param {string} action e.g. "Could not open the bill"
+   * @param {unknown} error
+   * @param {NotifyOptions} [options]
+   * @returns {string | number}
+   */
+  failure: (action, error, options = {}) => {
+    const reason = errorMessage(error);
+    const sentence = /[.!?]$/.test(reason) ? reason : `${reason}.`;
+    const reference = isApiError(error) && error.requestId ? ` Reference: ${error.requestId}` : '';
+    return toast.error(action, {
+      description: `${sentence}${reference}`,
+      duration: NOTIFY_DURATION.ERROR,
+      ...options,
+    });
+  },
 
   /**
    * "Saving…" while the work runs, then its result.

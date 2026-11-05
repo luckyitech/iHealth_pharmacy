@@ -35,13 +35,13 @@ test('signs in, shows only permitted modules, and signs out', async ({ page, isM
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   // Back to the page that was asked for.
-  await expect(page).toHaveURL(/\/sales$/);
-  await expect(page.getByRole('heading', { name: 'Sales', level: 1 })).toBeVisible();
-  await expect(page.getByText('Sales Billing Submission')).toBeVisible();
+  // Sales opens on its first screen, Sales history.
+  await expect(page).toHaveURL(/\/sales\/history$/);
+  await expect(page.getByRole('heading', { name: 'Sales history', level: 1 })).toBeVisible();
 
   if (isMobile) await page.getByRole('button', { name: 'Open navigation' }).click();
   const nav = page.getByRole('navigation', { name: 'Main' }).last();
-  await expect(nav.getByRole('link', { name: 'Sales' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Sales', exact: true })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Masters' })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'Finance' })).toHaveCount(0);
   if (isMobile) await page.keyboard.press('Escape');
