@@ -23,6 +23,9 @@ npm run check
 npm run docker:up      # MySQL 9.7.1, Redis, Mailpit
 npm run db:copy        # read-only copy of the legacy database into Docker
 npm run db:test:load   # test database: schema + synthetic seed
+npm run db:dev-admin   # local admin "dev.admin" (password saved in .env)
+npm run db:dev-test-passwords  # every account in the copy: one test password (DEV_TEST_PASSWORD)
+npm run dev            # API on http://localhost:4000, web app on http://localhost:5180
 ```
 
 `npm install` also installs the Git hooks (Husky). For database details, see [docs/runbooks/dev-database.md](docs/runbooks/dev-database.md).
@@ -54,7 +57,7 @@ docs/
   runbooks/     Operational how-tos
 ```
 
-Workspaces are added one at a time as each part of the foundation lands.
+See each workspace's README for details: [web](apps/web/README.md), [api](apps/api/README.md), [db](packages/db/README.md), [shared](packages/shared/README.md).
 
 ## Conventions
 
@@ -64,6 +67,10 @@ Workspaces are added one at a time as each part of the foundation lands.
 - No `console.log` in committed code: use the structured logger.
 - Every deviation from the legacy behaviour is documented in an ADR or in the pull request that makes it.
 - Secrets live only in `.env` files, which are git-ignored. Database dumps and real data are never committed.
+
+## Differences from the legacy system
+
+See [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 
 ## Architecture decisions
 

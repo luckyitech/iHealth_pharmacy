@@ -2,6 +2,7 @@ import { createPrismaClient } from '@ihealth/db';
 
 import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
+import { createMailer } from './infra/mailer.js';
 import { createRedis } from './infra/redis.js';
 import { createLogger } from './lib/logger.js';
 import { createAuthModule } from './features/auth/auth.module.js';
@@ -21,7 +22,14 @@ try {
   logger.warn({ err: error }, 'Redis is not reachable at startup');
 }
 
-const auth = createAuthModule({ config, prisma, counters: redis, redis, logger });
+const auth = createAuthModule({
+  config,
+  prisma,
+  counters: redis,
+  redis,
+  logger,
+  mailer: createMailer(config.mail),
+});
 const app = createApp({
   config,
   logger,

@@ -29,3 +29,6 @@ test-results/
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# Local review screenshots
+docs/screenshots/

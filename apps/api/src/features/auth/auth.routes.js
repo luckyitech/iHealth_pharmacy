@@ -6,12 +6,18 @@ import {
   approvalPinResponseSchema,
   csrfResponseSchema,
   currentUserResponseSchema,
+  forgotPasswordBodySchema,
+  forgotPasswordResponseSchema,
   loginBodySchema,
   loginResponseSchema,
+  resetPasswordBodySchema,
 } from './auth.schemas.js';
 import { clearSessionCookies, setSessionCookies } from './session-cookies.js';
 
 const TAGS = ['Auth'];
+
+export const FORGOT_PASSWORD_MESSAGE =
+  'If that account exists and has a work email, we have sent it a reset link. It expires in 30 minutes.';
 
 /**
  * @param {import('express').Request} req
@@ -24,7 +30,7 @@ const clientInfo = (req) => ({ ipAddress: req.ip, userAgent: req.get('user-agent
  * @param {import('./auth.service.js').AuthService} deps.service
  * @param {import('./csrf.js').Csrf} deps.csrf
  * @param {boolean} deps.secureCookies
- * @param {{ login: import('express').RequestHandler, approvalPin: import('express').RequestHandler }} deps.limiters
+ * @param {{ login: import('express').RequestHandler, approvalPin: import('express').RequestHandler, passwordReset: import('express').RequestHandler }} deps.limiters
  * @returns The auth route definitions.
  */
 export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
@@ -46,7 +52,7 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
     defineRoute({
       method: 'post',
       path: '/auth/login',
-      summary: 'Sign in with username and password',
+      summary: 'Sign in with username or work email, and password',
       description:
         'Sets the session cookies and returns the signed-in user with a CSRF token. Five failed attempts lock the username for 15 minutes.',
       tags: TAGS,
@@ -61,6 +67,40 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
         setSessionCookies(res, session, secureCookies);
         const user = await service.currentUser(session.employeeId, session.credentialsId);
         return { data: { user, csrfToken: issueCsrf(req, res, session.familyId) } };
+      },
+    }),
+
+    defineRoute({
+      method: 'post',
+      path: '/auth/forgot-password',
+      summary: 'Email a password reset link',
+      description:
+        'Always answers the same way, whether or not the account exists or has a work email, so it cannot be used to discover accounts. The link expires in 30 minutes.',
+      tags: TAGS,
+      access: 'public',
+      csrf: false,
+      before: [limiters.passwordReset],
+      request: { body: forgotPasswordBodySchema },
+      responses: { 200: { description: 'Request accepted', schema: forgotPasswordResponseSchema } },
+      handler: async ({ req, input }) => {
+        await service.requestPasswordReset(input.body, clientInfo(req));
+        return { data: { message: FORGOT_PASSWORD_MESSAGE } };
+      },
+    }),
+
+    defineRoute({
+      method: 'post',
+      path: '/auth/reset-password',
+      summary: 'Choose a new password with an emailed reset link',
+      description: 'Ends every existing sign-in of the account. The link cannot be used twice.',
+      tags: TAGS,
+      access: 'public',
+      csrf: false,
+      before: [limiters.passwordReset],
+      request: { body: resetPasswordBodySchema },
+      responses: { 204: { description: 'Password changed' } },
+      handler: async ({ req, input }) => {
+        await service.resetPassword(input.body, clientInfo(req));
       },
     }),
 

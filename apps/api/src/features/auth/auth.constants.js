@@ -3,6 +3,7 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 export const REFRESH_TOKEN_TTL_MS = 7 * DAY_MS;
+export const PASSWORD_RESET_TTL_MS = 30 * MINUTE_MS;
 
 export const TOKEN_ISSUER = 'ihealth-api';
 export const TOKEN_AUDIENCE = 'ihealth-web';
@@ -27,6 +28,7 @@ export const REVOKE_REASONS = Object.freeze({
   ROTATED: 'ROTATED',
   LOGOUT: 'LOGOUT',
   REUSE_DETECTED: 'REUSE_DETECTED',
+  PASSWORD_RESET: 'PASSWORD_RESET',
 });
 
 export const AUDIT_ACTIONS = Object.freeze({
@@ -36,4 +38,6 @@ export const AUDIT_ACTIONS = Object.freeze({
   PASSWORD_UPGRADED: 'auth.password_upgraded',
   PERMISSION_DENIED: 'auth.permission_denied',
   APPROVAL_PIN: 'auth.approval_pin',
+  PASSWORD_RESET_REQUESTED: 'auth.password_reset_requested',
+  PASSWORD_RESET_COMPLETED: 'auth.password_reset_completed',
 });

@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
 import { ERROR_CODES } from '@ihealth/shared/errors';
+import { isEmailIdentifier } from '@ihealth/shared/schemas';
 
 import { AppError } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
-import { AUDIT_ACTIONS, REFRESH_TOKEN_TTL_MS, REVOKE_REASONS } from './auth.constants.js';
+import {
+  AUDIT_ACTIONS,
+  PASSWORD_RESET_TTL_MS,
+  REFRESH_TOKEN_TTL_MS,
+  REVOKE_REASONS,
+} from './auth.constants.js';
 import {
   hashPassword,
   legacyFingerprint,
@@ -35,6 +41,9 @@ import { generateRefreshToken, hashToken } from './tokens.js';
  * @property {ReturnType<typeof import('./tokens.js').createAccessTokens>} accessTokens
  * @property {import('./login-throttle.js').LoginThrottle} loginThrottle
  * @property {import('./login-throttle.js').LoginThrottle} pinThrottle
+ * @property {import('./login-throttle.js').LoginThrottle} resetThrottle Limits reset emails per account.
+ * @property {import('../../infra/mailer.js').Mailer} mailer
+ * @property {string} appUrl Public address of the web app, for links in emails.
  * @property {import('../audit/audit-log.js').AuditLog} audit
  * @property {import('pino').Logger} logger
  * @property {() => Date} [now]
@@ -56,6 +65,9 @@ export function createAuthService({
   accessTokens,
   loginThrottle,
   pinThrottle,
+  resetThrottle,
+  mailer,
+  appUrl,
   audit,
   logger,
   now = () => new Date(),
@@ -99,6 +111,43 @@ export function createAuthService({
   }
 
   /**
+   * Finds the account a sign-in identifier refers to: a username, or a work email that belongs to
+   * exactly one active account. A shared email is reported, because guessing would sign the wrong
+   * person in.
+   *
+   * @param {string} identifier
+   * @returns {Promise<{ credentials: import('./auth.repository.js').CredentialsRecord | null, ambiguous: boolean }>}
+   */
+  async function resolveAccount(identifier) {
+    if (!isEmailIdentifier(identifier)) {
+      return {
+        credentials: await repository.findCredentialsByUsername(identifier),
+        ambiguous: false,
+      };
+    }
+    const matches = await repository.findCredentialsByEmail(identifier);
+    if (matches.length <= 1) return { credentials: matches[0] ?? null, ambiguous: false };
+    const active = matches.filter((match) => match.active);
+    if (active.length === 1) return { credentials: active[0], ambiguous: false };
+    logger.warn(
+      { accounts: matches.map((match) => match.credentialsId) },
+      'Work email shared by several accounts',
+    );
+    return { credentials: null, ambiguous: true };
+  }
+
+  /**
+   * Lockouts follow the account, not what was typed, so switching between email and username
+   * does not earn extra attempts.
+   *
+   * @param {string} identifier
+   * @param {import('./auth.repository.js').CredentialsRecord | null} credentials
+   * @returns {string}
+   */
+  const throttleKey = (identifier, credentials) =>
+    credentials ? `account-${credentials.credentialsId}` : `unknown-${identifier.toLowerCase()}`;
+
+  /**
    * @param {number} employeeId
    * @param {number} credentialsId
    * @param {string} familyId
@@ -124,38 +173,49 @@ export function createAuthService({
 
   return {
     /**
-     * @param {{ username: string, password: string }} input
+     * @param {{ identifier: string, password: string }} input
      * @param {ClientInfo} client
      * @returns {Promise<IssuedSession>}
      */
-    async login({ username, password }, client) {
-      const lockedFor = await loginThrottle.lockedFor(username);
+    async login({ identifier, password }, client) {
+      const { credentials, ambiguous } = await resolveAccount(identifier);
+      const key = throttleKey(identifier, credentials);
+      const lockedFor = await loginThrottle.lockedFor(key);
       if (lockedFor !== null) {
         await audit.record({
           action: AUDIT_ACTIONS.LOGIN,
           outcome: AUDIT_OUTCOMES.DENIED,
-          employeeId: null,
-          details: { username, reason: 'locked' },
+          employeeId: credentials?.employeeId ?? null,
+          details: { identifier, reason: 'locked' },
           ...client,
         });
         throw lockedError(lockedFor);
       }
+      if (ambiguous) {
+        await audit.record({
+          action: AUDIT_ACTIONS.LOGIN,
+          outcome: AUDIT_OUTCOMES.DENIED,
+          employeeId: null,
+          details: { identifier, reason: 'ambiguous_email' },
+          ...client,
+        });
+        throw new AppError(ERROR_CODES.LOGIN_AMBIGUOUS);
+      }
 
-      const credentials = await repository.findCredentialsByUsername(username);
       const valid = credentials
         ? await checkPassword(credentials, password)
         : (await verifyAgainstDummy(password), false);
 
       if (!credentials || !valid) {
-        const failures = await loginThrottle.recordFailure(username);
+        const failures = await loginThrottle.recordFailure(key);
         await audit.record({
           action: AUDIT_ACTIONS.LOGIN,
           outcome: AUDIT_OUTCOMES.FAILURE,
           employeeId: credentials?.employeeId ?? null,
-          details: { username, failures },
+          details: { identifier, failures },
           ...client,
         });
-        const nowLocked = await loginThrottle.lockedFor(username);
+        const nowLocked = await loginThrottle.lockedFor(key);
         if (nowLocked !== null) throw lockedError(nowLocked);
         throw new AppError(ERROR_CODES.INVALID_CREDENTIALS);
       }
@@ -183,7 +243,7 @@ export function createAuthService({
         throw new AppError(ERROR_CODES.TWO_FACTOR_REQUIRED);
       }
 
-      await loginThrottle.reset(username);
+      await loginThrottle.reset(key);
       const session = await issueSession(
         credentials.employeeId,
         credentials.credentialsId,
@@ -331,6 +391,138 @@ export function createAuthService({
         approverEmployeeId: employee.employeeId,
         approverName: `${employee.firstName} ${employee.lastName}`,
       };
+    },
+
+    /**
+     * Emails a one-time reset link when the identifier matches one active account with a work
+     * email. Says nothing about the outcome: callers always get the same answer, so the form
+     * cannot be used to find out which accounts exist.
+     *
+     * @param {{ identifier: string }} input
+     * @param {ClientInfo} client
+     * @returns {Promise<void>}
+     */
+    async requestPasswordReset({ identifier }, client) {
+      const { credentials, ambiguous } = await resolveAccount(identifier);
+      const employee = credentials ? await repository.findEmployee(credentials.employeeId) : null;
+      const email = employee?.email?.trim();
+
+      /** @type {string | null} */
+      let skipped = null;
+      if (ambiguous) skipped = 'ambiguous_email';
+      else if (!credentials || !employee) skipped = 'unknown_account';
+      else if (!credentials.active || !employee.active) skipped = 'inactive';
+      else if (!email) skipped = 'no_email_on_file';
+      else if ((await resetThrottle.lockedFor(throttleKey(identifier, credentials))) !== null)
+        skipped = 'throttled';
+
+      if (skipped || !credentials || !employee || !email) {
+        if (skipped === 'no_email_on_file') {
+          logger.info(
+            { credentialsId: credentials?.credentialsId },
+            'Password reset requested for an account without email',
+          );
+        }
+        await audit.record({
+          action: AUDIT_ACTIONS.PASSWORD_RESET_REQUESTED,
+          outcome: AUDIT_OUTCOMES.DENIED,
+          employeeId: credentials?.employeeId ?? null,
+          details: { identifier, reason: skipped },
+          ...client,
+        });
+        return;
+      }
+
+      await resetThrottle.recordFailure(throttleKey(identifier, credentials));
+      const token = generateRefreshToken();
+      await repository.insertPasswordReset({
+        credentialsId: credentials.credentialsId,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(now().getTime() + PASSWORD_RESET_TTL_MS),
+        requestIp: client.ipAddress,
+      });
+      const minutes = PASSWORD_RESET_TTL_MS / 60_000;
+      await mailer.send({
+        to: email,
+        subject: 'Reset your iHealth Pharmacy password',
+        text: [
+          `Hello ${employee.firstName},`,
+          '',
+          'Someone asked to reset the password for your iHealth Pharmacy account',
+          `(username: ${credentials.username}). To choose a new password, open this link:`,
+          '',
+          `${appUrl}/reset-password?token=${encodeURIComponent(token)}`,
+          '',
+          `The link works once and expires in ${minutes} minutes.`,
+          'If you did not ask for this, ignore this email: your password stays the same.',
+        ].join('\n'),
+      });
+      await audit.record({
+        action: AUDIT_ACTIONS.PASSWORD_RESET_REQUESTED,
+        outcome: AUDIT_OUTCOMES.SUCCESS,
+        employeeId: credentials.employeeId,
+        ...client,
+      });
+    },
+
+    /**
+     * Sets a new password from an emailed reset link. The new argon2id hash goes into the additive
+     * password table (the legacy column is never written), every sign-in of the account is ended,
+     * and the link cannot be used again.
+     *
+     * @param {{ token: string, password: string }} input
+     * @param {ClientInfo} client
+     * @returns {Promise<void>}
+     */
+    async resetPassword({ token, password }, client) {
+      const invalid = () => new AppError(ERROR_CODES.RESET_TOKEN_INVALID);
+      const reset = await repository.findPasswordReset(hashToken(token));
+      if (!reset || reset.usedAt || reset.expiresAt.getTime() <= now().getTime()) throw invalid();
+
+      const credentials = await repository.findCredentialsById(reset.credentialsId);
+      const employee = credentials ? await repository.findEmployee(credentials.employeeId) : null;
+      if (!credentials?.active || !employee?.active) throw invalid();
+
+      const lowered = password.toLowerCase();
+      if (
+        lowered === credentials.username.toLowerCase() ||
+        lowered === employee.email?.trim().toLowerCase()
+      ) {
+        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+          details: [
+            {
+              path: 'body.password',
+              message: 'Choose a password that is not your username or email',
+            },
+          ],
+        });
+      }
+
+      const hash = await hashPassword(password);
+      await repository.transaction(async (tx) => {
+        const current = await repository.findPasswordReset(hashToken(token), tx);
+        // Re-checked inside the transaction (row lock), so two tabs cannot both use one link.
+        if (!current || current.usedAt) throw invalid();
+        await repository.saveUpgradedPassword(
+          credentials.credentialsId,
+          hash,
+          legacyFingerprint(credentials.legacyPassword),
+          tx,
+        );
+        await repository.closePasswordResets(credentials.credentialsId, tx);
+        await repository.revokeAllForEmployee(
+          credentials.employeeId,
+          REVOKE_REASONS.PASSWORD_RESET,
+          tx,
+        );
+      });
+      await loginThrottle.reset(throttleKey(credentials.username, credentials));
+      await audit.record({
+        action: AUDIT_ACTIONS.PASSWORD_RESET_COMPLETED,
+        outcome: AUDIT_OUTCOMES.SUCCESS,
+        employeeId: credentials.employeeId,
+        ...client,
+      });
     },
   };
 }

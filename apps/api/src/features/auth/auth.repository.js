@@ -79,6 +79,27 @@ export function createAuthRepository(prisma) {
     },
 
     /**
+     * Credentials of every account whose employee has this work email (`employee.EMAIL_ID`),
+     * ignoring case and surrounding spaces. More than one result means the email is shared.
+     *
+     * @param {string} email
+     * @returns {Promise<CredentialsRecord[]>}
+     */
+    async findCredentialsByEmail(email) {
+      /** @type {{ employeeCredentialsId: number, employeeId: number, userNm: string, currentPassword: string, approvalAccessPin: string | null, activeS: string | null, twoFactorEnabledS: string | null }[]} */
+      const rows = await prisma.$queryRaw`
+        SELECT c.EMPLOYEE_CREDENTIALS_ID AS employeeCredentialsId, c.EMPLOYEE_ID AS employeeId,
+               c.USER_NM AS userNm, c.CURRENT_PASSWORD AS currentPassword,
+               c.APPROVAL_ACCESS_PIN AS approvalAccessPin, c.ACTIVE_S AS activeS,
+               c.TWO_FACTOR_ENABLED_S AS twoFactorEnabledS
+        FROM employee_credentials c
+        JOIN employee e ON e.EMPLOYEE_ID = c.EMPLOYEE_ID
+        WHERE LOWER(TRIM(e.EMAIL_ID)) = ${email.trim().toLowerCase()}
+        ORDER BY c.EMPLOYEE_CREDENTIALS_ID`;
+      return rows.map(toCredentials);
+    },
+
+    /**
      * @param {number} credentialsId
      * @returns {Promise<CredentialsRecord | null>}
      */
@@ -194,10 +215,11 @@ export function createAuthRepository(prisma) {
      * @param {number} credentialsId
      * @param {string} hash
      * @param {string} fingerprint
+     * @param {Pick<PrismaClient, '$executeRaw'>} [client] A transaction client.
      * @returns {Promise<void>}
      */
-    async saveUpgradedPassword(credentialsId, hash, fingerprint) {
-      await prisma.$executeRaw`
+    async saveUpgradedPassword(credentialsId, hash, fingerprint, client = prisma) {
+      await client.$executeRaw`
         INSERT INTO ih_employee_password (EMPLOYEE_CREDENTIALS_ID, PASSWORD_HASH, LEGACY_FINGERPRINT)
         VALUES (${credentialsId}, ${hash}, ${fingerprint})
         ON DUPLICATE KEY UPDATE PASSWORD_HASH = VALUES(PASSWORD_HASH), LEGACY_FINGERPRINT = VALUES(LEGACY_FINGERPRINT)`;
@@ -255,6 +277,57 @@ export function createAuthRepository(prisma) {
       await prisma.$executeRaw`
         UPDATE ih_refresh_token SET REVOKED_AT = CURRENT_TIMESTAMP(3), REVOKED_REASON = ${reason}
         WHERE FAMILY_ID = ${familyId} AND REVOKED_AT IS NULL`;
+    },
+
+    /**
+     * Revokes every sign-in of an employee (after a password reset).
+     *
+     * @param {number} employeeId
+     * @param {string} reason
+     * @param {Pick<PrismaClient, '$executeRaw'>} [client]
+     * @returns {Promise<void>}
+     */
+    async revokeAllForEmployee(employeeId, reason, client = prisma) {
+      await client.$executeRaw`
+        UPDATE ih_refresh_token SET REVOKED_AT = CURRENT_TIMESTAMP(3), REVOKED_REASON = ${reason}
+        WHERE EMPLOYEE_ID = ${employeeId} AND REVOKED_AT IS NULL`;
+    },
+
+    /**
+     * @param {{ credentialsId: number, tokenHash: string, expiresAt: Date, requestIp?: string }} reset
+     * @returns {Promise<void>}
+     */
+    async insertPasswordReset(reset) {
+      await prisma.$executeRaw`
+        INSERT INTO ih_password_reset (EMPLOYEE_CREDENTIALS_ID, TOKEN_HASH, EXPIRES_AT, REQUEST_IP)
+        VALUES (${reset.credentialsId}, ${reset.tokenHash}, ${reset.expiresAt}, ${reset.requestIp?.slice(0, 45) ?? null})`;
+    },
+
+    /**
+     * @param {string} tokenHash
+     * @param {Pick<PrismaClient, '$queryRaw'>} [client]
+     * @returns {Promise<{ id: bigint, credentialsId: number, expiresAt: Date, usedAt: Date | null } | null>}
+     */
+    async findPasswordReset(tokenHash, client = prisma) {
+      /** @type {{ id: bigint, credentialsId: number, expiresAt: Date, usedAt: Date | null }[]} */
+      const rows = await client.$queryRaw`
+        SELECT PASSWORD_RESET_ID AS id, EMPLOYEE_CREDENTIALS_ID AS credentialsId,
+               EXPIRES_AT AS expiresAt, USED_AT AS usedAt
+        FROM ih_password_reset WHERE TOKEN_HASH = ${tokenHash} FOR UPDATE`;
+      return rows[0] ?? null;
+    },
+
+    /**
+     * Marks a reset as used and voids every other open reset of the same account.
+     *
+     * @param {number} credentialsId
+     * @param {Pick<PrismaClient, '$executeRaw'>} [client]
+     * @returns {Promise<void>}
+     */
+    async closePasswordResets(credentialsId, client = prisma) {
+      await client.$executeRaw`
+        UPDATE ih_password_reset SET USED_AT = CURRENT_TIMESTAMP(3)
+        WHERE EMPLOYEE_CREDENTIALS_ID = ${credentialsId} AND USED_AT IS NULL`;
     },
 
     /**

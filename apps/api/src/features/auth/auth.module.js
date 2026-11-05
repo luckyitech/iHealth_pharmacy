@@ -17,6 +17,7 @@ import { createAccessTokens } from './tokens.js';
  * @param {import('./login-throttle.js').CounterStore} deps.counters Redis in production, a fake in tests.
  * @param {import('ioredis').Redis} [deps.redis] Shared rate-limit counters; in memory when absent.
  * @param {import('pino').Logger} deps.logger
+ * @param {import('../../infra/mailer.js').Mailer} deps.mailer
  * @param {import('./auth.repository.js').AuthRepository} [deps.repository] Replaced by an in-memory fake in tests.
  * @returns `{ routes, guards, apiRateLimit }`.
  */
@@ -26,6 +27,7 @@ export function createAuthModule({
   counters,
   redis,
   logger,
+  mailer,
   repository = createAuthRepository(prisma),
 }) {
   const audit = createAuditLog(prisma, logger);
@@ -39,6 +41,9 @@ export function createAuthModule({
     accessTokens,
     loginThrottle: createLoginThrottle(counters, 'auth:login'),
     pinThrottle: createLoginThrottle(counters, 'auth:pin'),
+    resetThrottle: createLoginThrottle(counters, 'auth:reset'),
+    mailer,
+    appUrl: config.appUrl,
     audit,
     logger,
   });
@@ -51,6 +56,7 @@ export function createAuthModule({
       limiters: {
         login: createRateLimiter(RATE_LIMITS.login, 'login', redis),
         approvalPin: createRateLimiter(RATE_LIMITS.approvalPin, 'pin', redis),
+        passwordReset: createRateLimiter(RATE_LIMITS.passwordReset, 'reset', redis),
       },
     }),
     guards: createAuthGuards({ accessTokens, repository, csrf, audit }),

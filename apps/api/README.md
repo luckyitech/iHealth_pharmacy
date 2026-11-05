@@ -47,7 +47,10 @@ export const getEmployee = defineRoute({
 
 ## Authentication and authorisation
 
-See [ADR 0004](../../docs/adr/0004-authentication-and-authorisation.md). Endpoints live under `/api/v1/auth`: `login`, `refresh`, `logout`, `me`, `csrf` and `approval-pin/verify`.
+See [ADR 0004](../../docs/adr/0004-authentication-and-authorisation.md). Endpoints live under `/api/v1/auth`: `login`, `refresh`, `logout`, `me`, `csrf`, `forgot-password`, `reset-password` and `approval-pin/verify`.
+
+- **Sign-in identifier:** a username or a work email (`employee.EMAIL_ID`), trimmed and case-insensitive. An email that belongs to several active accounts is refused with `LOGIN_AMBIGUOUS` ("sign in with your username"), because guessing could sign in the wrong person. Lockouts count per account, whichever identifier is typed.
+- **Forgotten password:** `POST /auth/forgot-password` always answers with the same message, so it cannot be used to find out whether an account exists. When the identifier matches one active account with a work email, it emails a link to `APP_URL/reset-password?token=...`. The link is valid once for 30 minutes, at most 5 emails per account per 15 minutes, and only its SHA-256 is stored (`ih_password_reset`). Accounts without an email are logged and told to ask an administrator. `POST /auth/reset-password` checks the token, rejects passwords under 10 characters or equal to the username or email, stores the argon2id hash in `ih_employee_password`, ends every sign-in of the account and audits it. In development, open Mailpit at http://localhost:8025 to read the emails.
 
 - **Cookies:** `ihealth_access` (JWT, 15 minutes), `ihealth_refresh` (opaque, 7 days, rotated on every refresh, path `/api/v1/auth`) and `ihealth_session` (sign-in id that CSRF tokens are bound to). All are `httpOnly` and `SameSite=Strict`, and `Secure` when `COOKIE_SECURE=true` (required in production).
 - **CSRF:** every authenticated non-GET request must send the `x-csrf-token` header. The token comes from `login`, `refresh` or `GET /auth/csrf`, and the web app keeps it in memory only.
@@ -59,13 +62,15 @@ See [ADR 0004](../../docs/adr/0004-authentication-and-authorisation.md). Endpoin
 
 ### Differences from the legacy system
 
-| Legacy                                               | New                                                           | Why                                                                                              |
-| ---------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Permissions checked in the browser, by list position | Checked on the server on every request, by `PHARMA_ACCESS_ID` | Browser checks can be bypassed, and list positions break when rows change                        |
-| BCrypt / plain-text passwords                        | argon2id in an additive table, upgraded at sign-in            | Plain text is unacceptable for health data; the legacy column stays untouched for the legacy app |
-| JWT in browser storage                               | `httpOnly` cookies + CSRF tokens                              | Scripts injected into the page (XSS) cannot steal the session                                    |
-| No role permissions                                  | `ih_role_permission` (empty by default)                       | Gives administrators role-based access without changing legacy grants                            |
-| Two-factor sign-in (email)                           | Not supported yet: such accounts get `TWO_FACTOR_REQUIRED`    | Planned for a later phase. Refusing the sign-in is safer than skipping the second factor         |
+| Legacy                                               | New                                                           | Why                                                                                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Permissions checked in the browser, by list position | Checked on the server on every request, by `PHARMA_ACCESS_ID` | Browser checks can be bypassed, and list positions break when rows change                                                         |
+| BCrypt / plain-text passwords                        | argon2id in an additive table, upgraded at sign-in            | Plain text is unacceptable for health data; the legacy column stays untouched for the legacy app                                  |
+| JWT in browser storage                               | `httpOnly` cookies + CSRF tokens                              | Scripts injected into the page (XSS) cannot steal the session                                                                     |
+| No role permissions                                  | `ih_role_permission` (empty by default)                       | Gives administrators role-based access without changing legacy grants                                                             |
+| Two-factor sign-in (email)                           | Not supported yet: such accounts get `TWO_FACTOR_REQUIRED`    | Planned for a later phase. Refusing the sign-in is safer than skipping the second factor                                          |
+| Username only                                        | Username or work email                                        | Staff remember their email; shared emails are refused rather than guessed                                                         |
+| No self-service password reset                       | Emailed one-time link (30 minutes)                            | Fewer administrator resets. The new password lives in the additive table, so the legacy app keeps the old one until it is retired |
 
 ### Integration tests
 

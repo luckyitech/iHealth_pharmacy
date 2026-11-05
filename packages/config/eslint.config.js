@@ -62,7 +62,7 @@ export default [
     files: [
       '**/*.config.{js,mjs,cjs}',
       '**/*.{test,spec}.{js,jsx}',
-      '**/test/**/*.js',
+      '**/test/**/*.{js,jsx}',
       '**/e2e/**/*.js',
     ],
     rules: {
