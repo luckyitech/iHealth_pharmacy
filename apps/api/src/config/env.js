@@ -49,6 +49,8 @@ const envSchema = z.object({
     .string()
     .regex(/^[A-Z]{1,4}$/, 'must be 1 to 4 capital letters')
     .default('DP'),
+  // A bill's net is rounded to this step (legacy: whole shillings). 0 keeps cents.
+  SALES_ROUNDING_STEP: z.coerce.number().min(0).max(100).default(1),
   // Regional settings. The legacy database has no table for them, so they are deployment configuration.
   APP_LOCALE: z.string().min(2).default('en-KE'),
   APP_CURRENCY: z.string().length(3).default('KES'),
@@ -74,6 +76,7 @@ const envSchema = z.object({
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
+ * @property {{ roundingStep: number }} sales
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
@@ -121,6 +124,7 @@ export function loadConfig(env) {
     }),
     pharmacyId: values.PHARMACY_ID,
     documentCodePrefix: values.DOCUMENT_CODE_PREFIX,
+    sales: Object.freeze({ roundingStep: values.SALES_ROUNDING_STEP }),
     region: Object.freeze({
       locale: values.APP_LOCALE,
       currency: values.APP_CURRENCY,
