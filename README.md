@@ -7,11 +7,11 @@ It runs on the **same MySQL schema** as the legacy system, so the production dat
 
 ## Requirements
 
-| Tool           | Version                                             |
-| -------------- | --------------------------------------------------- |
-| Node.js        | 24 LTS (see `.nvmrc`; run `nvm use`)                |
-| npm            | 11+ (npm workspaces; pnpm and yarn are not used)    |
-| Docker Desktop | Needed from the Docker dev environment step onwards |
+| Tool           | Version                                                                  |
+| -------------- | ------------------------------------------------------------------------ |
+| Node.js        | 24 LTS (see `.nvmrc`; run `nvm use`)                                     |
+| npm            | 11+ (npm workspaces; pnpm and yarn are not used)                         |
+| Docker Desktop | Runs MySQL, Redis and Mailpit ([runbook](docs/runbooks/dev-database.md)) |
 
 ## Getting started
 
@@ -20,9 +20,12 @@ nvm use
 npm install
 cp .env.example .env
 npm run check
+npm run docker:up      # MySQL 9.7.1, Redis, Mailpit
+npm run db:copy        # read-only copy of the legacy database into Docker
+npm run db:test:load   # test database: schema + synthetic seed
 ```
 
-`npm install` also installs the Git hooks (Husky).
+`npm install` also installs the Git hooks (Husky). For database details, see [docs/runbooks/dev-database.md](docs/runbooks/dev-database.md).
 
 ## Scripts
 
