@@ -1,0 +1,103 @@
+import { expect, test } from '@playwright/test';
+
+/** Every masters list, and the size of its edit dialog. */
+const MASTERS = Object.freeze([
+  { path: 'items', size: 'large' },
+  { path: 'suppliers', size: 'large' },
+  { path: 'customers', size: 'large' },
+  { path: 'employees', size: 'large' },
+  { path: 'hospitals', size: 'large' },
+  { path: 'providers', size: 'large' },
+  { path: 'manufacturers', size: 'small' },
+  // A terms text is named by its first words.
+  { path: 'terms', size: 'small', title: 'Smoke terms' },
+  { path: 'item-categories', size: 'small' },
+  { path: 'item-groups', size: 'small' },
+  { path: 'item-forms', size: 'small' },
+  { path: 'generic-names', size: 'small' },
+  { path: 'units-of-measure', size: 'small' },
+  { path: 'specializations', size: 'small' },
+]);
+
+/** One made-up record with the fields every list shows. */
+const RECORD = Object.freeze({
+  id: 1,
+  active: true,
+  name: 'Smoke Record',
+  code: 'SMOKE1',
+  firstName: 'Smoke',
+  lastName: 'Record',
+  text: 'Smoke terms',
+  productKind: 'medical',
+  kind: 'individual',
+  supplies: 'both',
+});
+
+/**
+ * A signed-in administrator with "Masters Entry", and one record in every list.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function mockMastersApi(page) {
+  const user = {
+    employeeId: 1,
+    username: 'smoke.admin',
+    firstName: 'Smoke',
+    lastName: 'Admin',
+    email: 'admin@example.test',
+    pharmacyId: 1,
+    roles: [],
+    permissionIds: [1],
+  };
+  await page.route('**/api/v1/**', async (route) => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1/', '');
+    /** @param {unknown} body */
+    const json = (body) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    if (path === 'auth/me') return json({ data: user });
+    if (path === 'auth/csrf') return json({ data: { csrfToken: 'smoke' } });
+    if (path.startsWith('lookups/')) return json({ data: [] });
+    if (/^masters\/[\w-]+\/\d+$/.test(path)) return json({ data: RECORD });
+    if (/^masters\/[\w-]+$/.test(path))
+      return json({ data: [RECORD], meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 } });
+    return route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: '{"error":{"code":"NOT_FOUND","message":"No mock"}}',
+    });
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await mockMastersApi(page);
+});
+
+for (const master of MASTERS) {
+  test(`opens records of ${master.path} in a dialog over the list`, async ({ page }) => {
+    await page.goto(`/masters/${master.path}?q=smoke`);
+    await page.locator('tbody tr').first().click();
+
+    const dialog = page.getByRole('dialog', { name: master.title ?? 'Smoke Record' });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/masters/${master.path}\\?q=smoke&edit=1$`));
+    await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeVisible();
+    // The list stays underneath.
+    await expect(page.locator('h1')).toBeAttached();
+    await expect(dialog.getByRole('navigation', { name: 'Sections' })).toHaveCount(
+      master.size === 'large' ? 1 : 0,
+    );
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/masters/${master.path}\\?q=smoke$`));
+
+    await page.getByRole('button', { name: /^New / }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByText(/page not found/i)).toHaveCount(0);
+  });
+
+  test(`opens a record of ${master.path} from a link`, async ({ page }) => {
+    await page.goto(`/masters/${master.path}?edit=1`);
+    await expect(page.getByRole('dialog', { name: master.title ?? 'Smoke Record' })).toBeVisible();
+  });
+}

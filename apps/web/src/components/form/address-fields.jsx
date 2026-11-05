@@ -1,6 +1,7 @@
 /* eslint-disable jsdoc/reject-any-type -- works with any form that has the standard address fields */
 import { useCountries, useProvinces } from '@/lib/lookups';
 
+import { FormSection } from './form-section.jsx';
 import { SelectField } from './select-field.jsx';
 import { TextField } from './text-field.jsx';
 
@@ -17,17 +18,17 @@ const toOptions = (query) =>
  *
  * Which of them are required comes from the form's schema.
  *
- * @param {{ form: import('react-hook-form').UseFormReturn<any> }} props
+ * @param {{ form: import('react-hook-form').UseFormReturn<any>, children?: React.ReactNode }} props
+ *   `children` are extra address fields shown at the end, e.g. a P.O. Box.
  * @returns {React.JSX.Element}
  */
-export function AddressFields({ form }) {
+export function AddressFields({ form, children }) {
   const countryId = form.watch('countryId');
   const countries = useCountries();
   const provinces = useProvinces(countryId ? Number(countryId) : null);
 
   return (
-    <fieldset className="grid gap-4">
-      <legend className="mb-1 text-sm font-semibold">Address</legend>
+    <FormSection title="Address">
       <TextField
         form={form}
         name="addressLine1"
@@ -64,6 +65,7 @@ export function AddressFields({ form }) {
           options={toOptions(provinces)}
         />
       </div>
-    </fieldset>
+      {children}
+    </FormSection>
   );
 }

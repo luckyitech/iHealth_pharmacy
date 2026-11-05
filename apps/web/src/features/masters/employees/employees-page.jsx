@@ -7,6 +7,7 @@ import {
 } from '@ihealth/shared/schemas';
 
 import { AddressFields } from '@/components/form/address-fields';
+import { FormSection } from '@/components/form/form-section';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { CheckboxField } from '@/components/ui/checkbox-field';
@@ -30,27 +31,14 @@ const EMPLOYMENT_OPTIONS = Object.freeze([
 ]);
 
 /**
- * @param {{ title: string, children: React.ReactNode }} props
- * @returns {React.JSX.Element}
- */
-function Section({ title, children }) {
-  return (
-    <fieldset className="grid gap-4">
-      <legend className="mb-1 text-sm font-semibold text-muted-foreground">{title}</legend>
-      {children}
-    </fieldset>
-  );
-}
-
-/**
- * @param {{ form: import('react-hook-form').UseFormReturn<Record<string, unknown>>, item: { code: string | null, employeeTypeName: string | null } | null }} props
+ * @param {{ form: import('react-hook-form').UseFormReturn<Record<string, unknown>>, item: { employeeTypeName: string | null } | null }} props
  * @returns {React.JSX.Element}
  */
 function EmployeeFields({ form, item }) {
   const types = useEmployeeTypes();
   return (
     <>
-      <Section title="Personal">
+      <FormSection title="Personal">
         <div className="grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <SelectField
             form={form}
@@ -84,15 +72,9 @@ function EmployeeFields({ form, item }) {
           <TextField form={form} name="landline" label="Landline" type="tel" />
           <TextField form={form} name="email" label="Email" type="email" />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Job">
-        {item?.code && (
-          <p className="text-sm">
-            <span className="text-muted-foreground">Employee code: </span>
-            <span className="font-medium">{item.code}</span>
-          </p>
-        )}
+      <FormSection title="Job">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             form={form}
@@ -119,19 +101,20 @@ function EmployeeFields({ form, item }) {
           <TextField form={form} name="joiningDate" label="Date of joining" type="date" />
         </div>
         <CheckboxField label="Works shifts" {...form.register('worksShifts')} />
-      </Section>
+      </FormSection>
 
-      <Section title="Statutory numbers">
+      <FormSection title="Statutory numbers">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField form={form} name="nssfNumber" label="NSSF number" />
           <TextField form={form} name="nhifNumber" label="NHIF number" />
           <TextField form={form} name="kraPin" label="KRA PIN" />
           <TextField form={form} name="idNumber" label="ID number" />
         </div>
-      </Section>
+      </FormSection>
 
-      <AddressFields form={form} />
-      <TextField form={form} name="postBox" label="P.O. Box" />
+      <AddressFields form={form}>
+        <TextField form={form} name="postBox" label="P.O. Box" />
+      </AddressFields>
     </>
   );
 }
@@ -160,7 +143,9 @@ const CONFIG = {
   schema: employeeInputSchema,
   toFormValues: formValuesFor(employeeInputSchema, { worksShifts: false }),
   Fields: EmployeeFields,
-  wideForm: true,
+  dialogSize: 'large',
+  sections: ['Personal', 'Job', 'Statutory numbers', 'Address'],
+  recordCode: (item) => item.code,
   writePermissions: POLICIES.masters.write,
   recordName: (item) => fullName(item) || 'Unnamed employee',
 };

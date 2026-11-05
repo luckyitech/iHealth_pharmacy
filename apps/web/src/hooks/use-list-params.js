@@ -12,7 +12,8 @@ import { useSearchParams } from 'react-router';
  * @property {Record<string, string>} filters Any other query parameter (status, category, ...).
  */
 
-const RESERVED = new Set(['page', 'pageSize', 'sort', 'q']);
+/** Not filters: paging, sorting, search, and the record open in the edit dialog. */
+const RESERVED = new Set(['page', 'pageSize', 'sort', 'q', 'edit']);
 
 /**
  * List state (page, size, sort, search, filters) kept in the URL, so a list can be bookmarked,

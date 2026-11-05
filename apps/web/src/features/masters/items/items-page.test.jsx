@@ -16,23 +16,24 @@ const META = { page: 1, pageSize: 25, total: 1, totalPages: 1 };
 const list = (rows) => () =>
   jsonResponse(200, { data: rows, meta: { ...META, total: rows.length } });
 
+const ITEM_ROW = {
+  id: 7,
+  name: 'Paracetamol 500mg',
+  code: 'IC0000007',
+  groupName: 'Tablets',
+  manufacturerName: 'Cosmos Ltd',
+  taxCategoryName: 'A (16%)',
+  purchaseUnitId: 10,
+  purchaseUnitName: 'STRIPS',
+  active: true,
+};
+
 function setup() {
   /** @type {Record<string, unknown>[]} */
   const posted = [];
   const api = stubApi({
-    'GET masters/items': list([
-      {
-        id: 7,
-        name: 'Paracetamol 500mg',
-        code: 'IC0000007',
-        groupName: 'Tablets',
-        manufacturerName: 'Cosmos Ltd',
-        taxCategoryName: 'A (16%)',
-        purchaseUnitId: 10,
-        purchaseUnitName: 'STRIPS',
-        active: true,
-      },
-    ]),
+    'GET masters/items/7': () => jsonResponse(200, { data: ITEM_ROW }),
+    'GET masters/items': list([ITEM_ROW]),
     'GET masters/item-groups': list([{ id: 1, name: 'Tablets' }]),
     'GET masters/item-categories': list([]),
     'GET masters/specializations': list([]),

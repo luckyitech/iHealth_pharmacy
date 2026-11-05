@@ -128,3 +128,10 @@
     }
   }
 }
+
+/* The dialog backdrop's slight blur is dropped for people who ask the system for less transparency. */
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot='dialog-overlay'] {
+    backdrop-filter: none;
+  }
+}

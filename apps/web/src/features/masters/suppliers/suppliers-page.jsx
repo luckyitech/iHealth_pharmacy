@@ -3,6 +3,7 @@ import { SUPPLIER_FLAGS, supplierInputSchema, SUPPLIES_KINDS } from '@ihealth/sh
 
 import { AddressFields } from '@/components/form/address-fields';
 import { FormField } from '@/components/form/form-field';
+import { FormSection } from '@/components/form/form-section';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
 import { CheckboxField } from '@/components/ui/checkbox-field';
@@ -46,20 +47,6 @@ const lookupOptions = (query) =>
   (query.data ?? []).map((option) => ({ value: option.id, label: option.name }));
 
 /**
- * @param {{ title: string, description?: string, children: React.ReactNode }} props
- * @returns {React.JSX.Element}
- */
-function Section({ title, description, children }) {
-  return (
-    <fieldset className="grid gap-4">
-      <legend className="mb-1 text-sm font-semibold text-muted-foreground">{title}</legend>
-      {description && <p className="-mt-2 text-sm text-muted-foreground">{description}</p>}
-      {children}
-    </fieldset>
-  );
-}
-
-/**
  * @param {{ form: import('react-hook-form').UseFormReturn<Record<string, unknown>>, flags: string[] }} props
  * @returns {React.JSX.Element}
  */
@@ -86,7 +73,7 @@ function SupplierFields({ form, item }) {
   const creditTypes = useReturnCreditTypes();
   return (
     <>
-      <Section title="Supplier">
+      <FormSection title="Supplier">
         <TextField form={form} name="name" label="Name" />
         <div className="grid gap-4 sm:grid-cols-3">
           <TextField form={form} name="taxPin" label="Tax PIN" hint="KRA PIN, e.g. P051234567X" />
@@ -103,9 +90,9 @@ function SupplierFields({ form, item }) {
           <TextField form={form} name="fax" label="Fax" type="tel" />
           <TextField form={form} name="website" label="Website" />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Contact person">
+      <FormSection title="Contact person">
         <div className="grid gap-4 sm:grid-cols-3">
           <TextField form={form} name="contactFirstName" label="First name" />
           <TextField form={form} name="contactMiddleName" label="Middle name" />
@@ -115,9 +102,9 @@ function SupplierFields({ form, item }) {
           <TextField form={form} name="contactPhone" label="Phone" type="tel" />
           <TextField form={form} name="contactEmail" label="Email" type="email" />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section
+      <FormSection
         title="Order emails"
         description="Quotations and purchase orders are emailed to the contact email and to each of these."
       >
@@ -126,11 +113,11 @@ function SupplierFields({ form, item }) {
           <TextField form={form} name="contactEmail3" label="Third email" type="email" />
           <TextField form={form} name="contactEmail4" label="Fourth email" type="email" />
         </div>
-      </Section>
+      </FormSection>
 
       <AddressFields form={form} />
 
-      <Section title="Payment">
+      <FormSection title="Payment">
         <div className="grid gap-4 sm:grid-cols-3">
           <SelectField
             form={form}
@@ -167,13 +154,13 @@ function SupplierFields({ form, item }) {
           <TextField form={form} name="bankName" label="Bank" />
           <TextField form={form} name="accountNumber" label="Account number" inputMode="numeric" />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section title="Orders accepted">
+      <FormSection title="Orders accepted">
         <Flags form={form} flags={ORDER_FLAGS} />
-      </Section>
+      </FormSection>
 
-      <Section title="Returns">
+      <FormSection title="Returns">
         <SelectField
           form={form}
           name="returnCreditTypeId"
@@ -184,7 +171,7 @@ function SupplierFields({ form, item }) {
           selectedLabel={item?.returnCreditTypeName}
         />
         <Flags form={form} flags={RETURN_FLAGS} />
-      </Section>
+      </FormSection>
     </>
   );
 }
@@ -228,7 +215,17 @@ const CONFIG = {
   schema: supplierInputSchema,
   toFormValues: formValuesFor(supplierInputSchema, NEW_SUPPLIER),
   Fields: SupplierFields,
-  wideForm: true,
+  dialogSize: 'large',
+  sections: [
+    'Supplier',
+    'Contact person',
+    'Order emails',
+    'Address',
+    'Payment',
+    'Orders accepted',
+    'Returns',
+  ],
+  recordCode: (item) => item.taxPin,
   writePermissions: POLICIES.suppliers.write,
   recordName: (item) => item.name || 'Unnamed supplier',
 };

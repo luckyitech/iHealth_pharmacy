@@ -30,6 +30,7 @@ function setup(permissionIds) {
   /** @type {Record<string, unknown>[]} */
   const posted = [];
   const api = stubApi({
+    'GET masters/suppliers/3': () => jsonResponse(200, { data: SUPPLIER }),
     'GET masters/suppliers': () =>
       jsonResponse(200, {
         data: [SUPPLIER],

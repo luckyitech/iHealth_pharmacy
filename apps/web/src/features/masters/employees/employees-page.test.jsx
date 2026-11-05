@@ -27,6 +27,7 @@ function setup() {
   /** @type {Record<string, unknown>[]} */
   const posted = [];
   const api = stubApi({
+    'GET masters/employees/9': () => jsonResponse(200, { data: EMPLOYEE }),
     'GET masters/employees': () =>
       jsonResponse(200, {
         data: [EMPLOYEE],
