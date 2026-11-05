@@ -46,28 +46,30 @@ const sections = (group, entries) =>
 
 /** Master-data screens, in menu order. Each appears only for users with one of its permissions. */
 export const MASTER_SECTIONS = Object.freeze([
-  // Ordered by use, measured on the pharmacy's data (2026-11-05): daily work first, set-up lists last.
-  ...sections('Daily', [
-    ['customers', 'Customers', Users],
+  // Groups and pages ordered by use, measured on the pharmacy's data (2026-11-05): most used first.
+  ...sections('Customers', [['customers', 'Customers', Users]]),
+  ...sections('Products', [
     ['items', 'Items', Package],
-    ['item-suppliers', 'Item suppliers', Link2],
-    ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
-  ]),
-  ...sections('Now and then', [
-    ['employees', 'Employees', IdCard],
-    ['manufacturers', 'Manufacturers', Factory],
-    ['providers', 'Providers', UserRound],
-    ['hospitals', 'Hospitals', Hospital],
-  ]),
-  ...sections('Setup and lists', [
-    ['pharmacy-profile', 'Pharmacy profile', Building2],
-    ['terms', 'Terms and conditions', FileText],
     ['item-categories', 'Categories', Tags],
     ['item-groups', 'Groups', Layers],
     ['item-forms', 'Dosage forms', Pill],
     ['generic-names', 'Generic names', FlaskConical],
     ['units-of-measure', 'Units of measure', Ruler],
     ['specializations', 'Specializations', Stethoscope],
+  ]),
+  ...sections('Suppliers and makers', [
+    ['item-suppliers', 'Item suppliers', Link2],
+    ['suppliers', 'Suppliers', Truck, POLICIES.suppliers.read],
+    ['manufacturers', 'Manufacturers', Factory],
+  ]),
+  ...sections('Organisation', [
+    ['employees', 'Employees', IdCard],
+    ['pharmacy-profile', 'Pharmacy profile', Building2],
+    ['terms', 'Terms and conditions', FileText],
+  ]),
+  ...sections('Prescribers', [
+    ['providers', 'Providers', UserRound],
+    ['hospitals', 'Hospitals', Hospital],
   ]),
 ]);
 
