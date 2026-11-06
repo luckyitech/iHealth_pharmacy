@@ -8,3 +8,4 @@ export * from './sales/sale.js';
 export * from './sales/till.js';
 export * from './sales/approvals.js';
 export * from './sales/prescriptions.js';
+export * from './sales/controlled-register.js';

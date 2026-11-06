@@ -746,4 +746,11 @@ export const PERMISSIONS = Object.freeze({
     name: 'Sales approval',
     active: true,
   }),
+  // Added by the new system (apps/api/db/sql/additive/0011-controlled-register-permission.sql).
+  SALES_CONTROLLED_DRUG_REGISTER: Object.freeze({
+    id: 900004,
+    group: 'Sales',
+    name: 'Controlled-drug register',
+    active: true,
+  }),
 });
