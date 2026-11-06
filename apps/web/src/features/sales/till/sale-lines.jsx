@@ -3,6 +3,7 @@ import { Minus, Percent, Plus, ScanBarcode, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useFormat } from '@/lib/format';
+import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 import { APPROVAL_REASON_FLAGS } from '../approvals/approval-labels.js';
 import { SALES_LABELS } from '../labels.js';
@@ -141,6 +142,7 @@ export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount, onPr
                       <Minus aria-hidden="true" className="size-3.5" />
                     </button>
                     <input
+                      {...noAutofill('text')}
                       aria-label={`Quantity of ${name}`}
                       inputMode="numeric"
                       className="h-7 w-10 border-x sm:h-8 sm:w-12 bg-transparent text-center font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/50"

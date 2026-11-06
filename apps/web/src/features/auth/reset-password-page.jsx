@@ -103,7 +103,6 @@ export default function ResetPasswordPage() {
               id="password"
               aria-required={REQUIRED.has('password') || undefined}
               type={showPasswords ? 'text' : 'password'}
-              autoComplete="new-password"
               className="pr-11"
               aria-invalid={errors.password ? true : undefined}
               aria-describedby={errors.password ? 'password-error' : PASSWORD_HINT_ID}
@@ -140,7 +139,6 @@ export default function ResetPasswordPage() {
             id="confirmPassword"
             aria-required={REQUIRED.has('confirmPassword') || undefined}
             type={showPasswords ? 'text' : 'password'}
-            autoComplete="new-password"
             aria-invalid={errors.confirmPassword ? true : undefined}
             aria-describedby={errors.confirmPassword ? 'confirm-error' : undefined}
             {...register('confirmPassword')}

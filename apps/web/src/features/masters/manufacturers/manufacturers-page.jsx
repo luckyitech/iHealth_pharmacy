@@ -42,8 +42,8 @@ function ManufacturerFields({ form }) {
       <TextField form={form} name="name" label="Name" />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField form={form} name="license" label="Licence number" />
-        <TextField form={form} name="phone" label="Phone" type="tel" autoComplete="tel" />
-        <TextField form={form} name="email" label="Email" type="email" autoComplete="email" />
+        <TextField form={form} name="phone" label="Phone" type="tel" />
+        <TextField form={form} name="email" label="Email" type="email" />
         <TextField form={form} name="fax" label="Fax" type="tel" />
       </div>
       <TextField form={form} name="website" label="Website" type="url" />

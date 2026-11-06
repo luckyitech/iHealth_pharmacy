@@ -29,21 +29,11 @@ export function AddressFields({ form, children }) {
 
   return (
     <FormSection title="Address">
-      <TextField
-        form={form}
-        name="addressLine1"
-        label="Address line 1"
-        autoComplete="address-line1"
-      />
-      <TextField
-        form={form}
-        name="addressLine2"
-        label="Address line 2"
-        autoComplete="address-line2"
-      />
+      <TextField form={form} name="addressLine1" label="Address line 1" />
+      <TextField form={form} name="addressLine2" label="Address line 2" />
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField form={form} name="city" label="City or town" autoComplete="address-level2" />
-        <TextField form={form} name="zip" label="Postal code" autoComplete="postal-code" />
+        <TextField form={form} name="city" label="City or town" />
+        <TextField form={form} name="zip" label="Postal code" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField

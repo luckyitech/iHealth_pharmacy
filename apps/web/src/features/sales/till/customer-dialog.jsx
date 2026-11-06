@@ -75,14 +75,7 @@ function CustomerChooser({ onChoose }) {
           hint="Registered customers appear as you type."
           onPick={(customer) => onChoose(customer)}
         />
-        <TextField
-          form={form}
-          name="phone"
-          label="Phone"
-          inputMode="tel"
-          autoComplete="off"
-          className="sm:max-w-60"
-        />
+        <TextField form={form} name="phone" label="Phone" inputMode="tel" className="sm:max-w-60" />
       </div>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
         <Button type="button" variant="outline" onClick={() => onChoose(null)}>

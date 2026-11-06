@@ -247,7 +247,6 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
         <Input
           {...control}
           inputMode="decimal"
-          autoComplete="off"
           className="h-11 text-base tabular-nums"
           value={row.amount}
           onChange={(event) => update(row.method, { amount: event.target.value })}
@@ -267,7 +266,6 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
       {(control) => (
         <Input
           {...control}
-          autoComplete="off"
           spellCheck={false}
           maxLength={maxLength}
           placeholder={placeholder}
