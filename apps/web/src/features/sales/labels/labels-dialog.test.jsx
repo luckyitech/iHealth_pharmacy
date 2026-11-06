@@ -50,14 +50,6 @@ function setup() {
   const api = stubApi({
     'GET app-info': () => jsonResponse(200, APP_INFO),
     'GET sales/bills/7/labels': () => jsonResponse(200, { data: LABELS }),
-    'GET sales/label-codes': () =>
-      jsonResponse(200, {
-        data: [
-          { code: 'tds', text: '3 times a day' },
-          { code: '1t', text: 'Take one tablet' },
-          { code: 'a.m., am, AM', text: 'in the morning' },
-        ],
-      }),
     'GET sales/till-settings': () =>
       jsonResponse(200, {
         data: { medicineTypes: [{ kind: 'antibiotic', code: 'H1', name: 'Antibiotic' }] },
@@ -80,26 +72,16 @@ afterEach(() => {
 });
 
 describe('the labels window', () => {
-  it('starts from the usual instruction, builds the dose from codes, and prints what is set', async () => {
+  it('starts from the usual instruction, lets the dose be edited, and prints what is set', async () => {
     const { printed, onClose } = setup();
     const amox = await screen.findByRole('textbox', { name: 'Dose for Amoxidemo 250mg caps' });
     expect(amox).toHaveValue('Take one capsule');
     // A plain item starts with no sticker; an antibiotic with one.
     expect(screen.getByRole('button', { name: 'Print 1 label' })).toBeEnabled();
 
-    await userEvent.type(
-      screen.getByRole('combobox', { name: 'Add a code to the dose for Amoxidemo 250mg caps' }),
-      'td',
-    );
-    await userEvent.keyboard('{Enter}');
-    expect(amox).toHaveValue('Take one capsule 3 times a day');
-    // Any of a code's spellings finds it.
-    await userEvent.type(
-      screen.getByRole('combobox', { name: 'Add a code to the dose for Amoxidemo 250mg caps' }),
-      'am',
-    );
-    expect(await screen.findByRole('option', { name: /in the morning/ })).toBeInTheDocument();
-    await userEvent.keyboard('{Escape}');
+    await userEvent.type(amox, ' 3 times a day');
+    // There is no box for the old label codes: the dose is typed.
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('button', { name: 'One sticker more for Amoxidemo 250mg caps' }),
     );

@@ -9,9 +9,6 @@ export const MAX_LABEL_TEXT = 255;
 
 const text = z.string().nullable();
 
-/** One of the legacy app's label codes, e.g. `1t` = "Take one tablet". */
-export const labelCodeSchema = z.object({ code: z.string(), text: z.string() });
-
 /** A line of a bill, ready for its dosing sticker. */
 export const billLabelLineSchema = z.object({
   lineId: z.number().int(),
