@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { createCrudRoutes } from '../../http/crud/create-crud-routes.js';
 import { AppError } from '../../lib/errors.js';
 import { isActive, LEGACY_STAMPS, legacyDates, text, toLegacyDate } from './legacy-mapping.js';
+import { toDbTime } from '#db';
 
 /** At most this many items or suppliers are matched by one search. */
 const MAX_SEARCH_MATCHES = 500;
@@ -281,7 +282,7 @@ export function createItemSupplierRoutes(deps) {
       ],
       beforeWrite: assertLinkedRecordsExist,
       stamps: LEGACY_STAMPS,
-      createDefaults: async () => ({ creationTs: new Date() }),
+      createDefaults: async () => ({ creationTs: toDbTime() }),
     },
     deps,
   );

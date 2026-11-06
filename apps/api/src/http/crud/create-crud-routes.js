@@ -13,6 +13,7 @@ import { getAuth } from '../../features/auth/auth.guards.js';
 import { AUDIT_OUTCOMES } from '../../features/audit/audit-log.js';
 import { AppError, notFound } from '../../lib/errors.js';
 import { defineRoute } from '../define-route.js';
+import { toDbTime } from '#db';
 
 /** Legacy `ACTIVE_S` flag values. */
 const ACTIVE = 'Y';
@@ -167,7 +168,7 @@ export function createCrudRoutes(config, { prisma, audit }) {
       ...(creating && stamps.createdBy ? { [stamps.createdBy]: by } : {}),
       ...(stamps.updatedBy ? { [stamps.updatedBy]: by } : {}),
       // Required: these legacy columns default to a zero date, which strict SQL mode rejects.
-      ...(stamps.updatedAt ? { [stamps.updatedAt]: new Date() } : {}),
+      ...(stamps.updatedAt ? { [stamps.updatedAt]: toDbTime() } : {}),
     };
   }
 

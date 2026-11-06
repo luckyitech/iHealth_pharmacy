@@ -2,6 +2,7 @@
  * Data access for administering staff accounts: sign-in details, role and individual permissions.
  * Legacy tables go through the Prisma models; the additive `ih_*` tables use parameterised raw queries.
  */
+import { toDbTime } from '#db';
 
 /** @typedef {import('#db').PrismaClient} PrismaClient */
 /** @typedef {Pick<PrismaClient, '$executeRaw' | '$queryRaw' | 'employeeCredentials' | 'employeeAccess' | 'employeePharmacyRole' | 'twoFactorTrustedDevice' | 'twoFactorChallenge' | 'twoFactorResetAudit'>} Client */
@@ -33,9 +34,9 @@ export function createAccountAdminRepository(prisma) {
           activeS: FLAG_YES,
           twoFactorEnabledS: FLAG_NO,
           creationUserId: by,
-          creationTs: now,
+          creationTs: toDbTime(now),
           lastUpdateUserId: by,
-          lastUpdateTs: now,
+          lastUpdateTs: toDbTime(now),
         },
         select: { employeeCredentialsId: true },
       });
@@ -56,7 +57,7 @@ export function createAccountAdminRepository(prisma) {
           ...(username === undefined ? {} : { userNm: username }),
           ...(active === undefined ? {} : { activeS: active ? FLAG_YES : FLAG_NO }),
           lastUpdateUserId: by,
-          lastUpdateTs: new Date(),
+          lastUpdateTs: toDbTime(),
         },
       });
     },
@@ -80,7 +81,7 @@ export function createAccountAdminRepository(prisma) {
         data: {
           revokedTs: now,
           revokedReason: TWO_FACTOR.REVOKED_BY_ADMIN_RESET,
-          lastUpdateTs: now,
+          lastUpdateTs: toDbTime(now),
         },
       });
       await client.employeeCredentials.update({
@@ -97,7 +98,7 @@ export function createAccountAdminRepository(prisma) {
           purpose: TWO_FACTOR.PURPOSE_LOGIN,
           consumedTs: null,
         },
-        data: { consumedTs: now, lastUpdateTs: now },
+        data: { consumedTs: now, lastUpdateTs: toDbTime(now) },
       });
       await client.twoFactorResetAudit.create({
         data: {
@@ -106,8 +107,8 @@ export function createAccountAdminRepository(prisma) {
           reason,
           previousEmail: account?.twoFactorEmail ?? null,
           devicesRevoked,
-          creationTs: now,
-          lastUpdateTs: now,
+          creationTs: toDbTime(now),
+          lastUpdateTs: toDbTime(now),
         },
       });
       return { devicesRevoked };
@@ -153,7 +154,12 @@ export function createAccountAdminRepository(prisma) {
       if (first) {
         await client.employeePharmacyRole.update({
           where: { employeePharmacyRoleId: first.employeePharmacyRoleId },
-          data: { roleId, pharmacyBranchId: branchId, lastUpdateUserId: by, lastUpdateTs: now },
+          data: {
+            roleId,
+            pharmacyBranchId: branchId,
+            lastUpdateUserId: by,
+            lastUpdateTs: toDbTime(now),
+          },
         });
       } else {
         await client.employeePharmacyRole.create({
@@ -162,9 +168,9 @@ export function createAccountAdminRepository(prisma) {
             roleId,
             pharmacyBranchId: branchId,
             creationUserId: by,
-            creationTs: now,
+            creationTs: toDbTime(now),
             lastUpdateUserId: by,
-            lastUpdateTs: now,
+            lastUpdateTs: toDbTime(now),
           },
         });
       }
@@ -233,7 +239,7 @@ export function createAccountAdminRepository(prisma) {
       const offIds = rows.filter(
         (row) => !wanted.has(row.pharmaAccessId) && row.activeS === FLAG_YES,
       );
-      const stamp = { lastUpdateUserId: by, lastUpdateTs: now };
+      const stamp = { lastUpdateUserId: by, lastUpdateTs: toDbTime(now) };
       if (onIds.length)
         await client.employeeAccess.updateMany({
           where: { employeeAccessId: { in: onIds.map((row) => row.employeeAccessId) } },
@@ -253,7 +259,7 @@ export function createAccountAdminRepository(prisma) {
             pharmaAccessId,
             activeS: FLAG_YES,
             creationUserId: by,
-            creationTs: now,
+            creationTs: toDbTime(now),
             ...stamp,
           })),
         });

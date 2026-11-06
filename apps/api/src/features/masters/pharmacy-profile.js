@@ -17,6 +17,7 @@ import { getAuth } from '../auth/auth.guards.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { currentPharmacyWhere } from './current-pharmacy.js';
 import { ADDRESS_COLUMNS, pickColumns, text } from './legacy-mapping.js';
+import { toDbTime } from '#db';
 
 const RESOURCE = 'masters/pharmacy-profile';
 const FLAG_YES = 'Y';
@@ -171,7 +172,7 @@ export function createPharmacyProfileRoutes({ prisma, audit, config }) {
           data: {
             ...data,
             lastUpdateUserId: String(getAuth(res).employeeId),
-            lastUpdateTs: new Date(),
+            lastUpdateTs: toDbTime(),
           },
         });
         await record(req, 'update', row.pharmacyId, { fields: Object.keys(input.body) });
@@ -232,7 +233,7 @@ export function createPharmacyProfileRoutes({ prisma, audit, config }) {
           data: {
             pharmacyLogoPath: new Uint8Array(bytes),
             lastUpdateUserId: String(getAuth(res).employeeId),
-            lastUpdateTs: new Date(),
+            lastUpdateTs: toDbTime(),
           },
         });
         await record(req, 'logo', row.pharmacyId, { bytes: bytes.length, type: declared });

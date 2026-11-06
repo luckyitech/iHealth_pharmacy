@@ -14,6 +14,7 @@ import { forbidden, validationFailed } from '../../lib/errors.js';
 import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-codes.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
+import { toDbTime } from '#db';
 
 /** Legacy bill status and flag values. */
 const LEGACY_PAID = 'Paid';
@@ -278,6 +279,8 @@ export function createSaleService({ prisma, config }) {
 
           const by = String(employeeId);
           const now = new Date();
+          // Stamps hold the pharmacy's wall clock, as the legacy app writes them.
+          const stamp = toDbTime(now);
           const billCode = await nextDocumentCode(tx, DOCUMENT_KINDS.SALE, {
             prefix: config.documentCodePrefix,
             timeZone: config.region.timeZone,
@@ -321,9 +324,9 @@ export function createSaleService({ prisma, config }) {
               pharmacyId,
               employeeId,
               activeS: ACTIVE,
-              creationTs: now,
+              creationTs: stamp,
               creationUserId: by,
-              lastUpdateTs: now,
+              lastUpdateTs: stamp,
               lastUpdateUserId: by,
             },
             select: { billId: true },
@@ -348,9 +351,9 @@ export function createSaleService({ prisma, config }) {
                 batchNo: batch.batchNo ?? null,
                 barcode: batch.barcode ?? null,
                 taxCategoryId: batch.taxCategoryId === null ? null : Number(batch.taxCategoryId),
-                creationTs: now,
+                creationTs: stamp,
                 creationUserId: by,
-                lastUpdateTs: now,
+                lastUpdateTs: stamp,
                 lastUpdateUserId: by,
               };
             }),

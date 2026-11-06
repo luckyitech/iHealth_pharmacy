@@ -130,6 +130,10 @@ describe('completing a sale', () => {
       change: '32.00',
     });
     expect(response.body.data.code).toMatch(/^DPSB\d{6}0001$/);
+    // Stamped in the pharmacy's wall clock, like bills from the legacy app.
+    const [stamp] =
+      await db.select`SELECT TIMESTAMPDIFF(SECOND, CREATION_TS, NOW()) AS age FROM sales WHERE BILL_ID = ${response.body.data.id}`;
+    expect(Math.abs(Number(stamp.age))).toBeLessThan(120);
     // Both prices come back: the shelf price (SP_VAT) and the price before VAT.
     expect(response.body.data.lines[0]).toMatchObject({
       labelPrice: '116.00',
