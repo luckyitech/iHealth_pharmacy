@@ -8,6 +8,9 @@ import { resourceKey } from '@/lib/resource-api';
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').completedReturnSchema>} CompletedReturn
  * @typedef {{ lineId: number, quantity: number, condition: string }} ReturnLine
  * @typedef {{ lines: ReturnLine[], reason: string, refund: string, mpesaCode?: string, approver: string, pin: string }} ReturnBody
+ * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').returnSummarySchema>} ReturnSummary
+ * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').creditNoteSummarySchema>} CreditNoteSummary
+ * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').creditNoteUseSchema>} CreditNoteUse
  */
 
 const BILLS = 'sales/bills';
@@ -59,4 +62,33 @@ export async function openReturnReceipt(returnId) {
     tab?.close();
     throw error;
   }
+}
+
+/**
+ * @param {string} date `YYYY-MM-DD`
+ * @returns {import('@tanstack/react-query').UseQueryResult<ReturnSummary[]>}
+ */
+export function useReturnsOfDay(date) {
+  return useQuery({
+    queryKey: ['sales', 'returns', date],
+    queryFn: async () =>
+      /** @type {{ data: ReturnSummary[] }} */ (
+        await api.get('sales/returns', { searchParams: { date } }).json()
+      ).data,
+  });
+}
+
+/**
+ * @param {string | null} code Null while no note is open.
+ * @returns {import('@tanstack/react-query').UseQueryResult<CreditNoteUse[]>}
+ */
+export function useCreditNoteUses(code) {
+  return useQuery({
+    queryKey: ['sales', 'credit-notes', code, 'uses'],
+    queryFn: async () =>
+      /** @type {{ data: CreditNoteUse[] }} */ (
+        await api.get(`sales/credit-notes/${encodeURIComponent(String(code))}/uses`).json()
+      ).data,
+    enabled: code !== null,
+  });
 }
