@@ -10,6 +10,13 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const REFRESH_PATH = 'auth/refresh';
 const RETRIED_HEADER = 'x-ihealth-retried';
+/** 401 codes after which the session is renewed and the request tried once more. */
+const RENEWABLE = /** @type {ReadonlySet<string>} */ (
+  new Set([ERROR_CODES.SESSION_EXPIRED, ERROR_CODES.UNAUTHENTICATED])
+);
+/** Answers that are about signing in itself, never renewed. */
+const NO_RENEWAL_PATHS = Object.freeze(['auth/login', 'auth/logout']);
+const ME_PATH = 'auth/me';
 
 /** @type {Promise<boolean> | null} */
 let refreshInFlight = null;
@@ -132,7 +139,11 @@ export const api = ky.create({
           return response;
         }
         const { code } = await toApiError(response);
-        if (code !== ERROR_CODES.SESSION_EXPIRED) return response;
+        // An expired sign-in, or one whose access cookie the browser already dropped: renew it.
+        if (!RENEWABLE.has(code) || NO_RENEWAL_PATHS.some((path) => request.url.endsWith(path)))
+          return response;
+        // "Who am I" with no sign-in at all is a visitor who has not signed in: the sign-in page follows.
+        if (code === ERROR_CODES.UNAUTHENTICATED && request.url.endsWith(ME_PATH)) return response;
         if (!(await refreshSession())) {
           sessionEndedListeners.forEach((listener) => listener());
           return response;

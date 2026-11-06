@@ -4,6 +4,11 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 export const REFRESH_TOKEN_TTL_MS = 7 * DAY_MS;
+/**
+ * A refresh token rotated this recently may be presented once more without counting as reuse: two
+ * tabs of the same sign-in share the cookie and can refresh at the same moment.
+ */
+export const REFRESH_GRACE_SECONDS = 30;
 export const PASSWORD_RESET_TTL_MS = 30 * MINUTE_MS;
 
 export const TOKEN_ISSUER = 'ihealth-api';

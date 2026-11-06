@@ -44,6 +44,21 @@ export async function mockApi(page) {
     error: { code: 'UNAUTHENTICATED', message: 'Please sign in to continue.' },
   };
 
+  // Everything else is answered here too, so a test never reaches a real API (the preview server
+  // proxies /api to the developer's running one).
+  await page.route('**/api/v1/**', (route) => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1/', '');
+    if (path === 'app-info')
+      return reply(route, 200, {
+        data: {
+          apiVersion: '1',
+          pharmacy: { id: 1, name: 'Test Pharmacy', city: null, country: null },
+          region: { locale: 'en-KE', currency: 'KES', timeZone: 'Africa/Nairobi' },
+        },
+      });
+    return reply(route, 404, { error: { code: 'NOT_FOUND', message: `No mock for ${path}` } });
+  });
+
   await page.route('**/api/v1/auth/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace('/api/v1/', '');

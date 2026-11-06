@@ -1,10 +1,4 @@
-import { MS_PER_SECOND } from '@ihealth/shared/units';
-import {
-  ACCESS_TOKEN_TTL_SECONDS,
-  COOKIES,
-  REFRESH_COOKIE_PATH,
-  REFRESH_TOKEN_TTL_MS,
-} from './auth.constants.js';
+import { COOKIES, REFRESH_COOKIE_PATH, REFRESH_TOKEN_TTL_MS } from './auth.constants.js';
 
 /**
  * @param {boolean} secure
@@ -20,10 +14,13 @@ const baseOptions = (secure) => ({ httpOnly: true, secure, sameSite: 'strict' })
  * @param {boolean} secure
  */
 export function setSessionCookies(res, { accessToken, refreshToken, familyId }, secure) {
+  // The cookie outlives the 15-minute token on purpose: an expired token still reaches the API,
+  // which answers SESSION_EXPIRED, and the app renews the sign-in. A cookie that vanished with its
+  // token made every request look signed out after 15 minutes.
   res.cookie(COOKIES.ACCESS, accessToken, {
     ...baseOptions(secure),
     path: '/',
-    maxAge: ACCESS_TOKEN_TTL_SECONDS * MS_PER_SECOND,
+    maxAge: REFRESH_TOKEN_TTL_MS,
   });
   res.cookie(COOKIES.REFRESH, refreshToken, {
     ...baseOptions(secure),
