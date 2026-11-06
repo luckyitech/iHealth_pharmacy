@@ -25,6 +25,7 @@ import { createTillRepository } from './till.repository.js';
 const TAGS = ['Sales'];
 const HELD = '/sales/held';
 const HELD_RESOURCE = 'sales/held';
+const BYTES_PER_KB = 1024;
 
 /**
  * What the sales screen needs besides pricing and completing: finding batches and customers, and
@@ -56,6 +57,12 @@ export function createTillRoutes({ prisma, audit, config }) {
           cancelAloneMinutes: config.sales.cancelAloneMinutes,
           approvalReasons: config.sales.approvalReasons,
           cancelReasons: config.sales.cancelReasons,
+          medicineTypes: config.medicine.types.map(({ kind, code, name }) => ({
+            kind,
+            code,
+            name,
+          })),
+          prescriptionPhotoMaxKb: Math.floor(config.medicine.photoMaxBytes / BYTES_PER_KB),
           canAcceptCheques: hasAnyPermission(
             getAuth(res).permissionIds,
             POLICIES.sales.acceptCheque,
@@ -95,6 +102,7 @@ export function createTillRoutes({ prisma, audit, config }) {
           pharmacyId: await currentPharmacyId(prisma, config),
           today: todayIn(config.region.timeZone),
           limit: config.sales.searchLimit,
+          medicineTypes: config.medicine.types,
         }),
       }),
     }),

@@ -8,6 +8,7 @@ import { notify } from '@/lib/notify';
 import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 
+import { MedicineTag } from '../prescriptions/medicine-tag.jsx';
 import { batchSearchKey, fetchBatches, useBatchSearch } from './till-api.js';
 import { parseEntry } from './till-state.js';
 
@@ -46,9 +47,10 @@ const firstSellable = (batches) => batches.findIndex((batch) => !batch.expired);
  * @param {(batch: SellableBatch, quantity: number) => void} props.onAdd
  * @param {(event: React.KeyboardEvent<HTMLInputElement>) => void} props.onIdleKey
  * @param {React.Ref<HTMLInputElement>} props.inputRef
+ * @param {import('../prescriptions/medicine.js').MedicineType[]} props.medicineTypes
  * @returns {React.JSX.Element}
  */
-export function ItemSearch({ onAdd, onIdleKey, inputRef }) {
+export function ItemSearch({ onAdd, onIdleKey, inputRef, medicineTypes }) {
   const format = useFormat();
   const queryClient = useQueryClient();
   const listId = useId();
@@ -211,6 +213,7 @@ export function ItemSearch({ onAdd, onIdleKey, inputRef }) {
                 <span className="min-w-0">
                   <span className="block truncate font-medium">
                     {batch.itemName ?? batch.itemCode ?? '—'}
+                    <MedicineTag kind={batch.medicineKind} types={medicineTypes} />
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
                     Batch {batch.batchNo ?? '—'}

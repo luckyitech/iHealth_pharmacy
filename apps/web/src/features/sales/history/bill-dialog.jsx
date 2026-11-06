@@ -21,6 +21,10 @@ import { useTillSettings } from '../till/till-api.js';
 import { CancelBillDialog } from './cancel-bill-dialog.jsx';
 import { openReceipt, useBill } from './sales-api.js';
 import { SALES_LABELS } from '../labels.js';
+import { openPrescriptionPhoto } from '../prescriptions/prescriptions-api.js';
+
+/** Shown for a bill sold without a doctor (the legacy placeholder doctor included). */
+const NO_DOCTOR = 'No doctor';
 
 /**
  * @param {{ label: string, children: React.ReactNode }} props
@@ -120,10 +124,29 @@ export function BillDialog({ id, onClose }) {
                 )}
               </Fact>
               <Fact label="Cashier">{data.cashierName ?? '—'}</Fact>
-              <Fact label="Prescriber">
-                {data.prescriberName ?? '—'}
+              <Fact label="Doctor">
+                {data.prescriberName ?? NO_DOCTOR}
                 {data.hospitalName && (
                   <span className="block text-xs text-muted-foreground">{data.hospitalName}</span>
+                )}
+                {data.prescriptionDate && (
+                  <span className="block text-xs text-muted-foreground">
+                    Prescribed {format.date(data.prescriptionDate)}
+                  </span>
+                )}
+                {data.hasPrescriptionPhoto && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() =>
+                      openPrescriptionPhoto(data.id).catch((error) =>
+                        notify.failure('Could not open the prescription photo', error),
+                      )
+                    }
+                  >
+                    View prescription photo
+                  </Button>
                 )}
               </Fact>
             </dl>

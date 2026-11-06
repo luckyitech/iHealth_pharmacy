@@ -20,10 +20,11 @@ export async function loadBatches(client, stockIds, pharmacyId, { lock = false }
       st.QUANTITY AS available, st.UNIT_SALE_RATE AS labelPrice,
       COALESCE(tc.CATEGORY_VALUE, st.VAT, 0) AS vatPercent, st.TAX_CATEGORY_ID AS taxCategoryId,
       tc.CATEGORY_CODE AS taxCode, st.UNIT_PURCHASE_RATE AS unitCost,
-      st.PURCHASE_DISCOUNT_PERCENTAGE AS costDiscountPercent
+      st.PURCHASE_DISCOUNT_PERCENTAGE AS costDiscountPercent, sc.SCHEDULE_CATEGORY_CODE AS scheduleCode
     FROM stock st
       LEFT JOIN items it ON it.ITEM_ID = st.ITEM_ID
       LEFT JOIN taxcategory tc ON tc.TAXCATEGORY_ID = st.TAX_CATEGORY_ID
+      LEFT JOIN schedule_category_code sc ON sc.SCHEDULE_CATEGORY_CODE_ID = it.SCHEDULE_CATEGORY_CODE_ID
     WHERE st.STOCK_ID IN (${Prisma.join(stockIds)}) AND st.PHARMACY_ID = ${pharmacyId}
     ${lock ? Prisma.sql`FOR UPDATE OF st` : Prisma.empty}`;
   return new Map(rows.map((row) => [Number(row.stockId), row]));

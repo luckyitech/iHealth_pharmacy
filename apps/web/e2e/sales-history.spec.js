@@ -25,6 +25,7 @@ const DETAIL = Object.freeze({
   prescriberName: null,
   hospitalName: null,
   prescriptionDate: null,
+  hasPrescriptionPhoto: false,
   remarks: null,
   totals: {
     gross: '1160.00',
@@ -85,6 +86,23 @@ const TODAY_BILL = Object.freeze({
 const PDF =
   '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF';
 
+/** A made-up bill sold against a prescription, with its photo. */
+const PRESCRIBED_BILL = Object.freeze({
+  ...DETAIL,
+  id: 9,
+  code: 'TSB0102260009',
+  prescriberName: 'Amani Demo',
+  hospitalName: 'Sample Medical Centre',
+  prescriptionDate: '2026-01-31',
+  hasPrescriptionPhoto: true,
+  flags: [],
+});
+/** A one-pixel PNG. */
+const PHOTO = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 /**
  * A signed-in cashier with Sales permissions, and one bill.
  *
@@ -117,6 +135,9 @@ async function mockApi(page) {
       return json({ data: [SUMMARY], meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 } });
     if (path === 'sales/bills/7') return json({ data: DETAIL });
     if (path === 'sales/bills/8') return json({ data: TODAY_BILL });
+    if (path === 'sales/bills/9') return json({ data: PRESCRIBED_BILL });
+    if (path === 'sales/bills/9/prescription-photo')
+      return route.fulfill({ status: 200, contentType: 'image/png', body: PHOTO });
     if (path === 'sales/bills/8/cancel') return route.fulfill({ status: 204, body: '' });
     if (path === 'app-info')
       return json({
@@ -169,6 +190,25 @@ test('lists bills, opens one, and reprints its receipt', async ({ page }) => {
   ]);
   expect(receipt.headers()['content-type']).toBe('application/pdf');
   await expect(page.getByText('Could not reprint the receipt')).toHaveCount(0);
+});
+
+test("shows a bill's doctor and opens its prescription photo", async ({ page }) => {
+  await page.goto('/sales/history?bill=7');
+  const plain = page.getByRole('dialog', { name: 'Bill TSB0102260001' });
+  await expect(plain.getByText('No doctor')).toBeVisible();
+  await expect(plain.getByRole('button', { name: 'View prescription photo' })).toHaveCount(0);
+
+  await page.goto('/sales/history?bill=9');
+  const dialog = page.getByRole('dialog', { name: 'Bill TSB0102260009' });
+  await expect(dialog.getByText('Amani Demo')).toBeVisible();
+  await expect(dialog.getByText('Sample Medical Centre')).toBeVisible();
+  await expect(dialog.getByText(/Prescribed 31/)).toBeVisible();
+  const [photo] = await Promise.all([
+    page.waitForResponse('**/api/v1/sales/bills/9/prescription-photo'),
+    page.waitForEvent('popup'),
+    dialog.getByRole('button', { name: 'View prescription photo' }).click(),
+  ]);
+  expect(photo.headers()['content-type']).toBe('image/png');
 });
 
 test('says clearly when a bill cannot be found', async ({ page }) => {

@@ -7,6 +7,7 @@ import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 import { APPROVAL_REASON_FLAGS } from '../approvals/approval-labels.js';
 import { SALES_LABELS } from '../labels.js';
+import { MedicineTag } from '../prescriptions/medicine-tag.jsx';
 
 /** The flags once a second person has approved. */
 const APPROVED_FLAGS = Object.freeze(
@@ -38,9 +39,19 @@ const APPROVED_FLAGS = Object.freeze(
  * @param {(index: number) => void} props.onDiscount
  * @param {(index: number) => void} props.onPrice
  * @param {boolean} props.approved A second person has approved the lines as they are.
+ * @param {import('../prescriptions/medicine.js').MedicineType[]} props.medicineTypes
  * @returns {React.JSX.Element}
  */
-export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount, onPrice, approved }) {
+export function SaleLines({
+  lines,
+  quoteOf,
+  selected,
+  dispatch,
+  onDiscount,
+  onPrice,
+  approved,
+  medicineTypes,
+}) {
   const format = useFormat();
 
   if (!lines.length) {
@@ -104,7 +115,10 @@ export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount, onPr
                   {index + 1}
                 </td>
                 <td className="px-2 py-2.5 sm:px-3">
-                  <span className="block font-medium">{name}</span>
+                  <span className="block font-medium">
+                    {name}
+                    <MedicineTag kind={quote?.medicineKind} types={medicineTypes} />
+                  </span>
                   <span className="block text-xs text-muted-foreground">
                     Batch {batchNo ?? '—'}
                     {expiry && ` · ${format.date(expiry)}`}

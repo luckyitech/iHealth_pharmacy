@@ -102,6 +102,8 @@ export const billDetailSchema = billSummarySchema.extend({
   prescriberName: text,
   hospitalName: text,
   prescriptionDate: text,
+  /** A photo of the prescription was kept with the bill (new till only). */
+  hasPrescriptionPhoto: z.boolean(),
   remarks: text,
   totals: z.object({
     gross: amount,

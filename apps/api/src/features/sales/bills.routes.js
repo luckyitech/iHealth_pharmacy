@@ -35,6 +35,7 @@ const TAGS = ['Sales'];
 const RESOURCE = 'sales/bills';
 const PRINT = 'print';
 const REPRINT = 'reprint';
+const PHOTO = 'prescription-photo.view';
 
 const receiptQuerySchema = z.object({
   /** Asks for the original receipt: given once, to the cashier who made the bill. */
@@ -82,7 +83,10 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
   const findOrFail = async (id, pharmacyId) => {
     const found = await bills.find(id, pharmacyId);
     if (!found) throw notFound('Bill not found');
-    return { ...toBillDetail(found), approvals: await approvalsRepo.ofBill(id) };
+    return {
+      ...toBillDetail(found, { placeholderDoctorId: config.sales.defaultProviderId }),
+      approvals: await approvalsRepo.ofBill(id),
+    };
   };
 
   /**
@@ -249,6 +253,28 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
           'Cache-Control': 'no-store',
         });
         res.status(200).end(pdf);
+      },
+    }),
+
+    defineRoute({
+      method: 'get',
+      path: `${PATH}/:id/prescription-photo`,
+      summary: "A bill's prescription photo",
+      tags: TAGS,
+      permissions: POLICIES.sales.read,
+      request: { params: idParamsSchema },
+      responses: { 200: { description: 'The photo, as it was taken' } },
+      handler: async ({ req, res, input }) => {
+        const pharmacyId = await currentPharmacyId(prisma, config);
+        /** @type {{ mimeType: string, image: Uint8Array }[]} */
+        const [photo] = await prisma.$queryRaw`
+          SELECT pp.MIME_TYPE AS mimeType, pp.IMAGE AS image
+          FROM ih_prescription_photo pp JOIN sales s ON s.BILL_ID = pp.BILL_ID
+          WHERE pp.BILL_ID = ${input.params.id} AND s.PHARMACY_ID = ${pharmacyId}`;
+        if (!photo) throw notFound('This bill has no prescription photo');
+        await record(req, PHOTO, input.params.id);
+        res.set({ 'Content-Type': photo.mimeType, 'Cache-Control': 'no-store' });
+        res.status(200).end(Buffer.from(photo.image));
       },
     }),
 

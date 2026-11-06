@@ -32,9 +32,10 @@ const BATCH = {
 
 /**
  * @param {{ quantity: number, discountPercent?: number }} line
+ * @param {string | null} [medicineKind]
  * @returns {Record<string, unknown>}
  */
-const quoteOf = ({ quantity, discountPercent = 0 }) => {
+const quoteOf = ({ quantity, discountPercent = 0 }, medicineKind = null) => {
   const amount = (116 * quantity * (1 - discountPercent / 100)).toFixed(2);
   return {
     data: {
@@ -52,6 +53,7 @@ const quoteOf = ({ quantity, discountPercent = 0 }) => {
           warnings: [],
           needsApproval: discountPercent > 25 ? ['discountAboveLimit'] : [],
           batchLabelPrice: '116.00',
+          medicineKind,
         },
       ],
       totals: {
@@ -68,10 +70,13 @@ const quoteOf = ({ quantity, discountPercent = 0 }) => {
 };
 
 /**
- * @param {{ customers?: { id: number, name: string, phone: string | null }[] }} [options]
+ * @param {{ customers?: { id: number, name: string, phone: string | null }[], medicineKind?: string | null }} [options]
  * @returns {{ quotes: { lines: { discountPercent: number }[] }[], api: ReturnType<typeof stubApi> }}
  */
-function renderPage({ customers = [{ id: 5, name: 'Test Customer', phone: '0700000005' }] } = {}) {
+function renderPage({
+  customers = [{ id: 5, name: 'Test Customer', phone: '0700000005' }],
+  medicineKind = null,
+} = {}) {
   /** @type {{ lines: { discountPercent: number }[] }[]} */
   const quotes = [];
   const api = stubApi({
@@ -87,11 +92,30 @@ function renderPage({ customers = [{ id: 5, name: 'Test Customer', phone: '07000
           cancelAloneMinutes: 10,
           approvalReasons: ['Regular customer'],
           cancelReasons: ['Wrong item'],
+          medicineTypes: [
+            { kind: 'prescription', code: 'H', name: 'Prescription only' },
+            { kind: 'controlled', code: 'X', name: 'Controlled' },
+            { kind: 'antibiotic', code: 'H1', name: 'Antibiotic' },
+          ],
+          prescriptionPhotoMaxKb: 500,
         },
       }),
     'GET sales/banks': () => jsonResponse(200, { data: [{ id: 1, name: 'Test Bank' }] }),
     'GET sales/held': () => jsonResponse(200, { data: [] }),
-    'GET sales/batches': () => jsonResponse(200, { data: { batches: [BATCH], scanned: false } }),
+    'GET sales/batches': () =>
+      jsonResponse(200, { data: { batches: [{ ...BATCH, medicineKind }], scanned: false } }),
+    'GET sales/doctors': () =>
+      jsonResponse(200, {
+        data: [
+          {
+            id: 7,
+            name: 'Amani Demo',
+            licenseNumber: 'TEST-0001',
+            hospitalId: 3,
+            hospitalName: 'Sample Medical Centre',
+          },
+        ],
+      }),
     'GET sales/customers': () => jsonResponse(200, { data: customers }),
     'POST sales/approvals': () =>
       jsonResponse(201, {
@@ -105,7 +129,7 @@ function renderPage({ customers = [{ id: 5, name: 'Test Customer', phone: '07000
     'POST sales/quote': async (request) => {
       const body = await request.json();
       quotes.push(body);
-      return jsonResponse(200, quoteOf(body.lines[0]));
+      return jsonResponse(200, quoteOf(body.lines[0], medicineKind));
     },
   });
   vi.stubGlobal('fetch', api.fetch);
@@ -163,6 +187,27 @@ describe('the sales screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Use this name' }));
     expect(screen.getByRole('button', { name: /Customer\s*Nobody Known/ })).toBeInTheDocument();
     expect(new URL(searches().at(-1)?.url ?? '').searchParams.get('q')).toBe('Nobody Known');
+  });
+
+  it('asks for the prescription of a prescription-only medicine, without requiring it', async () => {
+    renderPage({ medicineKind: 'prescription' });
+    expect(screen.queryByRole('region', { name: /Prescription/ })).not.toBeInTheDocument();
+    await addTestamol();
+    expect(await screen.findByTitle('Prescription only')).toHaveTextContent('Rx');
+    const strip = await screen.findByRole('region', { name: /Prescription/ });
+    expect(strip).toHaveTextContent('recommended · 1 item needs one');
+
+    await userEvent.keyboard('{F3}');
+    const doctor = within(strip).getByRole('combobox', { name: 'Doctor' });
+    expect(doctor).toHaveFocus();
+    await userEvent.type(doctor, 'am');
+    await userEvent.click(await screen.findByRole('option', { name: /Amani Demo/ }));
+    expect(doctor).toHaveValue('Amani Demo');
+    // The doctor's own hospital is filled in.
+    expect(within(strip).getByRole('combobox', { name: 'Hospital' })).toHaveValue(
+      'Sample Medical Centre',
+    );
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeEnabled());
   });
 
   it('asks a second person to approve a discount above the limit, then takes the payment', async () => {
