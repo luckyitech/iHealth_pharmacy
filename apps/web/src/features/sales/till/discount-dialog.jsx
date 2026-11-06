@@ -6,9 +6,12 @@ import { useZodForm } from '@/components/form/use-zod-form';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
+/** A discount cannot be more than the whole price. */
+const MAX_PERCENT = 100;
+
 /**
- * A line discount, in percent. Up to the limit a cashier may give alone; more needs a second
- * person's approval, which comes in a later step.
+ * A line discount, in percent. Up to the limit a cashier may give it alone; more needs a second
+ * person's approval before payment.
  *
  * @param {object} props
  * @param {{ name: string, discountPercent: number } | null} props.line
@@ -46,9 +49,9 @@ function DiscountForm({ line, limit, onSave, onClose }) {
         discountPercent: z.coerce
           .number({ error: 'Enter a number' })
           .min(0, 'Cannot be negative')
-          .max(limit, `Above ${limit}% needs a second person's approval`),
+          .max(MAX_PERCENT, `Use at most ${MAX_PERCENT}`),
       }),
-    [limit],
+    [],
   );
   const form = useZodForm(schema, {
     defaultValues: { discountPercent: String(line.discountPercent) },
@@ -64,7 +67,7 @@ function DiscountForm({ line, limit, onSave, onClose }) {
         name="discountPercent"
         label="Discount (%)"
         inputMode="decimal"
-        hint={`Up to ${limit}% without approval. Taken off before VAT.`}
+        hint={`Up to ${limit}% without approval; more needs a second person's PIN. Taken off before VAT.`}
       />
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onClose}>

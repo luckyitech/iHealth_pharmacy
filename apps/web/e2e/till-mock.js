@@ -18,6 +18,10 @@ export const TILL_USER = Object.freeze({
 
 /** Barcode of the made-up syrup. */
 export const SYRUP_BARCODE = '6009900000017';
+/** The made-up second person who may approve. */
+export const APPROVER = Object.freeze({ username: 'pat.pharmacist', pin: '4321' });
+const APPROVAL_TOKEN = '11111111-2222-4333-8444-555555555555';
+
 /** An M-Pesa code the mock says is already on another bill. */
 export const USED_MPESA_CODE = 'QK00USED00';
 
@@ -83,9 +87,14 @@ const BATCHES = Object.freeze([
 /**
  * State both tills share, like the server's database.
  *
- * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number }}
+ * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null }}
  */
-export const createTillServer = () => ({ held: new Map(), nextHeld: 1, nextBill: 1 });
+export const createTillServer = () => ({
+  held: new Map(),
+  nextHeld: 1,
+  nextBill: 1,
+  /** @type {string | null} */ approved: null,
+});
 
 /**
  * @param {Record<string, any>} sale A held sale with its lines.
@@ -150,6 +159,9 @@ export async function mockTillApi(page, server) {
           quickCashNotes: [50, 100, 200, 500, 1000],
           chequeMaxAgeMonths: 6,
           canAcceptCheques: true,
+          cancelAloneMinutes: 10,
+          approvalReasons: ['Regular customer', 'Price match'],
+          cancelReasons: ['Wrong item'],
         },
       });
     if (key === 'GET sales/banks')
@@ -190,6 +202,8 @@ export async function mockTillApi(page, server) {
               labelPrice: batch.labelPrice,
               ...priced.lines[index],
               warnings: line.quantity > batch.available ? ['insufficientStock'] : [],
+              needsApproval: (line.discountPercent ?? 0) > 25 ? ['discountAboveLimit'] : [],
+              batchLabelPrice: batch.labelPrice,
             };
           }),
           totals: priced,
@@ -197,8 +211,72 @@ export async function mockTillApi(page, server) {
         },
       });
     }
+    if (key === 'POST sales/approvals') {
+      const body = request.postDataJSON();
+      if (body.approver !== APPROVER.username)
+        return json(
+          {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'Some fields are invalid.',
+              details: [
+                {
+                  path: 'body.approver',
+                  message: "You can't approve your own sale. Ask someone else.",
+                },
+              ],
+            },
+          },
+          400,
+        );
+      if (body.pin !== APPROVER.pin)
+        return json(
+          {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'Some fields are invalid.',
+              details: [
+                {
+                  path: 'body.pin',
+                  message: 'Wrong PIN. 2 tries left before it is locked for 15 minutes.',
+                },
+              ],
+            },
+          },
+          400,
+        );
+      server.approved = APPROVAL_TOKEN;
+      return json(
+        {
+          data: {
+            token: APPROVAL_TOKEN,
+            approvedBy: 'Pat Pharmacist',
+            items: [],
+            givenAway: '69.60',
+          },
+        },
+        201,
+      );
+    }
     if (key === 'POST sales/bills') {
       const body = request.postDataJSON();
+      const needs = body.lines.some((/** @type {any} */ line) => (line.discountPercent ?? 0) > 25);
+      if (needs && body.approvalToken !== server.approved)
+        return json(
+          {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'Some fields are invalid.',
+              details: [
+                {
+                  path: 'body.approvalToken',
+                  message: "This sale needs a second person's approval before it can be paid",
+                },
+              ],
+            },
+          },
+          400,
+        );
       const mpesaIndex = body.payments.findIndex((/** @type {any} */ p) => p.method === 'mpesa');
       if (mpesaIndex >= 0 && body.payments[mpesaIndex].reference === USED_MPESA_CODE) {
         return json(

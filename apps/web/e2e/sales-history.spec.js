@@ -54,12 +54,31 @@ const DETAIL = Object.freeze({
     },
   ],
   payments: [{ method: 'mpesa', amount: '1160.00', reference: 'AB12' }],
+  approvals: [],
   audit: {
     createdBy: 'Carl Cashier',
     createdAt: '2026-02-01 09:15:00',
     updatedBy: 'Carl Cashier',
     updatedAt: '2026-02-01 09:15:00',
   },
+});
+
+/**
+ * @param {number} minutesAgo
+ * @returns {string} That moment as a legacy wall-clock time in UTC (the mock pharmacy's zone).
+ */
+const wallClock = (minutesAgo) =>
+  new Date(Date.now() - minutesAgo * 60_000).toISOString().slice(0, 19).replace('T', ' ');
+
+/** A made-up bill of today, made 20 minutes ago by the signed-in cashier. */
+const TODAY_BILL = Object.freeze({
+  ...DETAIL,
+  id: 8,
+  code: 'TSB0611260008',
+  billDate: wallClock(20).slice(0, 10),
+  createdAt: wallClock(20),
+  status: 'paid',
+  flags: [],
 });
 
 /** A minimal valid PDF, standing in for the receipt. */
@@ -97,6 +116,29 @@ async function mockApi(page) {
     if (path === 'sales/bills')
       return json({ data: [SUMMARY], meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 } });
     if (path === 'sales/bills/7') return json({ data: DETAIL });
+    if (path === 'sales/bills/8') return json({ data: TODAY_BILL });
+    if (path === 'sales/bills/8/cancel') return route.fulfill({ status: 204, body: '' });
+    if (path === 'app-info')
+      return json({
+        data: {
+          apiVersion: '1',
+          pharmacy: { id: 1, name: 'Test Pharmacy', city: null, country: null },
+          region: { locale: 'en-KE', currency: 'KES', timeZone: 'UTC' },
+        },
+      });
+    if (path === 'sales/till-settings')
+      return json({
+        data: {
+          selfDiscountLimit: 25,
+          maxHeld: 30,
+          quickCashNotes: [100],
+          chequeMaxAgeMonths: 6,
+          canAcceptCheques: false,
+          cancelAloneMinutes: 10,
+          approvalReasons: [],
+          cancelReasons: ['Customer changed mind'],
+        },
+      });
     if (path === 'sales/bills/7/receipt')
       return route.fulfill({ status: 200, contentType: 'application/pdf', body: PDF });
     return json(
@@ -134,4 +176,21 @@ test('says clearly when a bill cannot be found', async ({ page }) => {
   await expect(page.getByText('Could not open the bill')).toBeVisible();
   // The notification gives the reference for support (the dialog repeats it).
   await expect(page.getByText(/Reference: req-smoke/).first()).toBeVisible();
+});
+
+test('cancels a bill of today with a second person after the cashier’s 10 minutes', async ({
+  page,
+}) => {
+  await page.goto('/sales/history?bill=8');
+  const dialog = page.getByRole('dialog', { name: 'Bill TSB0611260008' });
+  await dialog.getByRole('button', { name: 'Cancel bill' }).click();
+  const cancel = page.getByRole('dialog', { name: 'Cancel bill TSB0611260008?' });
+  await expect(cancel.getByText(/A second person must approve/)).toBeVisible();
+  await cancel.getByRole('button', { name: 'Approve and cancel' }).click();
+  await expect(cancel.getByText('Enter a reason')).toBeVisible();
+  await cancel.getByRole('button', { name: 'Customer changed mind' }).click();
+  await cancel.getByLabel(/Approver's username/).fill('pat.pharmacist');
+  await cancel.getByLabel(/Approver's PIN/).fill('4321');
+  await cancel.getByRole('button', { name: 'Approve and cancel' }).click();
+  await expect(page.getByText('Bill TSB0611260008 cancelled')).toBeVisible();
 });

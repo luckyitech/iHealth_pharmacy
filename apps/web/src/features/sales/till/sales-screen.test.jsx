@@ -50,6 +50,8 @@ const quoteOf = ({ quantity, discountPercent = 0 }) => {
           vat: '16.00',
           amount,
           warnings: [],
+          needsApproval: discountPercent > 25 ? ['discountAboveLimit'] : [],
+          batchLabelPrice: '116.00',
         },
       ],
       totals: {
@@ -78,6 +80,9 @@ function renderPage() {
           quickCashNotes: [50, 100],
           chequeMaxAgeMonths: 6,
           canAcceptCheques: false,
+          cancelAloneMinutes: 10,
+          approvalReasons: ['Regular customer'],
+          cancelReasons: ['Wrong item'],
         },
       }),
     'GET sales/banks': () => jsonResponse(200, { data: [{ id: 1, name: 'Test Bank' }] }),
@@ -85,6 +90,15 @@ function renderPage() {
     'GET sales/batches': () => jsonResponse(200, { data: { batches: [BATCH], scanned: false } }),
     'GET sales/customers': () =>
       jsonResponse(200, { data: [{ id: 5, name: 'Test Customer', phone: '0700000005' }] }),
+    'POST sales/approvals': () =>
+      jsonResponse(201, {
+        data: {
+          token: '11111111-2222-4333-8444-555555555555',
+          approvedBy: 'Test Approver',
+          items: [],
+          givenAway: '34.80',
+        },
+      }),
     'POST sales/quote': async (request) => {
       const body = await request.json();
       quotes.push(body);
@@ -132,7 +146,7 @@ describe('the sales screen', () => {
     expect(screen.getByRole('button', { name: /Customer\s*Test Customer/ })).toBeInTheDocument();
   });
 
-  it('refuses a discount above what a cashier may give alone', async () => {
+  it('asks a second person to approve a discount above the limit, then takes the payment', async () => {
     const { quotes } = renderPage();
     await addTestamol();
     await userEvent.keyboard('{F4}');
@@ -140,14 +154,25 @@ describe('the sales screen', () => {
     await userEvent.clear(field);
     await userEvent.type(field, '30');
     await userEvent.click(screen.getByRole('button', { name: 'Apply discount' }));
+    await waitFor(() => expect(quotes.at(-1)?.lines[0].discountPercent).toBe(30));
     expect(
-      await screen.findByText("Above 25% needs a second person's approval"),
+      await screen.findByText(/Discount above the limit · needs approval/),
     ).toBeInTheDocument();
 
-    await userEvent.clear(field);
-    await userEvent.type(field, '10');
-    await userEvent.click(screen.getByRole('button', { name: 'Apply discount' }));
-    await waitFor(() => expect(quotes.at(-1)?.lines[0].discountPercent).toBe(10));
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /^Get approval/ })[0]).toBeEnabled(),
+    );
+    await userEvent.keyboard('{F9}');
+    const approval = await screen.findByRole('dialog', { name: 'Approval needed' });
+    await userEvent.click(within(approval).getByRole('button', { name: /Approve and pay/ }));
+    expect(within(approval).getByText('Enter a reason')).toBeInTheDocument();
+    expect(within(approval).getByText("Enter the approver's PIN")).toBeInTheDocument();
+
+    await userEvent.click(within(approval).getByRole('button', { name: 'Regular customer' }));
+    await userEvent.type(within(approval).getByLabelText(/Approver's username/), 'test.approver');
+    await userEvent.type(within(approval).getByLabelText(/Approver's PIN/), '4321');
+    await userEvent.click(within(approval).getByRole('button', { name: /Approve and pay/ }));
+    expect(await screen.findByRole('textbox', { name: 'Cash received' })).toBeInTheDocument();
   });
 
   it('opens the payment window with F9, the exact cash filled in', async () => {

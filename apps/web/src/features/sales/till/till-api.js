@@ -14,7 +14,9 @@ import { BILLS } from '../history/sales-api.js';
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').tillCustomerSchema>} TillCustomerOption
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').tillSettingsSchema>} TillSettings
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').completedSaleSchema>} CompletedSale
- * @typedef {{ stockId: number, quantity: number, discountPercent: number }} LineInput
+ * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').saleApprovalSchema>} SaleApproval
+ * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').billApprovalSchema>} BillApproval
+ * @typedef {{ stockId: number, quantity: number, discountPercent: number, labelPrice?: string }} LineInput
  */
 
 const HELD = 'sales/held';
@@ -99,13 +101,15 @@ export function useQuote(lines) {
 }
 
 /**
+ * @param {boolean} [enabled] Only for people who sell (the API refuses the others).
  * @returns {import('@tanstack/react-query').UseQueryResult<TillSettings>}
  */
-export function useTillSettings() {
+export function useTillSettings(enabled = true) {
   return useQuery({
     queryKey: ['sales', 'till-settings'],
     queryFn: () => data(api.get('sales/till-settings').json()),
     staleTime: Infinity,
+    enabled,
   });
 }
 
@@ -172,5 +176,38 @@ export function useDiscardHeldSale() {
   return useMutation({
     mutationFn: (id) => api.delete(`${HELD}/${id}`),
     onSettled: () => queryClient.invalidateQueries({ queryKey: resourceKey(HELD) }),
+  });
+}
+
+/**
+ * A second person approves the lines on the till (username + PIN).
+ *
+ * @returns {import('@tanstack/react-query').UseMutationResult<SaleApproval, unknown, { lines: LineInput[], reason: string, approver: string, pin: string }>}
+ */
+export function useApproveSale() {
+  return useMutation({
+    mutationFn: (body) => data(api.post('sales/approvals', { json: body }).json()),
+  });
+}
+
+/**
+ * @returns {import('@tanstack/react-query').UseMutationResult<unknown, unknown, { id: number, reason: string, approver?: string, pin?: string }>}
+ */
+export function useCancelBill() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }) => api.post(`${BILLS}/${id}/cancel`, { json: body }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: resourceKey(BILLS) }),
+  });
+}
+
+/**
+ * @param {string} date `YYYY-MM-DD`
+ * @returns {import('@tanstack/react-query').UseQueryResult<BillApproval[]>}
+ */
+export function useApprovalsOfDay(date) {
+  return useQuery({
+    queryKey: ['sales', 'approvals', date],
+    queryFn: () => data(api.get('sales/approvals', { searchParams: { date } }).json()),
   });
 }

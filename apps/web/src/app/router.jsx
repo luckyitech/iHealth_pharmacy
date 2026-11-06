@@ -113,6 +113,19 @@ export function createAppRouter() {
                       ],
                     },
                     {
+                      path: 'approvals',
+                      element: <RequirePermission permissions={POLICIES.sales.approve} />,
+                      children: [
+                        {
+                          index: true,
+                          lazy: async () => ({
+                            Component: (await import('@/features/sales/approvals/approvals-page'))
+                              .default,
+                          }),
+                        },
+                      ],
+                    },
+                    {
                       path: 'history',
                       lazy: async () => ({
                         Component: (await import('@/features/sales/history/sales-history-page'))

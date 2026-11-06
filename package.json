@@ -34,6 +34,7 @@
     "postinstall": "npm run db:generate -w @ihealth/api",
     "db:dev-admin": "node apps/api/scripts/create-dev-admin.js",
     "db:dev-test-passwords": "node apps/api/scripts/set-dev-test-passwords.js",
+    "db:dev-test-pins": "node apps/api/scripts/set-dev-test-pins.js",
     "db:verify-sales-pricing": "node apps/api/scripts/verify-sales-pricing.js",
     "check:hardcodes": "node scripts/quality/check-hardcodes.js"
   },

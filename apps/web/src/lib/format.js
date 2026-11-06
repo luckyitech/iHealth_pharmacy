@@ -56,3 +56,28 @@ export function useFormat() {
     };
   }, [region]);
 }
+
+const WALL_CLOCK_LOCALE = 'sv-SE'; // hardcode-ok: a locale that formats as YYYY-MM-DD HH:MM:SS, used only to build text
+
+/**
+ * @param {string | undefined} timeZone The pharmacy's time zone.
+ * @returns {string} Now on the pharmacy's wall clock, `YYYY-MM-DD HH:MM:SS`, like legacy times.
+ */
+export function wallClockNow(timeZone) {
+  return new Intl.DateTimeFormat(WALL_CLOCK_LOCALE, {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+    timeZone,
+  }).format(new Date());
+}
+
+/**
+ * @param {string | null} later Wall-clock text, `YYYY-MM-DD HH:MM[:SS]`.
+ * @param {string | null} earlier
+ * @returns {number | null} Whole minutes between them, or null when either is missing.
+ */
+export function minutesBetween(later, earlier) {
+  const a = wallClock(later);
+  const b = wallClock(earlier);
+  return a && b ? Math.floor((a.getTime() - b.getTime()) / 60_000) : null;
+}

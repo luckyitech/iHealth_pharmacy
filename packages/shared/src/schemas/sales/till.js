@@ -108,6 +108,8 @@ export const tillSettingsSchema = z.object({
   cancelAloneMinutes: z.number().int(),
   /** Quick reasons offered in the approval window. */
   approvalReasons: z.array(z.string()),
+  /** Quick reasons offered when cancelling a bill. */
+  cancelReasons: z.array(z.string()),
 });
 
 /** A bank a cheque can be drawn on. */

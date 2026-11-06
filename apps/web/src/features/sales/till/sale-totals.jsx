@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
+import { cn } from '@/lib/utils';
 import { useFormat } from '@/lib/format';
 
 import { KEY_LABELS } from './till-keys.js';
@@ -21,9 +22,21 @@ import { SALES_LABELS } from '../labels.js';
  * @param {boolean} props.updating The prices are being worked out again.
  * @param {string | null} props.blocked Why the sale cannot be paid yet, or null.
  * @param {() => void} props.onPay
+ * @param {number} props.toApprove Lines that need a second person's approval.
+ * @param {boolean} props.approved Whether they are approved, as they are now.
  * @returns {React.JSX.Element}
  */
-export function SaleTotals({ totals, lineCount, units, updating, blocked, onPay }) {
+export function SaleTotals({
+  totals,
+  lineCount,
+  units,
+  updating,
+  blocked,
+  onPay,
+  toApprove,
+  approved,
+}) {
+  const askApproval = toApprove > 0 && !approved;
   const format = useFormat();
   /** @type {[string, string][]} */
   const rows = [
@@ -54,13 +67,26 @@ export function SaleTotals({ totals, lineCount, units, updating, blocked, onPay 
           {format.money(totals.net)}
         </output>
       </div>
+      {askApproval && (
+        <div className="rounded-md bg-warning/20 px-3 py-2 text-sm">
+          <p className="font-semibold">
+            {toApprove} {toApprove === 1 ? 'line needs' : 'lines need'} approval
+          </p>
+          <p className="text-muted-foreground">
+            Someone with “Sales approval” enters their PIN before payment.
+          </p>
+        </div>
+      )}
       <Button
         size="lg"
-        className="h-13 text-base font-bold"
+        className={cn(
+          'h-13 text-base font-bold',
+          askApproval && 'bg-warning text-foreground hover:bg-warning/90',
+        )}
         disabled={Boolean(blocked)}
         onClick={onPay}
       >
-        Pay
+        {askApproval ? 'Get approval' : 'Pay'}
         <Kbd
           decorative
           className="border-primary-foreground/40 bg-transparent text-primary-foreground"
