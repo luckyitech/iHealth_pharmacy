@@ -12,21 +12,16 @@ export const REGISTER_ENTRY_KINDS = Object.freeze({
   OTHER: 'other',
 });
 
-/** Longest period one register page covers. */
-export const MAX_REGISTER_DAYS = 366;
-const MS_PER_DAY = 86_400_000;
-
 export const controlledRegisterQuerySchema = z
   .object({
     itemId: z.coerce.number().int().positive({ error: 'Choose a medicine' }),
     from: dateOnlySchema,
     to: dateOnlySchema,
   })
-  .refine((query) => query.from <= query.to, { path: ['to'], error: 'The end is before the start' })
-  .refine(
-    (query) => (Date.parse(query.to) - Date.parse(query.from)) / MS_PER_DAY < MAX_REGISTER_DAYS,
-    { path: ['to'], error: `Choose at most ${MAX_REGISTER_DAYS} days` },
-  );
+  .refine((query) => query.from <= query.to, {
+    path: ['to'],
+    error: 'The end is before the start',
+  });
 
 const text = z.string().nullable();
 

@@ -67,6 +67,7 @@ export function createTillRoutes({ prisma, audit, config }) {
             code,
             name,
           })),
+          labelMaxCopies: config.labels.maxCopies,
           prescriptionPhotoMaxKb: Math.floor(config.medicine.photoMaxBytes / BYTES_PER_KB),
           canAcceptCheques: hasAnyPermission(
             getAuth(res).permissionIds,
@@ -125,7 +126,9 @@ export function createTillRoutes({ prisma, audit, config }) {
           schema: dataResponseSchema(z.array(tillCustomerSchema)),
         },
       },
-      handler: async ({ input }) => ({ data: await till.searchCustomers(input.query.q) }),
+      handler: async ({ input }) => ({
+        data: await till.searchCustomers(input.query.q, config.sales.lookupLimit),
+      }),
     }),
 
     defineRoute({

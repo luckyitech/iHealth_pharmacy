@@ -1,4 +1,4 @@
-import { MAX_LABEL_COPIES, MAX_LABEL_TEXT } from '@ihealth/shared/schemas';
+import { MAX_LABEL_TEXT } from '@ihealth/shared/schemas';
 import { Minus, Plus, Printer, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -76,6 +76,7 @@ function LabelsEditor({ billId, onDone }) {
   const settings = useTillSettings();
   const [drafts, setDrafts] = useState(/** @type {Map<number, LabelDraft> | null} */ (null));
   const [printing, setPrinting] = useState(false);
+  const maxCopies = settings.data?.labelMaxCopies ?? 1;
 
   useEffect(() => {
     if (labels.error) notify.failure('Could not load the bill for its labels', labels.error);
@@ -204,7 +205,7 @@ function LabelsEditor({ billId, onDone }) {
                     type="button"
                     className="grid size-9 place-items-center hover:bg-accent disabled:opacity-40"
                     aria-label={`One sticker more for ${name}`}
-                    disabled={item.copies >= MAX_LABEL_COPIES}
+                    disabled={item.copies >= maxCopies}
                     onClick={() => change(line.lineId, { copies: item.copies + 1 })}
                   >
                     <Plus aria-hidden="true" className="size-4" />

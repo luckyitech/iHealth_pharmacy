@@ -69,6 +69,9 @@ beforeAll(async () => {
     INSERT INTO generateuniquecode (UNIQUE_CODE_NAME, UNIQUE_CODE_NUMBER) VALUES ('SB', 0), ('SR', 0), ('CN', 0)`;
   await db.prisma
     .$executeRaw`INSERT INTO account_type (ACCOUNT_TYPE_ID, ACCOUNT_TYPE) VALUES (18, 'Till (9900-9999)')`;
+  // The legacy payment types, with the ids the legacy credit-note trigger expects (cash is 1).
+  await db.prisma.$executeRaw`
+    INSERT INTO payment_types (PAYMENT_TYPE_ID, TYPE) VALUES (1, 'CASH'), (2, 'CREDIT'), (3, 'M-PESA')`;
   await db.prisma
     .$executeRaw`INSERT INTO chart_of_accounts (ACCOUNT_ID, ACCOUNT_NAME, ACCOUNT_TYPE, CURRENT_BALANCE, PHARMACY_ID) VALUES (63, 'Sales Till', 18, 0, 1)`;
   await db.prisma.$executeRaw`

@@ -52,7 +52,10 @@ function setup() {
     'GET sales/bills/7/labels': () => jsonResponse(200, { data: LABELS }),
     'GET sales/till-settings': () =>
       jsonResponse(200, {
-        data: { medicineTypes: [{ kind: 'antibiotic', code: 'H1', name: 'Antibiotic' }] },
+        data: {
+          medicineTypes: [{ kind: 'antibiotic', code: 'H1', name: 'Antibiotic' }],
+          labelMaxCopies: 20,
+        },
       }),
     'POST sales/bills/7/labels': async (request) => {
       printed.push(await request.json());

@@ -9,8 +9,6 @@ import { medicineKindOf } from './medicine-types.js';
 
 /** Legacy flag of an active customer. */
 const ACTIVE = 'Y';
-/** Most customers one till search lists. */
-const CUSTOMER_SEARCH_LIMIT = 10;
 /** A search of only digits (and spaces or dashes) is also looked for in phone numbers. */
 const PHONE_DIGITS = /^\d+$/;
 
@@ -143,9 +141,10 @@ export function createTillRepository(prisma) {
      * Names that start with what was typed come first.
      *
      * @param {string} q
+     * @param {number} limit Most customers to list.
      * @returns {Promise<{ id: number, name: string, phone: string | null }[]>}
      */
-    async searchCustomers(q) {
+    async searchCustomers(q, limit) {
       const words = q.split(/\s+/).filter(Boolean);
       // Phone numbers are stored without spaces or dashes.
       const digits = q.replace(/[\s-]/g, '');
@@ -162,7 +161,7 @@ export function createTillRepository(prisma) {
         },
         select: { customerId: true, firstNm: true, lastNm: true, phoneNbr: true },
         orderBy: [{ firstNm: 'asc' }, { lastNm: 'asc' }],
-        take: CUSTOMER_SEARCH_LIMIT,
+        take: limit,
       });
       return rows.map((row) => ({
         id: row.customerId,

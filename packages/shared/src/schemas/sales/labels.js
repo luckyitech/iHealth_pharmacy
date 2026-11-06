@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 import { medicineKindSchema } from './prescriptions.js';
 
-/** Most stickers printed for one line at a time. */
-export const MAX_LABEL_COPIES = 20;
+/** A safe upper bound on stickers per line; the pharmacy's own limit is LABEL_MAX_COPIES. */
+const COPIES_BOUND = 100;
 /** Longest dose text on a sticker (the legacy instructions column). */
 export const MAX_LABEL_TEXT = 255;
 
@@ -42,7 +42,7 @@ export const printLabelsBodySchema = z.object({
           .number()
           .int()
           .min(0)
-          .max(MAX_LABEL_COPIES, `Print at most ${MAX_LABEL_COPIES} at a time`),
+          .max(COPIES_BOUND, `Print at most ${COPIES_BOUND} at a time`),
       }),
     )
     .min(1, 'Choose the lines to label')

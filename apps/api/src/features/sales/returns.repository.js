@@ -1,17 +1,18 @@
 /* eslint-disable jsdoc/reject-any-type -- rows come from raw SQL over legacy and additive tables */
 import { moneyToString, roundMoney } from '@ihealth/shared/money';
-import { CREDIT_NOTE_STATES, REFUND_METHODS } from '@ihealth/shared/schemas';
+import { CREDIT_NOTE_STATES } from '@ihealth/shared/schemas';
 
 import { Prisma } from '#db';
 
 import { escapeLike } from '../../lib/sql-like.js';
+import { LEGACY_REFUNDS } from './returns.js';
 
-/** How the legacy app recorded the way money went back (payment_types), for its own returns. */
-const LEGACY_METHODS = Object.freeze({
-  1: REFUND_METHODS.CASH,
-  2: REFUND_METHODS.CREDIT_NOTE,
-  3: REFUND_METHODS.MPESA,
-});
+/** How the legacy app recorded the way money went back (payment_types.TYPE), for its own returns. */
+const LEGACY_METHODS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(LEGACY_REFUNDS).map(([method, legacy]) => [legacy.paymentType, method]),
+  ),
+);
 /** Notes the legacy app gave to suppliers are not shown with the customers' ones. */
 const LEGACY_PURCHASE = 'Purchase';
 const LEGACY_OPEN = 'pending';
@@ -57,13 +58,14 @@ export function createReturnsRepository(prisma) {
         SELECT r.SALES_RETURN_ID AS id, r.SALES_RETURN_NO AS code, CAST(x.CREATED_AT AS CHAR) AS at,
           r.BILL_ID AS billId, s.BILL_CODE AS billCode, s.CUSTOMER_NM AS customerName,
           (SELECT COUNT(*) FROM sales_return_item ri WHERE ri.SALES_RETURN_ID = r.SALES_RETURN_ID) AS lineCount,
-          r.TOTAL_AMOUNT AS refund, x.REFUND_METHOD AS refundMethod, r.PAYMENT_TYPE_ID AS paymentTypeId,
+          r.TOTAL_AMOUNT AS refund, x.REFUND_METHOD AS refundMethod, UPPER(pt.TYPE) AS paymentType,
           COALESCE(x.REASON, r.REMARKS) AS reason, x.SALES_RETURN_ID AS ours,
           TRIM(CONCAT_WS(' ', rq.FIRST_NM, rq.LAST_NM)) AS requestedBy,
           TRIM(CONCAT_WS(' ', ap.FIRST_NM, ap.LAST_NM)) AS approvedBy
         FROM sales_return r
           JOIN sales s ON s.BILL_ID = r.BILL_ID
           LEFT JOIN ih_sale_return x ON x.SALES_RETURN_ID = r.SALES_RETURN_ID
+          LEFT JOIN payment_types pt ON pt.PAYMENT_TYPE_ID = r.PAYMENT_TYPE_ID
           LEFT JOIN employee rq ON rq.EMPLOYEE_ID = COALESCE(x.REQUESTED_BY, r.CREATION_USER_ID)
           LEFT JOIN employee ap ON ap.EMPLOYEE_ID = x.APPROVED_BY
         WHERE r.SALES_RETURN_DATE = ${date} AND s.PHARMACY_ID = ${pharmacyId}
@@ -77,10 +79,7 @@ export function createReturnsRepository(prisma) {
         customerName: text(row.customerName),
         lineCount: Number(row.lineCount ?? 0),
         refund: money(row.refund),
-        refundMethod:
-          row.refundMethod ??
-          LEGACY_METHODS[/** @type {keyof typeof LEGACY_METHODS} */ (Number(row.paymentTypeId))] ??
-          null,
+        refundMethod: row.refundMethod ?? LEGACY_METHODS[String(row.paymentType ?? '')] ?? null,
         reason: text(row.reason),
         requestedBy: text(row.requestedBy),
         approvedBy: text(row.approvedBy),

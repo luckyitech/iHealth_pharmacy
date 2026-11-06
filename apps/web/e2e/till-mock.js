@@ -257,6 +257,7 @@ export async function mockTillApi(page, server) {
             { kind: 'antibiotic', code: 'H1', name: 'Antibiotic' },
           ],
           prescriptionPhotoMaxKb: 500,
+          labelMaxCopies: 20,
           controlledDrugRules: server.controlledDrugRules,
         },
       });

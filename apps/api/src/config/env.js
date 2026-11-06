@@ -53,7 +53,8 @@ const envSchema = z.object({
   SALES_ROUNDING_STEP: z.coerce.number().min(0).max(100).default(1),
   // Highest line discount a cashier may give without a second person's approval, in percent.
   SALES_SELF_DISCOUNT_LIMIT: z.coerce.number().min(0).max(100).default(25),
-  // Prescriber saved on bills without one, as the legacy app did (its "N/A" provider). Empty = none.
+  // Doctor saved on bills without one: the legacy "N/A" provider. The legacy reports leave out bills
+  // that have no doctor, so set it. Empty = none.
   SALES_DEFAULT_PROVIDER_ID: z.preprocess(
     (value) => (value === '' ? undefined : value),
     z.coerce.number().int().positive().optional(),
@@ -139,6 +140,12 @@ const envSchema = z.object({
   LABEL_WARNING: z.string().trim().default('Keep out of reach and sight of children'),
   // Largest prescription photo kept with a bill, in kilobytes (the till makes photos smaller first).
   PRESCRIPTION_PHOTO_MAX_KB: z.coerce.number().int().min(50).max(700).default(500),
+  // Most customers, doctors or hospitals one type-ahead lists.
+  SALES_LOOKUP_LIMIT: z.coerce.number().int().min(5).max(50).default(10),
+  // Most copies of one dosing sticker printed at a time.
+  LABEL_MAX_COPIES: z.coerce.number().int().min(1).max(100).default(20),
+  // Longest period one controlled-drug register page covers, in days.
+  CONTROLLED_REGISTER_MAX_DAYS: z.coerce.number().int().min(31).max(3660).default(366),
   // Most batches one till search returns.
   SALES_SEARCH_LIMIT: z.coerce.number().int().min(5).max(100).default(30),
   // Regional settings. The legacy database has no table for them, so they are deployment configuration.
@@ -170,9 +177,9 @@ const RETURN_DAYS_PLACEHOLDER = '{days}';
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, controlledDrugRules: boolean, returnDays: number, returnReasons: string[], creditNoteValidMonths: number, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, controlledDrugRules: boolean, returnDays: number, returnReasons: string[], creditNoteValidMonths: number, maxHeld: number, searchLimit: number, lookupLimit: number, registerMaxDays: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
- * @property {{ warning: string }} labels
+ * @property {{ warning: string, maxCopies: number }} labels
  * @property {{ types: ReadonlyArray<Readonly<{ kind: 'prescription' | 'controlled' | 'antibiotic', code: string, name: string }>>, photoMaxBytes: number }} medicine
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
@@ -229,7 +236,7 @@ export function loadConfig(env) {
         ) || null,
       exemptTaxCodes: values.RECEIPT_EXEMPT_TAX_CODES,
     }),
-    labels: Object.freeze({ warning: values.LABEL_WARNING }),
+    labels: Object.freeze({ warning: values.LABEL_WARNING, maxCopies: values.LABEL_MAX_COPIES }),
     medicine: Object.freeze({
       types: Object.freeze([
         Object.freeze({
@@ -260,6 +267,8 @@ export function loadConfig(env) {
       creditNoteValidMonths: values.CREDIT_NOTE_VALID_MONTHS,
       maxHeld: values.SALES_MAX_HELD,
       searchLimit: values.SALES_SEARCH_LIMIT,
+      lookupLimit: values.SALES_LOOKUP_LIMIT,
+      registerMaxDays: values.CONTROLLED_REGISTER_MAX_DAYS,
       quickCashNotes: values.SALES_QUICK_CASH_NOTES,
       chequeMaxAgeMonths: values.SALES_CHEQUE_MAX_AGE_MONTHS,
       cancelAloneMinutes: values.SALES_CANCEL_ALONE_MINUTES,
