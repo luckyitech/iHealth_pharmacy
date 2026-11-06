@@ -29,6 +29,8 @@ export const POLICIES = Object.freeze({
     acceptCheque: Object.freeze([PERMISSIONS.SALES_ACCEPT_CHEQUE_PAYMENTS]),
     // Approving what a cashier may not do alone (new): given at first to managers and super admins.
     approve: Object.freeze([PERMISSIONS.SALES_SALES_APPROVAL]),
+    // Reading the controlled-drug register (new): given at first to pharmacists and managers.
+    controlledRegister: Object.freeze([PERMISSIONS.SALES_CONTROLLED_DRUG_REGISTER]),
     read: Object.freeze([
       PERMISSIONS.SALES_SALES_BILLING_SUBMISSION,
       PERMISSIONS.SALES_SALES_BILLING_BONUS_ITEMS_APPROVAL,

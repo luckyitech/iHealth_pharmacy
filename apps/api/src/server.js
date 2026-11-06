@@ -23,6 +23,7 @@ import { createProviderRoutes } from './features/masters/providers.js';
 import { createSupplierRoutes } from './features/masters/suppliers.js';
 import { createTermsRoutes } from './features/masters/terms.js';
 import { createSalesBillRoutes } from './features/sales/bills.routes.js';
+import { createControlledRegisterRoutes } from './features/sales/controlled-register.routes.js';
 import { createPrescriberRoutes } from './features/sales/prescribers.js';
 import { createSaleQuoteRoutes } from './features/sales/quote.routes.js';
 import { createTillRoutes } from './features/sales/till.routes.js';
@@ -95,6 +96,7 @@ const app = createApp({
         ...createSaleQuoteRoutes({ prisma, config }),
         ...createTillRoutes({ prisma, audit, config }),
         ...createPrescriberRoutes({ prisma, audit, config }),
+        ...createControlledRegisterRoutes({ prisma, audit, config }),
         ...createApprovalRoutes({ prisma, audit, config }),
       ],
     },

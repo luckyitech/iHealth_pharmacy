@@ -126,6 +126,22 @@ export function createAppRouter() {
                       ],
                     },
                     {
+                      path: 'controlled-register',
+                      element: (
+                        <RequirePermission permissions={POLICIES.sales.controlledRegister} />
+                      ),
+                      children: [
+                        {
+                          index: true,
+                          lazy: async () => ({
+                            Component: (
+                              await import('@/features/sales/controlled-register/controlled-register-page')
+                            ).default,
+                          }),
+                        },
+                      ],
+                    },
+                    {
                       path: 'history',
                       lazy: async () => ({
                         Component: (await import('@/features/sales/history/sales-history-page'))
