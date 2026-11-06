@@ -70,4 +70,10 @@ export const billApprovalSchema = z.object({
   used: z.boolean(),
 });
 
-export const approvalReportQuerySchema = z.object({ date: dateOnlySchema.optional() });
+/** Filters of the approvals list (`GET /sales/approvals`), besides the search and the sort. */
+export const approvalListFiltersShape = Object.freeze({
+  from: dateOnlySchema.optional(),
+  to: dateOnlySchema.optional(),
+  kind: z.enum(Object.values(APPROVAL_KINDS)).optional(),
+  approverId: z.coerce.number().int().positive().optional(),
+});

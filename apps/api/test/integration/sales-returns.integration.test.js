@@ -424,23 +424,37 @@ describe('the Returns page', () => {
     await db.prisma.$executeRaw`
       INSERT INTO sales_return (SALES_RETURN_NO, SALES_RETURN_DATE, STATUS, BILL_ID, TOTAL_AMOUNT, PAYMENT_TYPE_ID, PHARMACY_ID, REMARKS, ACTIVE_S)
       VALUES ('LEGACY-SR-1', ${today.day}, 'Approved', ${bill.id}, 50, 3, 1, 'Wrong medicine', 'Y')`;
-    const response = await cashier.agent.get(`${API}/returns`).query({ date: today.day });
-    const rows = response.body.data;
-    expect(rows.map((/** @type {any} */ r) => [r.refundMethod, r.hasReceipt])).toEqual([
+    const list = async (/** @type {Record<string, string | number>} */ query = {}) =>
+      (
+        await cashier.agent
+          .get(`${API}/returns`)
+          .query({ from: today.day, to: today.day, ...query })
+      ).body;
+    const all = await list({ sort: 'code' });
+    expect(all.meta.total).toBe(3);
+    const byCode = Object.fromEntries(all.data.map((/** @type {any} */ r) => [r.code, r]));
+    expect(all.data.map((/** @type {any} */ r) => [r.refundMethod, r.hasReceipt]).sort()).toEqual([
       ['cash', true],
       ['creditNote', true],
       ['mpesa', false],
     ]);
-    expect(rows[0]).toMatchObject({
+    expect(byCode['LEGACY-SR-1']).toMatchObject({ approvedBy: null, reason: 'Wrong medicine' });
+    const cash = all.data.find((/** @type {any} */ r) => r.refundMethod === 'cash');
+    expect(cash).toMatchObject({
       approvedBy: 'Ada Admin',
       requestedBy: 'Carl Cashier',
       lineCount: 2,
     });
-    expect(rows[2]).toMatchObject({
-      code: 'LEGACY-SR-1',
-      approvedBy: null,
-      reason: 'Wrong medicine',
-    });
+
+    // Searched and filtered like Sales history.
+    expect(
+      (await list({ refundMethod: 'mpesa' })).data.map((/** @type {any} */ r) => r.code),
+    ).toEqual(['LEGACY-SR-1']);
+    expect((await list({ q: 'legacy-sr' })).meta.total).toBe(1);
+    expect((await list({ q: 'jane' })).meta.total).toBe(2);
+    expect((await list({ approverId: 1 })).meta.total).toBe(2);
+    const approvers = (await cashier.agent.get(`${API}/returns/approvers`)).body.data;
+    expect(approvers).toEqual([{ id: 1, name: 'Ada Admin' }]);
   });
 
   it('lists credit notes with where each stands, and each time one was used', async () => {

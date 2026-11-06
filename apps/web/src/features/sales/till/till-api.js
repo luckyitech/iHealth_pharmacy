@@ -187,12 +187,13 @@ export function useCancelBill() {
 }
 
 /**
- * @param {string} date `YYYY-MM-DD`
- * @returns {import('@tanstack/react-query').UseQueryResult<BillApproval[]>}
+ * The people who have approved, for the approver filter of the Approvals page.
+ *
+ * @returns {import('@tanstack/react-query').UseQueryResult<{ id: number, name: string }[]>}
  */
-export function useApprovalsOfDay(date) {
+export function useApprovers() {
   return useQuery({
-    queryKey: ['sales', 'approvals', date],
-    queryFn: () => data(api.get('sales/approvals', { searchParams: { date } }).json()),
+    queryKey: ['sales', 'approvals', 'approvers'],
+    queryFn: () => data(api.get('sales/approvals/approvers').json()),
   });
 }

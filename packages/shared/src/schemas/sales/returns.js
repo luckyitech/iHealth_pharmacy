@@ -123,6 +123,7 @@ export const returnSummarySchema = z.object({
   billId: z.number().int(),
   billCode: text,
   customerName: text,
+  customerPhone: text,
   lineCount: z.number().int(),
   refund: z.string(),
   refundMethod: z.enum(Object.values(REFUND_METHODS)).nullable(),
@@ -133,7 +134,15 @@ export const returnSummarySchema = z.object({
   hasReceipt: z.boolean(),
 });
 
-export const returnDayQuerySchema = z.object({ date: z.iso.date('Use the format YYYY-MM-DD') });
+const listDate = z.iso.date('Use the format YYYY-MM-DD');
+
+/** Filters of the returns list (`GET /sales/returns`), besides the search and the sort. */
+export const returnListFiltersShape = Object.freeze({
+  from: listDate.optional(),
+  to: listDate.optional(),
+  refundMethod: z.enum(Object.values(REFUND_METHODS)).optional(),
+  approverId: z.coerce.number().int().positive().optional(),
+});
 
 /** Where a credit note stands. */
 export const CREDIT_NOTE_STATES = Object.freeze({
@@ -153,6 +162,8 @@ export const creditNoteSummarySchema = creditNoteSchema.extend({
 });
 
 export const creditNoteListFiltersShape = Object.freeze({
+  from: listDate.optional(),
+  to: listDate.optional(),
   state: z.enum(Object.values(CREDIT_NOTE_STATES)).optional(),
 });
 

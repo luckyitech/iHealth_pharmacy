@@ -101,8 +101,8 @@ export function renderReturnReceipt(detail, { pharmacy, formatMoney, formatDateT
     `${METHOD_LABELS[detail.refundMethod]}${detail.mpesaCode ? ` ${detail.mpesaCode}` : ''}`,
   );
   pair('Reason', detail.reason);
-  pair('Serv By', detail.requestedBy ?? '');
-  pair('Approved', detail.approvedBy);
+  pair('Handled by', detail.requestedBy ?? '');
+  pair('Approved by', detail.approvedBy);
 
   const note = detail.creditNote;
   if (note) {

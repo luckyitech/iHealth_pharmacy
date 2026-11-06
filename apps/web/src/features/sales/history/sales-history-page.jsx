@@ -1,14 +1,13 @@
 /* eslint-disable jsdoc/reject-any-type -- rows come from the bills API schema */
 import { BILL_STATUSES } from '@ihealth/shared/schemas';
-import { Search, TriangleAlert } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { DataTable } from '@/components/data-table/data-table';
+import { DateRangeFilter, ListSearch } from '@/components/data-table/list-filters';
 import { PageState } from '@/components/feedback/page-state';
-import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useListParams } from '@/hooks/use-list-params';
 import { useFormat } from '@/lib/format';
 import { notify } from '@/lib/notify';
@@ -37,14 +36,8 @@ export default function SalesHistoryPage() {
     defaultSort: DEFAULT_SORT,
     defaultFilters: NO_FILTERS,
   });
-  const [search, setSearch] = useState(params.q);
-  const debouncedSearch = useDebouncedValue(search);
   const [searchParams, setSearchParams] = useSearchParams();
   const cashiers = useCashiers();
-
-  useEffect(() => {
-    if (debouncedSearch !== params.q) setParams({ q: debouncedSearch });
-  }, [debouncedSearch, params.q, setParams]);
 
   const list = useResourceList(BILLS, {
     page: params.page,
@@ -167,42 +160,18 @@ export default function SalesHistoryPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-56 flex-1">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            type="search"
-            aria-label="Search bills"
-            placeholder="Search by bill number, customer name or phone"
-            className="pl-9"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <label htmlFor="bills-from">From</label>
-          <Input
-            id="bills-from"
-            type="date"
-            className="w-40"
-            value={params.filters.from ?? ''}
-            max={params.filters.to}
-            onChange={(event) => filter({ from: event.target.value })}
-          />
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <label htmlFor="bills-to">To</label>
-          <Input
-            id="bills-to"
-            type="date"
-            className="w-40"
-            value={params.filters.to ?? ''}
-            min={params.filters.from}
-            onChange={(event) => filter({ to: event.target.value })}
-          />
-        </div>
+        <ListSearch
+          label="Search bills"
+          placeholder="Search by bill number, customer name or phone"
+          value={params.q}
+          onSearch={(q) => setParams({ q })}
+        />
+        <DateRangeFilter
+          id="bills"
+          from={params.filters.from}
+          to={params.filters.to}
+          onChange={filter}
+        />
         <NativeSelect
           aria-label="Cashier"
           className="w-44"

@@ -1,13 +1,17 @@
+/* eslint-disable jsdoc/reject-any-type -- list queries are typed by their Zod schema */
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
   ACTIVITY_ACTIONS,
+  cashierOptionSchema,
+  createListQuerySchema,
+  listResponseSchema,
   ACTIVITY_SUBJECTS,
   completedReturnSchema,
   dataResponseSchema,
   idParamsSchema,
   returnableBillSchema,
   returnBodySchema,
-  returnDayQuerySchema,
+  returnListFiltersShape,
   returnSummarySchema,
 } from '@ihealth/shared/schemas';
 import { z } from 'zod';
@@ -20,7 +24,7 @@ import { createActivityLog } from '../activity/activity-log.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { renderReturnReceipt } from './return-receipt-pdf.js';
 import { createReturnService } from './returns.js';
-import { createReturnsRepository } from './returns.repository.js';
+import { createReturnsRepository, RETURN_SORTABLE } from './returns.repository.js';
 
 const TAGS = ['Sales'];
 const RESOURCE = 'sales/returns';
@@ -36,6 +40,11 @@ export function createReturnRoutes({ prisma, audit, config }) {
   const returns = createReturnService({ prisma, config });
   const activity = createActivityLog(prisma);
   const lists = createReturnsRepository(prisma);
+  const listQuery = createListQuerySchema({
+    sortable: RETURN_SORTABLE,
+    defaultSort: /** @type {any} */ ('-at'),
+    filters: returnListFiltersShape,
+  });
   const money = new Intl.NumberFormat(config.region.locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -65,15 +74,41 @@ export function createReturnRoutes({ prisma, audit, config }) {
     defineRoute({
       method: 'get',
       path: '/sales/returns',
-      summary: "A day's returns, the legacy app's included",
+      summary: "Returns, newest first, the legacy app's included",
+      description:
+        "`q` searches the return and bill numbers and the customer's name and phone. Filters: `from`, `to`, `refundMethod`, `approverId`.",
       tags: TAGS,
       permissions: POLICIES.sales.read,
-      request: { query: returnDayQuerySchema },
+      request: { query: listQuery },
       responses: {
-        200: { description: 'Returns', schema: dataResponseSchema(z.array(returnSummarySchema)) },
+        200: { description: 'A page of returns', schema: listResponseSchema(returnSummarySchema) },
       },
-      handler: async ({ input }) => ({
-        data: await lists.ofDay(input.query.date, await currentPharmacyId(prisma, config)),
+      handler: async ({ input }) => {
+        const query = /** @type {any} */ (input.query);
+        const { rows, total } = await lists.list(query, await currentPharmacyId(prisma, config));
+        return {
+          data: rows,
+          meta: {
+            page: query.page,
+            pageSize: query.pageSize,
+            total,
+            totalPages: Math.ceil(total / query.pageSize),
+          },
+        };
+      },
+    }),
+
+    defineRoute({
+      method: 'get',
+      path: '/sales/returns/approvers',
+      summary: 'People who have approved returns, for the approver filter',
+      tags: TAGS,
+      permissions: POLICIES.sales.read,
+      responses: {
+        200: { description: 'Approvers', schema: dataResponseSchema(z.array(cashierOptionSchema)) },
+      },
+      handler: async () => ({
+        data: await lists.approvers(await currentPharmacyId(prisma, config)),
       }),
     }),
 

@@ -3,10 +3,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useAppInfo } from '@/app/use-app-info';
+import { DateRangeFilter } from '@/components/data-table/list-filters';
 import { PageState } from '@/components/feedback/page-state';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { HistoryList } from '@/features/activity/history-list';
 import { useFormat, wallClockNow } from '@/lib/format';
@@ -76,45 +75,30 @@ export default function ControlledRegisterPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="grid min-w-64 flex-1 gap-1.5">
-          <Label htmlFor="register-item">Medicine</Label>
-          <NativeSelect
-            id="register-item"
-            value={itemId}
-            disabled={items.isPending}
-            onChange={(event) => setItemId(event.target.value)}
-          >
-            <option value="">Choose a controlled drug…</option>
-            {(items.data ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name} · {item.onHand} on hand
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="register-from">From</Label>
-          <Input
-            id="register-from"
-            type="date"
-            className="w-44"
-            max={to}
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="register-to">To</Label>
-          <Input
-            id="register-to"
-            type="date"
-            className="w-44"
-            min={from}
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <NativeSelect
+          aria-label="Medicine"
+          className="min-w-64 flex-1"
+          value={itemId}
+          disabled={items.isPending}
+          onChange={(event) => setItemId(event.target.value)}
+        >
+          <option value="">Choose a controlled drug…</option>
+          {(items.data ?? []).map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name} · {item.onHand} on hand
+            </option>
+          ))}
+        </NativeSelect>
+        <DateRangeFilter
+          id="register"
+          from={from}
+          to={to}
+          onChange={(change) => {
+            if (change.from !== undefined) setFrom(change.from);
+            if (change.to !== undefined) setTo(change.to);
+          }}
+        />
         <Button variant="outline" disabled={!data || printing} onClick={() => void print()}>
           <Printer aria-hidden="true" /> Print
         </Button>
@@ -170,7 +154,7 @@ export default function ControlledRegisterPage() {
                     <th className="px-3 py-2 text-right font-medium">In</th>
                     <th className="px-3 py-2 text-right font-medium">Out</th>
                     <th className="px-3 py-2 text-right font-medium">Balance</th>
-                    <th className="px-3 py-2 font-medium">By</th>
+                    <th className="px-3 py-2 font-medium">Handled by</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">

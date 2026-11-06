@@ -71,10 +71,22 @@ const NOTES = [
   },
 ];
 
+/** @type {string[]} */
+let searches = [];
+
 function setup() {
+  searches = [];
   const api = stubApi({
     'GET app-info': () => jsonResponse(200, APP_INFO),
-    'GET sales/returns': () => jsonResponse(200, { data: RETURNS }),
+    'GET sales/returns': (/** @type {Request} */ request) => {
+      searches.push(new URL(request.url).searchParams.toString());
+      return jsonResponse(200, {
+        data: RETURNS,
+        meta: { page: 1, pageSize: 25, total: 2, totalPages: 1 },
+      });
+    },
+    'GET sales/returns/approvers': () =>
+      jsonResponse(200, { data: [{ id: 5, name: 'Pat Pharmacist' }] }),
     'GET sales/credit-notes': () =>
       jsonResponse(200, { data: NOTES, meta: { page: 1, pageSize: 25, total: 2, totalPages: 1 } }),
     'GET sales/credit-notes/DPCN0611260001/uses': () =>
@@ -101,9 +113,10 @@ afterEach(() => {
 });
 
 describe('the Returns page', () => {
-  it("lists the day's returns, with a receipt only for the new till's", async () => {
+  it("lists the returns, with a receipt only for the new till's", async () => {
     setup();
-    const table = await screen.findByRole('table', { name: /Returns of/ });
+    const table = await screen.findByRole('table', { name: 'Returns' });
+    await within(table).findByText('DPSR0611260001');
     const [, ours, legacy] = within(table).getAllByRole('row');
     expect(ours).toHaveTextContent('Credit note');
     expect(ours).toHaveTextContent('Pat Pharmacist');
@@ -112,6 +125,21 @@ describe('the Returns page', () => {
     ).toBeInTheDocument();
     expect(legacy).toHaveTextContent('Old system');
     expect(within(legacy).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('searches and filters like Sales history: dates, refund and approver', async () => {
+    setup();
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Search returns' }), 'jane');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Refunded as' }), 'mpesa');
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Approved by' }),
+      await screen.findByRole('option', { name: 'Pat Pharmacist' }),
+    );
+    const last = () => new URLSearchParams(searches.at(-1));
+    await vi.waitFor(() => expect(last().get('q')).toBe('jane'));
+    expect(last().get('refundMethod')).toBe('mpesa');
+    expect(last().get('approverId')).toBe('5');
+    expect(last().get('sort')).toBe('-at');
   });
 
   it('lists the credit notes and shows each time one was used', async () => {
