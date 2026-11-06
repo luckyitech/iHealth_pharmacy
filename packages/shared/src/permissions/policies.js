@@ -25,6 +25,8 @@ export const POLICIES = Object.freeze({
   sales: Object.freeze({
     // Pricing and completing a sale: the legacy "Sales Billing Submission".
     sell: Object.freeze([PERMISSIONS.SALES_SALES_BILLING_SUBMISSION]),
+    // Taking a cheque (new): given at first to the people who approve sales.
+    acceptCheque: Object.freeze([PERMISSIONS.SALES_ACCEPT_CHEQUE_PAYMENTS]),
     read: Object.freeze([
       PERMISSIONS.SALES_SALES_BILLING_SUBMISSION,
       PERMISSIONS.SALES_SALES_BILLING_BONUS_ITEMS_APPROVAL,

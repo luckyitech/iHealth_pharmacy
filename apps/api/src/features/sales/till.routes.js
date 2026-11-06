@@ -1,4 +1,4 @@
-import { POLICIES } from '@ihealth/shared/permissions';
+import { hasAnyPermission, POLICIES } from '@ihealth/shared/permissions';
 import {
   batchSearchQuerySchema,
   batchSearchSchema,
@@ -9,6 +9,7 @@ import {
   idParamsSchema,
   tillCustomerQuerySchema,
   tillCustomerSchema,
+  tillBankSchema,
   tillSettingsSchema,
 } from '@ihealth/shared/schemas';
 import { z } from 'zod';
@@ -46,13 +47,31 @@ export function createTillRoutes({ prisma, audit, config }) {
       responses: {
         200: { description: 'Till settings', schema: dataResponseSchema(tillSettingsSchema) },
       },
-      handler: () => ({
+      handler: ({ res }) => ({
         data: {
           selfDiscountLimit: config.sales.selfDiscountLimit,
           maxHeld: config.sales.maxHeld,
           quickCashNotes: config.sales.quickCashNotes,
+          chequeMaxAgeMonths: config.sales.chequeMaxAgeMonths,
+          canAcceptCheques: hasAnyPermission(
+            getAuth(res).permissionIds,
+            POLICIES.sales.acceptCheque,
+          ),
         },
       }),
+    }),
+
+    defineRoute({
+      method: 'get',
+      path: '/sales/banks',
+      summary: 'Banks a cheque can be drawn on (the active ones)',
+      description: 'The list is kept under Masters → Banks.',
+      tags: TAGS,
+      permissions: POLICIES.sales.sell,
+      responses: {
+        200: { description: 'Banks', schema: dataResponseSchema(z.array(tillBankSchema)) },
+      },
+      handler: async () => ({ data: await till.activeBanks() }),
     }),
 
     defineRoute({

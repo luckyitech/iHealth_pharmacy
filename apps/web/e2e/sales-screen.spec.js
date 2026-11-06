@@ -73,8 +73,9 @@ test('shows the problem under the M-Pesa code when the server refuses it', async
   await page.keyboard.press('F9');
 
   const pay = page.getByRole('dialog', { name: 'Take payment' });
-  await pay.getByRole('button', { name: 'M-Pesa' }).click();
-  await pay.getByRole('button', { name: 'Cash', exact: true }).click();
+  // M-Pesa takes the place of the cash the window opened with.
+  await pay.getByRole('button', { name: /^M-Pesa/ }).click();
+  await expect(pay.getByRole('group', { name: 'Cash' })).toHaveCount(0);
   const code = pay.getByRole('textbox', { name: /M-Pesa code/ });
   await code.fill('AB12');
   await pay.getByRole('button', { name: /Complete sale/ }).click();
@@ -83,6 +84,49 @@ test('shows the problem under the M-Pesa code when the server refuses it', async
   await code.fill(USED_MPESA_CODE.toLowerCase());
   await pay.getByRole('button', { name: /Complete sale/ }).click();
   await expect(pay.getByText('This M-Pesa code is already on bill TSB0511260001')).toBeVisible();
+});
+
+test('splits a bill between card, cheque and cash, with change only from cash', async ({
+  page,
+}) => {
+  await page.goto('/sales/new');
+  await search(page).fill('3*testa');
+  await expect(page.getByRole('option').first()).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('F9');
+
+  const pay = page.getByRole('dialog', { name: 'Take payment' });
+  // Card for part of the bill: Alt 3, and only the approval code besides the amount.
+  await page.keyboard.press('Alt+Digit3');
+  await expect(pay.getByRole('group', { name: 'Cash' })).toHaveCount(0);
+  const card = pay.getByRole('group', { name: 'Card' });
+  await card.getByRole('textbox', { name: 'Amount' }).fill('200');
+  await card.getByRole('textbox', { name: 'Approval code' }).fill('482193');
+
+  await pay.getByRole('button', { name: /^Cheque/ }).click();
+  const cheque = pay.getByRole('group', { name: 'Cheque' });
+  await cheque.getByRole('textbox', { name: 'Amount' }).fill('100');
+  await cheque.getByRole('textbox', { name: 'Cheque number' }).fill('000731');
+  await pay.getByRole('button', { name: /Complete sale/ }).click();
+  await expect(cheque.getByText('Choose the bank')).toBeVisible();
+  await cheque.getByRole('combobox', { name: 'Bank' }).selectOption({ label: 'Example Bank' });
+  await cheque.getByLabel('Cheque date').fill('2020-01-31');
+  await expect(cheque.getByText('Older than 6 months')).toBeVisible();
+  const today = new Date().toISOString().slice(0, 10);
+  await cheque.getByLabel('Cheque date').fill(today);
+
+  // 348 to pay: 200 card + 100 cheque leaves 48 in cash; 50 handed over gives 2 back.
+  await expect(pay.getByText('Still to pay')).toBeVisible();
+  await pay.getByRole('button', { name: /^Cash/ }).click();
+  await expect(pay.getByRole('textbox', { name: /Cash received/ })).toHaveValue('48.00');
+  await pay.getByRole('textbox', { name: /Cash received/ }).fill('50');
+  await expect(pay.getByText('Change to give')).toBeVisible();
+  await expect(pay.getByText('Ksh 2.00')).toBeVisible();
+  await pay.getByRole('button', { name: /Complete sale/ }).click();
+
+  const done = page.getByRole('dialog', { name: 'Sale complete' });
+  await expect(done.getByText('Change Ksh 2.00')).toBeVisible();
+  await expect(done.getByText(/Card/)).toBeVisible();
 });
 
 test('asks before clearing the sale with Escape', async ({ page }) => {

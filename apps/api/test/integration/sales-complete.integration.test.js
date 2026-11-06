@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
+import { todayIn } from '../../src/features/sales/batches.repository.js';
 import { createSalesBillRoutes } from '../../src/features/sales/bills.routes.js';
 import { collectRoutes } from '../../src/routes.js';
 import { buildTestApp, TEST_ENV } from '../helpers.js';
@@ -263,5 +264,148 @@ describe('completing a sale', () => {
         payments: [{ method: 'cash', amount: '116' }],
       });
     expect(response.status).toBe(403);
+  });
+});
+
+describe('more ways to pay: card, cheque and splits', () => {
+  /** @type {Awaited<ReturnType<typeof signIn>>} */
+  let cashier;
+  /** @type {number} */
+  let bankId;
+  const today = todayIn(loadConfig(TEST_ENV).region.timeZone);
+
+  beforeAll(async () => {
+    cashier = await signIn('test.cashier', 'Test-Cashier-Pass-1');
+    // The additive SQL seeds the list of banks; take one, and switch another off.
+    const banks = await db.select`SELECT BANK_ID AS id FROM ih_bank ORDER BY BANK_ID LIMIT 2`;
+    bankId = Number(banks[0].id);
+    await db.prisma.$executeRaw`UPDATE ih_bank SET ACTIVE_S = 'N' WHERE BANK_ID = ${banks[1].id}`;
+  });
+
+  /** @param {Record<string, unknown>[]} payments */
+  const sellTwo = (payments) =>
+    cashier.agent
+      .post(BILLS)
+      .set('x-csrf-token', cashier.csrf)
+      .send({
+        requestKey: randomUUID(),
+        lines: [{ stockId: ids['VAT-OK'], quantity: 2 }],
+        payments,
+      });
+
+  /** @param {number} billId */
+  const savedPayments = async (billId) => {
+    const [row] = await db.select`
+      SELECT s.CASH_AMOUNT AS cash, s.CREDIT_CARD_AMOUNT AS card, s.CREDIT_CARD_NO AS cardNo, s.TAXNO AS taxNo,
+        s.CHEQUE_AMT AS cheque, s.CHEQUE_NUMBER AS chequeNo, CAST(s.CHEQUE_DATE AS CHAR) AS chequeDate,
+        d.CARD_APPROVAL_CODE AS approval, d.CHEQUE_BANK_ID AS bankId
+      FROM sales s LEFT JOIN ih_sale_payment_detail d ON d.BILL_ID = s.BILL_ID WHERE s.BILL_ID = ${billId}`;
+    return row;
+  };
+
+  it('takes a card with its approval code, and cash for the rest with change', async () => {
+    const response = await sellTwo([
+      { method: 'card', amount: '200', reference: 'ab12c3' },
+      { method: 'cash', amount: '50' },
+    ]);
+    expect(response.status).toBe(201);
+    expect(response.body.data.change).toBe('18.00');
+    expect(response.body.data.payments).toEqual([
+      { method: 'cash', amount: '32.00', reference: null },
+      { method: 'card', amount: '200.00', reference: 'Approval AB12C3' },
+    ]);
+    const saved = await savedPayments(response.body.data.id);
+    expect(saved).toMatchObject({ approval: 'AB12C3', cardNo: null, taxNo: null, bankId: null });
+    expect([Number(saved.cash), Number(saved.card)]).toEqual([32, 200]);
+  });
+
+  it('refuses a card without its approval code', async () => {
+    const response = await sellTwo([{ method: 'card', amount: '232' }]);
+    expect(response.status).toBe(400);
+    expect(response.body.error.details).toEqual([
+      {
+        path: 'body.payments.0.reference',
+        message: 'Enter the approval code from the card machine slip',
+      },
+    ]);
+  });
+
+  it('takes cheques only from people allowed to', async () => {
+    const cheque = {
+      method: 'cheque',
+      amount: '232',
+      reference: '000731',
+      bankId,
+      chequeDate: today,
+    };
+    const refused = await sellTwo([cheque]);
+    expect(refused.status).toBe(403);
+
+    await db.prisma.$executeRaw`
+      INSERT INTO employee_access (EMPLOYEE_ID, PHARMA_ACCESS_ID, ACTIVE_S, CREATION_USER_ID)
+      VALUES (2, 900002, 'Y', 'test')`;
+
+    const taken = await sellTwo([cheque]);
+    expect(taken.status).toBe(201);
+    expect(taken.body.data.payments).toEqual([
+      { method: 'cheque', amount: '232.00', reference: `000731 · KCB Bank · ${today}` },
+    ]);
+    expect(await savedPayments(taken.body.data.id)).toMatchObject({
+      chequeNo: '000731',
+      chequeDate: today,
+      bankId,
+      approval: null,
+    });
+  });
+
+  it('refuses stale cheques and banks taken off the list', async () => {
+    const [inactive] =
+      await db.select`SELECT BANK_ID AS id FROM ih_bank WHERE ACTIVE_S = 'N' LIMIT 1`;
+    const response = await sellTwo([
+      {
+        method: 'cheque',
+        amount: '232',
+        reference: '000732',
+        bankId: Number(inactive.id),
+        chequeDate: '2020-01-31',
+      },
+    ]);
+    expect(response.status).toBe(400);
+    expect(response.body.error.details).toEqual([
+      { path: 'body.payments.0.bankId', message: 'Choose a bank from the list' },
+      {
+        path: 'body.payments.0.chequeDate',
+        message: 'This cheque is older than 6 months; banks no longer pay it',
+      },
+    ]);
+  });
+
+  it('splits one bill four ways, and refuses non-cash payments above the bill', async () => {
+    const split = await sellTwo([
+      { method: 'mpesa', amount: '100', reference: 'SPLT4WAY01' },
+      { method: 'card', amount: '50', reference: '482193' },
+      { method: 'cheque', amount: '40', reference: '000733', bankId, chequeDate: today },
+      { method: 'cash', amount: '100' },
+    ]);
+    expect(split.status).toBe(201);
+    expect(split.body.data.change).toBe('58.00');
+    expect(split.body.data.payments.map((/** @type {any} */ p) => [p.method, p.amount])).toEqual([
+      ['cash', '42.00'],
+      ['mpesa', '100.00'],
+      ['card', '50.00'],
+      ['cheque', '40.00'],
+    ]);
+
+    const over = await sellTwo([
+      { method: 'mpesa', amount: '200', reference: 'SPLT4WAY02' },
+      { method: 'card', amount: '50', reference: '482194' },
+    ]);
+    expect(over.status).toBe(400);
+    expect(over.body.error.details).toEqual([
+      {
+        path: 'body.payments.1.amount',
+        message: 'M-Pesa, card and cheque together cannot be more than the bill',
+      },
+    ]);
   });
 });

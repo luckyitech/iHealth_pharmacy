@@ -283,6 +283,19 @@ describe('master data CRUD against the legacy manufacturer table', () => {
         409,
       );
     });
+
+    it('keeps the list of banks, seeded once, with codes and names that cannot repeat', async () => {
+      const { body } = await admin.agent.get('/api/v1/masters/banks?q=KCB');
+      expect(body.data).toEqual([
+        { id: expect.any(Number), active: true, code: 'KCB', name: 'KCB Bank' },
+      ]);
+      const added = await create('banks', { code: 'TESTBK', name: 'Test Bank' });
+      expect(added.status).toBe(201);
+      expect((await create('banks', { code: 'TESTBK', name: 'Another Test Bank' })).status).toBe(
+        409,
+      );
+      expect((await create('banks', { code: 'TESTB2', name: 'test bank' })).status).toBe(409);
+    });
   });
 });
 

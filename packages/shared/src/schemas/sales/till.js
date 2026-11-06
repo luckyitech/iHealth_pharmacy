@@ -100,4 +100,11 @@ export const tillSettingsSchema = z.object({
   maxHeld: z.number().int(),
   /** Bank notes offered as quick amounts when taking cash, smallest first. */
   quickCashNotes: z.array(z.number()),
+  /** Cheques dated longer ago than this are refused. */
+  chequeMaxAgeMonths: z.number().int(),
+  /** Whether the person at the till may take cheques. */
+  canAcceptCheques: z.boolean(),
 });
+
+/** A bank a cheque can be drawn on. */
+export const tillBankSchema = z.object({ id: z.number().int(), name: z.string() });

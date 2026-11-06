@@ -11,14 +11,14 @@ import {
 } from './index.js';
 
 describe('permissions', () => {
-  it('mirrors the pharma_access catalogue (125 legacy rows + Masters View)', () => {
-    expect(PERMISSION_LIST).toHaveLength(126);
+  it('mirrors the pharma_access catalogue (125 legacy rows + Masters View + Accept cheque payments)', () => {
+    expect(PERMISSION_LIST).toHaveLength(127);
     expect(PERMISSIONS.SALES_SALES_BILLING_SUBMISSION).toMatchObject({
       id: 6,
       group: 'Sales',
       name: 'Sales Billing Submission',
     });
-    expect(new Set(PERMISSION_LIST.map((permission) => permission.id)).size).toBe(126);
+    expect(new Set(PERMISSION_LIST.map((permission) => permission.id)).size).toBe(127);
   });
 
   it('looks permissions up by legacy id', () => {

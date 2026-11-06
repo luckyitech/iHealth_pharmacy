@@ -1,9 +1,9 @@
-import { ITEM_LOOKUPS } from '@ihealth/shared/schemas';
+import { BANK_SCHEMAS, ITEM_LOOKUPS } from '@ihealth/shared/schemas';
 
 import { MasterResourcePage } from '../master-resource-page.jsx';
 import { lookupPageConfig } from './lookup-page.jsx';
 
-/** The six item-master lookups; each becomes a route under /masters. */
+/** The short master lists (the six item lookups and banks); each becomes a route under /masters. */
 const ITEM_LOOKUP_PAGES = Object.freeze({
   'item-categories': lookupPageConfig({
     resource: 'masters/item-categories',
@@ -46,6 +46,13 @@ const ITEM_LOOKUP_PAGES = Object.freeze({
     singular: 'unit',
     description: 'Units products are bought and sold in.',
     schemas: ITEM_LOOKUPS.unitsOfMeasure,
+  }),
+  banks: lookupPageConfig({
+    resource: 'masters/banks',
+    title: 'Banks',
+    singular: 'bank',
+    description: 'Banks a customer can pay by cheque from, offered at the till.',
+    schemas: BANK_SCHEMAS,
   }),
 });
 

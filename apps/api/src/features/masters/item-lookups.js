@@ -1,6 +1,11 @@
 /* eslint-disable jsdoc/reject-any-type -- rows come from the generic CRUD factory, typed by each lookup's columns */
 import { POLICIES } from '@ihealth/shared/permissions';
-import { ITEM_LOOKUPS, optionalIdSchema, PRODUCT_KINDS } from '@ihealth/shared/schemas';
+import {
+  BANK_SCHEMAS,
+  ITEM_LOOKUPS,
+  optionalIdSchema,
+  PRODUCT_KINDS,
+} from '@ihealth/shared/schemas';
 
 import { createCrudRoutes } from '../../http/crud/create-crud-routes.js';
 import { isActive, LEGACY_STAMPS, pickColumns, text } from './legacy-mapping.js';
@@ -25,6 +30,7 @@ const LEGACY_KIND = Object.freeze({
  * @property {Record<string, string>} columns API field -> Prisma field (`name` may write several columns).
  * @property {string[]} [nameColumns] Extra columns that hold the same name; written with it and read as a fallback.
  * @property {string[]} [nameFallbacks] Columns read when the name is empty (never written).
+ * @property {boolean} [uniqueCode] The table refuses two rows with the same code.
  */
 
 /** @type {LookupDefinition[]} */
@@ -101,6 +107,16 @@ const LOOKUPS = [
     columns: { code: 'measurementCd', name: 'measurementDesc' },
     nameColumns: ['measurementName'],
   },
+  // Not an item lookup, but the same kind of short list: banks a cheque can be drawn on.
+  {
+    resource: 'masters/banks',
+    label: 'Bank',
+    model: 'ihBank',
+    idField: 'bankId',
+    schemas: BANK_SCHEMAS,
+    columns: { code: 'bankCd', name: 'bankName' },
+    uniqueCode: true,
+  },
 ];
 
 /**
@@ -163,7 +179,8 @@ async function withGroupNames(items, prisma) {
 }
 
 /**
- * Routes of the item-master lookups: categories, forms, groups, generic names, specializations, units.
+ * Routes of the short master lists: the item lookups (categories, forms, groups, generic names,
+ * specializations, units) and banks.
  *
  * @param {{ prisma: import('#db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog }} deps
  * @returns The routes of every lookup.
@@ -213,6 +230,16 @@ export function createItemLookupRoutes(deps) {
             where: (input) => (input.name ? { [nameColumn]: input.name } : null),
             message: `A ${definition.label.toLowerCase()} with this name already exists`,
           },
+          ...(definition.uniqueCode
+            ? [
+                {
+                  field: 'code',
+                  where: (/** @type {any} */ input) =>
+                    input.code ? { [columns.code]: input.code } : null,
+                  message: `A ${definition.label.toLowerCase()} with this code already exists`,
+                },
+              ]
+            : []),
         ],
         stamps: LEGACY_STAMPS,
       },

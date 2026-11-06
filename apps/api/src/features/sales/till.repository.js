@@ -120,6 +120,18 @@ export function createTillRepository(prisma) {
     },
 
     /**
+     * @returns {Promise<{ id: number, name: string }[]>} Active banks, by name.
+     */
+    async activeBanks() {
+      const rows = await prisma.ihBank.findMany({
+        where: { activeS: ACTIVE },
+        select: { bankId: true, bankName: true },
+        orderBy: { bankName: 'asc' },
+      });
+      return rows.map((row) => ({ id: row.bankId, name: row.bankName.trim() }));
+    },
+
+    /**
      * Active customers whose name or phone matches, for the till's customer picker.
      *
      * @param {string} q

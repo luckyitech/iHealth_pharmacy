@@ -732,4 +732,11 @@ export const PERMISSIONS = Object.freeze({
     name: 'Masters View',
     active: true,
   }),
+  // Added by the new system (apps/api/db/sql/additive/0007-sale-payment-details.sql).
+  SALES_ACCEPT_CHEQUE_PAYMENTS: Object.freeze({
+    id: 900002,
+    group: 'Sales',
+    name: 'Accept cheque payments',
+    active: true,
+  }),
 });

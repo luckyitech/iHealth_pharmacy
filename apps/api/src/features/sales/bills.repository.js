@@ -73,6 +73,10 @@ const SUMMARY_COLUMNS = Prisma.sql`
   TRIM(CONCAT_WS(' ', e.FIRST_NM, e.LAST_NM)) AS cashierName,
   s.NET_AMOUNT AS netAmount, s.PAID_AMOUNT AS paidAmount, s.BALANCE_AMOUNT AS balanceAmount,
   s.PAYMENT_STATUS AS paymentStatus, ${paymentSelect},
+  (SELECT d.CARD_APPROVAL_CODE FROM ih_sale_payment_detail d WHERE d.BILL_ID = s.BILL_ID) AS cardApprovalCode,
+  (SELECT b.BANK_NAME FROM ih_sale_payment_detail d JOIN ih_bank b ON b.BANK_ID = d.CHEQUE_BANK_ID
+    WHERE d.BILL_ID = s.BILL_ID) AS chequeBank,
+  CAST(s.CHEQUE_DATE AS CHAR) AS chequeDate,
   (SELECT COUNT(*) FROM sales_items i WHERE i.BILL_ID = s.BILL_ID) AS lineCount`;
 
 /**
@@ -116,15 +120,27 @@ const toStatus = (value) =>
 function paymentsOf(row) {
   return Object.entries(PAYMENT_COLUMNS)
     .filter(([, columns]) => Number(row[columns.amount] ?? 0) > 0)
-    .map(([method, columns]) => ({
-      method,
-      amount: money(row[columns.amount]),
-      reference: shownReference(
-        method,
-        columns.reference ? String(row[columns.reference] ?? '').trim() || null : null,
-      ),
-    }));
+    .map(([method, columns]) => {
+      const stored = columns.reference ? String(row[columns.reference] ?? '').trim() || null : null;
+      /** @type {string | null} */
+      let reference = shownReference(method, stored);
+      // Bills from the new till: the card machine's approval code, and the cheque's bank and date.
+      if (method === PAYMENT_METHODS.CARD && row.cardApprovalCode)
+        reference = `Approval ${String(row.cardApprovalCode).trim()}`;
+      if (method === PAYMENT_METHODS.CHEQUE)
+        reference =
+          [stored, textOrNull(row.chequeBank), legacyDate(row.chequeDate)]
+            .filter(Boolean)
+            .join(' · ') || null;
+      return { method, amount: money(row[columns.amount]), reference };
+    });
 }
+
+/**
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+const textOrNull = (value) => String(value ?? '').trim() || null;
 
 /**
  * @param {Record<string, any>} row

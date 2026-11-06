@@ -144,7 +144,20 @@ export async function mockTillApi(page, server) {
       });
     if (key === 'GET sales/till-settings')
       return json({
-        data: { selfDiscountLimit: 25, maxHeld: 30, quickCashNotes: [50, 100, 200, 500, 1000] },
+        data: {
+          selfDiscountLimit: 25,
+          maxHeld: 30,
+          quickCashNotes: [50, 100, 200, 500, 1000],
+          chequeMaxAgeMonths: 6,
+          canAcceptCheques: true,
+        },
+      });
+    if (key === 'GET sales/banks')
+      return json({
+        data: [
+          { id: 1, name: 'Example Bank' },
+          { id: 2, name: 'Sample Bank' },
+        ],
       });
     if (key === 'GET sales/batches') {
       const q = (url.searchParams.get('q') ?? '').toLowerCase();
@@ -207,8 +220,13 @@ export async function mockTillApi(page, server) {
       }
       const priced = price(body.lines);
       const cash = body.payments.find((/** @type {any} */ p) => p.method === 'cash');
-      const mpesa = body.payments.find((/** @type {any} */ p) => p.method === 'mpesa');
-      const cashDue = Number(priced.net) - Number(mpesa?.amount ?? 0);
+      const others = body.payments.filter((/** @type {any} */ p) => p.method !== 'cash');
+      const cashDue =
+        Number(priced.net) -
+        others.reduce(
+          (/** @type {number} */ sum, /** @type {any} */ p) => sum + Number(p.amount),
+          0,
+        );
       const id = server.nextBill++;
       return json(
         {
@@ -217,9 +235,11 @@ export async function mockTillApi(page, server) {
             code: `TSB051126${String(id).padStart(4, '0')}`,
             payments: [
               ...(cash ? [{ method: 'cash', amount: cashDue.toFixed(2), reference: null }] : []),
-              ...(mpesa
-                ? [{ method: 'mpesa', amount: mpesa.amount, reference: mpesa.reference }]
-                : []),
+              ...others.map((/** @type {any} */ p) => ({
+                method: p.method,
+                amount: p.amount,
+                reference: p.reference,
+              })),
             ],
             change: (Number(cash?.amount ?? 0) - cashDue).toFixed(2),
           },

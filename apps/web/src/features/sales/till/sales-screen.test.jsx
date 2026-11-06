@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -72,8 +72,15 @@ function renderPage() {
     'GET app-info': () => jsonResponse(200, APP_INFO),
     'GET sales/till-settings': () =>
       jsonResponse(200, {
-        data: { selfDiscountLimit: 25, maxHeld: 30, quickCashNotes: [50, 100] },
+        data: {
+          selfDiscountLimit: 25,
+          maxHeld: 30,
+          quickCashNotes: [50, 100],
+          chequeMaxAgeMonths: 6,
+          canAcceptCheques: false,
+        },
       }),
+    'GET sales/banks': () => jsonResponse(200, { data: [{ id: 1, name: 'Test Bank' }] }),
     'GET sales/held': () => jsonResponse(200, { data: [] }),
     'GET sales/batches': () => jsonResponse(200, { data: { batches: [BATCH], scanned: false } }),
     'GET sales/customers': () =>
@@ -152,5 +159,25 @@ describe('the sales screen', () => {
     const cash = await screen.findByRole('textbox', { name: 'Cash received' });
     expect(cash).toHaveValue('116.00');
     expect(screen.getByRole('button', { name: /Complete sale/ })).toBeInTheDocument();
+    // Cheques are offered only to people allowed to take them.
+    expect(screen.getByRole('button', { name: /Cheque/ })).toBeDisabled();
+  });
+
+  it('adds a card for part of the bill, asking for its approval code', async () => {
+    renderPage();
+    await addTestamol();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeEnabled());
+    await userEvent.keyboard('{F9}');
+    await screen.findByRole('textbox', { name: 'Cash received' });
+    await userEvent.click(screen.getByRole('button', { name: /^Card/ }));
+    const amount = within(screen.getByRole('group', { name: 'Card' })).getByRole('textbox', {
+      name: 'Amount',
+    });
+    await userEvent.clear(amount);
+    await userEvent.type(amount, '100');
+    await userEvent.click(screen.getByRole('button', { name: /Complete sale/ }));
+    expect(
+      await screen.findByText('Enter the approval code from the card machine slip'),
+    ).toBeInTheDocument();
   });
 });

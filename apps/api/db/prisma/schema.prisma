@@ -5918,3 +5918,17 @@ enum WebDeliveryCourierType {
   bolt
   uber
 }
+
+/// Added by the new system (apps/api/db/sql/additive/0007-sale-payment-details.sql): banks a cheque can be drawn on.
+model IhBank {
+  bankId           Int       @id @default(autoincrement()) @map("BANK_ID")
+  bankCd           String    @unique(map: "UQ_IH_BANK_CODE") @map("BANK_CD") @db.VarChar(20)
+  bankName         String    @map("BANK_NAME") @db.VarChar(100)
+  activeS          String?   @default("Y") @map("ACTIVE_S") @db.Char(1)
+  creationTs       DateTime  @default(now()) @map("CREATION_TS") @db.DateTime(3)
+  creationUserId   String?   @map("CREATION_USER_ID") @db.VarChar(50)
+  lastUpdateTs     DateTime? @map("LAST_UPDATE_TS") @db.DateTime(3)
+  lastUpdateUserId String?   @map("LAST_UPDATE_USER_ID") @db.VarChar(50)
+
+  @@map("ih_bank")
+}

@@ -7,7 +7,7 @@ import { CHANGE_PASSWORD_PATH, RequireAuth, RequirePermission } from '@/features
 
 import { MASTERS_AREA_PERMISSIONS } from '@/features/masters/sections';
 
-/** Paths of the item-master lookup pages (one page component, configured per lookup). */
+/** Paths of the short master lists: the item lookups and banks (one page component, configured per list). */
 const ITEM_LOOKUP_ROUTES = /** @type {const} */ ([
   'item-categories',
   'item-forms',
@@ -15,6 +15,7 @@ const ITEM_LOOKUP_ROUTES = /** @type {const} */ ([
   'generic-names',
   'specializations',
   'units-of-measure',
+  'banks',
 ]);
 
 import { NAV_ITEMS } from './navigation.js';
