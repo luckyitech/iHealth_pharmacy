@@ -60,6 +60,8 @@ export function createTillRoutes({ prisma, audit, config }) {
           cancelAloneMinutes: config.sales.cancelAloneMinutes,
           approvalReasons: config.sales.approvalReasons,
           cancelReasons: config.sales.cancelReasons,
+          returnReasons: config.sales.returnReasons,
+          returnDays: config.sales.returnDays,
           medicineTypes: config.medicine.types.map(({ kind, code, name }) => ({
             kind,
             code,

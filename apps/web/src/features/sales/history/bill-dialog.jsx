@@ -1,6 +1,6 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import { BILL_STATUSES } from '@ihealth/shared/schemas';
-import { Ban, Printer, Tag, TriangleAlert } from 'lucide-react';
+import { Ban, Printer, Tag, TriangleAlert, Undo2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { PageState } from '@/components/feedback/page-state';
@@ -22,6 +22,7 @@ import { CancelBillDialog } from './cancel-bill-dialog.jsx';
 import { openReceipt, useBill } from './sales-api.js';
 import { SALES_LABELS } from '../labels.js';
 import { LabelsDialog } from '../labels/labels-dialog.jsx';
+import { ReturnDialog } from '../returns/return-dialog.jsx';
 import { openPrescriptionPhoto } from '../prescriptions/prescriptions-api.js';
 
 /** Shown for a bill sold without a doctor (the legacy placeholder doctor included). */
@@ -56,6 +57,7 @@ export function BillDialog({ id, onClose }) {
   const { hasAny } = usePermissions();
   const canSell = hasAny(POLICIES.sales.sell);
   const [labelling, setLabelling] = useState(false);
+  const [returning, setReturning] = useState(false);
   const me = useCurrentUser().data;
   const settings = useTillSettings(canSell);
   const timeZone = useAppInfo().data?.region.timeZone;
@@ -363,6 +365,11 @@ export function BillDialog({ id, onClose }) {
             Close
           </Button>
           {data && canSell && data.status !== BILL_STATUSES.CANCELLED && (
+            <Button variant="outline" onClick={() => setReturning(true)}>
+              <Undo2 aria-hidden="true" /> Return items
+            </Button>
+          )}
+          {data && canSell && data.status !== BILL_STATUSES.CANCELLED && (
             <Button variant="outline" onClick={() => setLabelling(true)}>
               <Tag aria-hidden="true" /> Labels
             </Button>
@@ -373,6 +380,10 @@ export function BillDialog({ id, onClose }) {
           </Button>
         </div>
       </DialogContent>
+      <ReturnDialog
+        billId={returning && data ? data.id : null}
+        onClose={() => setReturning(false)}
+      />
       <LabelsDialog
         billId={labelling && data ? data.id : null}
         onClose={() => setLabelling(false)}

@@ -10,4 +10,5 @@ export * from './sales/approvals.js';
 export * from './sales/prescriptions.js';
 export * from './sales/controlled-register.js';
 export * from './sales/labels.js';
+export * from './sales/returns.js';
 export * from './masters/sales-settings.js';
