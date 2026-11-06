@@ -5,7 +5,6 @@ import { useEffect, useId, useState } from 'react';
 
 import { FormField } from '@/components/form/form-field';
 import { Input } from '@/components/ui/input';
-import { Kbd } from '@/components/ui/kbd';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
@@ -158,17 +157,6 @@ export function CustomerNameField({ form, name, label, onPick, hint, className }
               {customers.length === 0 && (
                 <p className="px-3 py-2 text-sm text-muted-foreground">No customer found</p>
               )}
-              <p className="hidden gap-4 border-t bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-                <span>
-                  <Kbd decorative>↑</Kbd> <Kbd decorative>↓</Kbd> choose
-                </span>
-                <span>
-                  <Kbd decorative>Enter</Kbd> pick
-                </span>
-                <span>
-                  <Kbd decorative>Esc</Kbd> close
-                </span>
-              </p>
             </div>
           )}
         </div>

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SHEET_ON_PHONE } from '@/components/ui/dialog-variants';
 import { Input } from '@/components/ui/input';
-import { Kbd } from '@/components/ui/kbd';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useFormat } from '@/lib/format';
@@ -15,7 +14,6 @@ import { cn } from '@/lib/utils';
 
 import { METHOD_LABELS } from '../history/bill-labels.js';
 import { newRow, previewPayment, problemKey, quickAmounts, TILL_METHODS } from './payment.js';
-import { KEY_LABELS } from './till-keys.js';
 import { SALES_LABELS } from '../labels.js';
 
 /** Alt and a number add (or go to) each way of paying, in the order of TILL_METHODS. */
@@ -380,7 +378,7 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
         role="group"
         aria-label="Add a way of paying"
       >
-        {TILL_METHODS.map((method, index) => {
+        {TILL_METHODS.map((method) => {
           const chequeBlocked = method === PAYMENT_METHODS.CHEQUE && !rules.canAcceptCheques;
           return (
             <button
@@ -396,9 +394,9 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
               onClick={() => add(method)}
             >
               <span>{METHOD_LABELS[/** @type {keyof typeof METHOD_LABELS} */ (method)]}</span>
-              <span className="hidden text-[11px] font-normal text-muted-foreground sm:block">
-                {chequeBlocked ? 'Not allowed' : `Alt ${index + 1}`}
-              </span>
+              {chequeBlocked && (
+                <span className="text-[11px] font-normal text-muted-foreground">Not allowed</span>
+              )}
             </button>
           );
         })}
@@ -462,20 +460,11 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
           </p>
         )}
         <Button type="button" variant="outline" disabled={pending} onClick={onBack}>
-          Back{' '}
-          <Kbd decorative className="hidden sm:inline-flex">
-            {KEY_LABELS.CLEAR}
-          </Kbd>
+          Back
         </Button>
         <Button type="submit" disabled={pending || (tried && !preview.ready)}>
           {pending && <Loader2 aria-hidden="true" className="animate-spin" />}
           Complete sale
-          <Kbd
-            decorative
-            className="hidden border-primary-foreground/40 bg-transparent text-primary-foreground sm:inline-flex"
-          >
-            {KEY_LABELS.CONFIRM}
-          </Kbd>
         </Button>
       </div>
     </form>

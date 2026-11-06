@@ -14,11 +14,6 @@ const HEADING =
   '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground';
 
 /**
- * @returns {boolean} The device is a Mac, where the shortcut uses ⌘ instead of Ctrl.
- */
-const isMac = () => /Mac|iPhone|iPad/.test(navigator.userAgent);
-
-/**
  * Quick page search: Ctrl+K (⌘K on a Mac), or the search button in the account bar, opens a box
  * that finds any page the user may open by typing part of its name, section or group.
  *
@@ -57,9 +52,6 @@ export function CommandPalette() {
       >
         <Search aria-hidden="true" />
         Find a page…
-        <kbd className="ml-auto rounded border px-1.5 font-sans text-[0.7rem]">
-          {isMac() ? '⌘K' : 'Ctrl K'}
-        </kbd>
       </Button>
       <Button
         variant="ghost"
