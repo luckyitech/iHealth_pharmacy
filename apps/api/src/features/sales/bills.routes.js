@@ -27,6 +27,7 @@ import {
 } from './bills.repository.js';
 import { createSaleService } from './complete-sale.js';
 import { renderReceipt } from './receipt-pdf.js';
+import { createReceiptSettings } from './receipt-settings.js';
 
 const PATH = '/sales/bills';
 const TAGS = ['Sales'];
@@ -64,6 +65,7 @@ const localStamp = (date, timeZone) =>
 export function createSalesBillRoutes({ prisma, audit, config }) {
   const bills = createBillsRepository(prisma);
   const sales = createSaleService({ prisma, config });
+  const receiptSettings = createReceiptSettings(prisma);
   const listQuery = createListQuerySchema({
     sortable: BILL_SORTABLE,
     defaultSort: /** @type {any} */ ('-billDate'),
@@ -208,6 +210,12 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
             select: { firstNm: true, lastNm: true },
           }),
         ]);
+        const [taxCodes, footerLines] = await Promise.all([
+          receiptSettings.taxCodesOn(
+            bill.billDate ?? localStamp(new Date(), config.region.timeZone).slice(0, 10),
+          ),
+          receiptSettings.footerLines(),
+        ]);
         const original =
           Boolean(input.query.original) &&
           bill.cashierId === getAuth(res).employeeId &&
@@ -227,6 +235,10 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
           printedBy: [printer?.firstNm, printer?.lastNm].filter(Boolean).join(' ').trim(),
           printedAt: localStamp(new Date(), config.region.timeZone),
           copy: !original,
+          taxCodes,
+          exemptCodes: config.receipt.exemptTaxCodes,
+          returnNote: config.receipt.returnNote,
+          footerLines,
         });
         await record(req, original ? PRINT : REPRINT, bill.id);
         res.set({

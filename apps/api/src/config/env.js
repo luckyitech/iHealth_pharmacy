@@ -62,6 +62,18 @@ const envSchema = z.object({
   SALES_MAX_HELD: z.coerce.number().int().min(1).max(500).default(30),
   // Cheques dated longer ago than this many months are refused: banks no longer pay them.
   SALES_CHEQUE_MAX_AGE_MONTHS: z.coerce.number().int().min(1).max(24).default(6),
+  // Printed in quotes under the receipt's totals, as the legacy receipt did. Empty prints nothing.
+  RECEIPT_RETURN_NOTE: z.string().default('GOODS ONCE SOLD CANNOT BE RETURNED'),
+  // Tax codes printed as "Exempt" instead of a rate on the receipt (comma-separated).
+  RECEIPT_EXEMPT_TAX_CODES: z
+    .string()
+    .default('E')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((code) => code.trim())
+        .filter(Boolean),
+    ),
   // Bank notes offered as quick amounts in the payment window, smallest first.
   SALES_QUICK_CASH_NOTES: z
     .string()
@@ -96,6 +108,7 @@ const envSchema = z.object({
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
  * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number }} sales
+ * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
@@ -143,6 +156,10 @@ export function loadConfig(env) {
     }),
     pharmacyId: values.PHARMACY_ID,
     documentCodePrefix: values.DOCUMENT_CODE_PREFIX,
+    receipt: Object.freeze({
+      returnNote: values.RECEIPT_RETURN_NOTE.trim() || null,
+      exemptTaxCodes: values.RECEIPT_EXEMPT_TAX_CODES,
+    }),
     sales: Object.freeze({
       roundingStep: values.SALES_ROUNDING_STEP,
       selfDiscountLimit: values.SALES_SELF_DISCOUNT_LIMIT,
