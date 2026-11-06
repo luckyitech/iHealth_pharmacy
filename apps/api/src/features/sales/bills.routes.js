@@ -155,6 +155,7 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
         const { billId, change, repeated } = await sales.complete(/** @type {any} */ (input.body), {
           employeeId: getAuth(res).employeeId,
           pharmacyId,
+          permissionIds: getAuth(res).permissionIds,
         });
         if (!repeated) await record(req, 'create', billId);
         return { data: { ...(await findOrFail(billId, pharmacyId)), change } };

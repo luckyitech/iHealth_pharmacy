@@ -90,3 +90,6 @@ export const ITEM_LOOKUPS = Object.freeze({
   specializations: codedLookupSchemas({ codeMax: 20, nameMax: 100, description: true }),
   unitsOfMeasure: codedLookupSchemas({ codeMax: 20, nameMax: 100 }),
 });
+
+/** Banks a cheque can be drawn on: a short list kept under Masters. */
+export const BANK_SCHEMAS = codedLookupSchemas({ codeMax: 20, nameMax: 100 });

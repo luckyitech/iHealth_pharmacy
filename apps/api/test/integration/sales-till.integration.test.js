@@ -237,7 +237,11 @@ describe('the till', () => {
       selfDiscountLimit: 25,
       maxHeld: MAX_HELD,
       quickCashNotes: [50, 100, 200, 500, 1000],
+      chequeMaxAgeMonths: 6,
+      canAcceptCheques: false,
     });
+    const banks = await cashier.agent.get('/api/v1/sales/banks');
+    expect(banks.body.data.map((/** @type {any} */ bank) => bank.name)).toContain('KCB Bank');
   });
 
   it('refuses people who may not sell', async () => {

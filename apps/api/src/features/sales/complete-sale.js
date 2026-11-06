@@ -1,9 +1,16 @@
 /* eslint-disable jsdoc/reject-any-type -- rows come from raw SQL over legacy tables */
-import { compareMoney, moneyToString, subtractMoney, toMoney } from '@ihealth/shared/money';
+import {
+  addMoney,
+  compareMoney,
+  moneyToString,
+  subtractMoney,
+  toMoney,
+} from '@ihealth/shared/money';
+import { hasAnyPermission, POLICIES } from '@ihealth/shared/permissions';
 import { priceBill } from '@ihealth/shared/pricing';
 import { PAYMENT_METHODS } from '@ihealth/shared/schemas';
 
-import { validationFailed } from '../../lib/errors.js';
+import { forbidden, validationFailed } from '../../lib/errors.js';
 import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-codes.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
@@ -17,13 +24,35 @@ const RAW_QUERY_FAILED = 'P2010';
 const DUPLICATE_KEY = 1062;
 
 /**
+ * @typedef {{ method: string, amount: string, reference?: string, bankId?: number, chequeDate?: string }} SalePayment
+ */
+
+/** How payment methods are named in messages. */
+const METHOD_NAMES = Object.freeze({
+  [PAYMENT_METHODS.MPESA]: 'M-Pesa',
+  [PAYMENT_METHODS.CARD]: 'Card',
+  [PAYMENT_METHODS.CHEQUE]: 'The cheque',
+});
+
+/**
+ * @param {string} date `YYYY-MM-DD`
+ * @param {number} months
+ * @returns {string} The same day that many months earlier, `YYYY-MM-DD`.
+ */
+function monthsBefore(date, months) {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCMonth(day.getUTCMonth() - months);
+  return day.toISOString().slice(0, 10);
+}
+
+/**
  * @typedef {object} SaleInput
  * @property {string} requestKey
  * @property {{ stockId: number, quantity: number, discountPercent: number }[]} lines
  * @property {number} [customerId]
  * @property {string | null} [customerName]
  * @property {string | null} [customerPhone]
- * @property {{ method: string, amount: string, reference?: string }[]} payments
+ * @property {SalePayment[]} payments
  * @property {string | null} [remarks]
  */
 
@@ -74,26 +103,31 @@ function assertLinesSellable(lines, batches, { today, discountLimit }) {
 
 /**
  * Checks the payments against the net and works out what stays in the till and the change.
- * M-Pesa may not exceed the bill; cash may (the customer gets change).
+ * M-Pesa, card and cheque together may not exceed the bill; cash may (the customer gets change).
  *
- * @param {SaleInput['payments']} payments
+ * @param {SalePayment[]} payments
  * @param {string} net
- * @returns {{ cash: string | null, mpesa: string | null, mpesaCode: string | null, change: string }}
+ * @returns {{ cash: string | null, change: string, other: Map<string, { amount: string, payment: SalePayment }> }}
  */
 function settle(payments, net) {
   const cash = payments.find((payment) => payment.method === PAYMENT_METHODS.CASH);
-  const mpesa = payments.find((payment) => payment.method === PAYMENT_METHODS.MPESA);
-  const mpesaIndex = payments.findIndex((payment) => payment.method === PAYMENT_METHODS.MPESA);
-  const mpesaAmount = toMoney(mpesa?.amount ?? 0);
-  if (compareMoney(mpesaAmount, net) > 0) {
+  const nonCash = payments
+    .map((payment, index) => ({ payment, index }))
+    .filter(({ payment }) => payment.method !== PAYMENT_METHODS.CASH);
+  const nonCashTotal = addMoney(...nonCash.map(({ payment }) => payment.amount));
+  if (compareMoney(nonCashTotal, net) > 0) {
+    const last = /** @type {{ payment: SalePayment, index: number }} */ (nonCash.at(-1));
     throw validationFailed([
       {
-        path: `body.payments.${mpesaIndex}.amount`,
-        message: 'M-Pesa cannot be more than the bill',
+        path: `body.payments.${last.index}.amount`,
+        message:
+          nonCash.length === 1
+            ? `${METHOD_NAMES[/** @type {keyof typeof METHOD_NAMES} */ (last.payment.method)]} cannot be more than the bill`
+            : 'M-Pesa, card and cheque together cannot be more than the bill',
       },
     ]);
   }
-  const cashDue = subtractMoney(net, mpesaAmount);
+  const cashDue = subtractMoney(net, nonCashTotal);
   const tendered = toMoney(cash?.amount ?? 0);
   if (compareMoney(tendered, cashDue) < 0) {
     throw validationFailed([
@@ -105,10 +139,45 @@ function settle(payments, net) {
   }
   return {
     cash: cashDue.isZero() ? null : moneyToString(cashDue),
-    mpesa: mpesaAmount.isZero() ? null : moneyToString(mpesaAmount),
-    mpesaCode: mpesa?.reference ?? null,
     change: moneyToString(subtractMoney(tendered, cashDue)),
+    other: new Map(
+      nonCash.map(({ payment }) => [
+        payment.method,
+        { amount: moneyToString(payment.amount), payment },
+      ]),
+    ),
   };
+}
+
+/**
+ * Refuses a cheque the person may not take, from a bank not on the list, or dated too long ago.
+ *
+ * @param {any} tx
+ * @param {SalePayment[]} payments
+ * @param {{ permissionIds: ReadonlySet<number>, today: string, maxAgeMonths: number }} rules
+ * @returns {Promise<void>}
+ */
+async function assertChequeAcceptable(tx, payments, { permissionIds, today, maxAgeMonths }) {
+  const index = payments.findIndex((payment) => payment.method === PAYMENT_METHODS.CHEQUE);
+  if (index < 0) return;
+  if (!hasAnyPermission(permissionIds, POLICIES.sales.acceptCheque))
+    throw forbidden('You may not take cheques. Ask someone who approves sales.');
+  const cheque = payments[index];
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  const bank = await tx.ihBank.findUnique({
+    where: { bankId: cheque.bankId },
+    select: { activeS: true },
+  });
+  if (!bank || bank.activeS !== ACTIVE)
+    details.push({ path: `body.payments.${index}.bankId`, message: 'Choose a bank from the list' });
+  if (/** @type {string} */ (cheque.chequeDate) < monthsBefore(today, maxAgeMonths)) {
+    details.push({
+      path: `body.payments.${index}.chequeDate`,
+      message: `This cheque is older than ${maxAgeMonths} months; banks no longer pay it`,
+    });
+  }
+  if (details.length) throw validationFailed(details);
 }
 
 /**
@@ -137,10 +206,10 @@ export function createSaleService({ prisma, config }) {
   return {
     /**
      * @param {SaleInput} input
-     * @param {{ employeeId: number, pharmacyId: number }} actor
+     * @param {{ employeeId: number, pharmacyId: number, permissionIds: ReadonlySet<number> }} actor
      * @returns {Promise<{ billId: number, change: string, repeated: boolean }>}
      */
-    async complete(input, { employeeId, pharmacyId }) {
+    async complete(input, { employeeId, pharmacyId, permissionIds }) {
       const already = await billOfRequest(input.requestKey);
       if (already) return { billId: already, change: '0.00', repeated: true };
 
@@ -171,11 +240,20 @@ export function createSaleService({ prisma, config }) {
           });
           const priced = priceBill(inputs, { roundingStep: config.sales.roundingStep });
           const payment = settle(input.payments, priced.net);
+          await assertChequeAcceptable(tx, input.payments, {
+            permissionIds,
+            today,
+            maxAgeMonths: config.sales.chequeMaxAgeMonths,
+          });
+          const mpesa = payment.other.get(PAYMENT_METHODS.MPESA);
+          const card = payment.other.get(PAYMENT_METHODS.CARD);
+          const cheque = payment.other.get(PAYMENT_METHODS.CHEQUE);
+          const mpesaCode = mpesa?.payment.reference ?? null;
 
-          if (payment.mpesaCode) {
+          if (mpesaCode) {
             /** @type {{ code: string | null }[]} */
             const [used] = await tx.$queryRaw`
-              SELECT BILL_CODE AS code FROM sales WHERE UPI_TRANS_ID = ${payment.mpesaCode} LIMIT 1`;
+              SELECT BILL_CODE AS code FROM sales WHERE UPI_TRANS_ID = ${mpesaCode} LIMIT 1`;
             if (used) {
               const index = input.payments.findIndex((p) => p.method === PAYMENT_METHODS.MPESA);
               throw validationFailed([
@@ -233,8 +311,12 @@ export function createSaleService({ prisma, config }) {
               balanceAmount: 0,
               paymentStatus: LEGACY_PAID,
               cashAmount: payment.cash === null ? null : Number(payment.cash),
-              upiAmount: payment.mpesa === null ? null : Number(payment.mpesa),
-              upiTransId: payment.mpesaCode,
+              upiAmount: mpesa ? Number(mpesa.amount) : null,
+              upiTransId: mpesaCode,
+              creditCardAmount: card ? Number(card.amount) : null,
+              chequeAmt: cheque ? Number(cheque.amount) : null,
+              chequeNumber: cheque?.payment.reference ?? null,
+              chequeDate: toLegacyDate(cheque?.payment.chequeDate ?? null),
               remarks: input.remarks ?? null,
               pharmacyId,
               employeeId,
@@ -273,6 +355,14 @@ export function createSaleService({ prisma, config }) {
               };
             }),
           });
+
+          // The approval code and the bank have no legacy column (the legacy app put the code in TAXNO).
+          if (card || cheque) {
+            await tx.$executeRaw`
+              INSERT INTO ih_sale_payment_detail (BILL_ID, CARD_APPROVAL_CODE, CHEQUE_BANK_ID)
+              VALUES (${bill.billId}, ${card?.payment.reference ?? null},
+                ${cheque?.payment.bankId ?? null})`;
+          }
 
           await tx.$executeRaw`
             INSERT INTO ih_sale_request (REQUEST_KEY, BILL_ID, EMPLOYEE_ID)

@@ -1,18 +1,29 @@
 import { z } from 'zod';
 
-import { nonNegativeMoneySchema } from '../../money/index.js';
-import { optionalText } from '../common.js';
+import { compareMoney, nonNegativeMoneySchema } from '../../money/index.js';
+import { dateOnlySchema, optionalText } from '../common.js';
 import { billDetailSchema, PAYMENT_METHODS } from './bills.js';
 import { saleQuoteBodySchema } from './quote.js';
 
-/** Ways to pay a sale in this phase; card, cheque, credit and credit notes follow. */
-export const SALE_PAYMENT_METHODS = Object.freeze([PAYMENT_METHODS.CASH, PAYMENT_METHODS.MPESA]);
+/** Ways to pay at the till. Credit sales come with the Finance phase; credit notes with returns. */
+export const SALE_PAYMENT_METHODS = Object.freeze([
+  PAYMENT_METHODS.CASH,
+  PAYMENT_METHODS.MPESA,
+  PAYMENT_METHODS.CARD,
+  PAYMENT_METHODS.CHEQUE,
+]);
 
 /** A full M-Pesa transaction code: 10 letters and digits, e.g. `QK52AB1XYZ`. */
 export const MPESA_CODE_PATTERN = /^[A-Z0-9]{10}$/;
 
-/** Column lengths of the legacy `sales` table. */
-const LENGTH = Object.freeze({ customerName: 100, customerPhone: 20, remarks: 500 });
+/** Column lengths of the legacy `sales` table, and of the card approval code (additive table). */
+const LENGTH = Object.freeze({
+  customerName: 100,
+  customerPhone: 20,
+  remarks: 500,
+  chequeNumber: 50,
+  cardApprovalCode: 45,
+});
 
 /** Who the sale is for: a registered customer, or a name and phone typed on the bill. */
 export const saleCustomerShape = Object.freeze({
@@ -21,6 +32,10 @@ export const saleCustomerShape = Object.freeze({
   customerPhone: optionalText(LENGTH.customerPhone),
 });
 
+/**
+ * One way of paying. `reference` is the M-Pesa code, the card machine's approval code or the cheque
+ * number; a cheque also has its bank and date.
+ */
 export const salePaymentSchema = z
   .object({
     method: z.enum(SALE_PAYMENT_METHODS, { error: 'Choose how they paid' }),
@@ -30,15 +45,32 @@ export const salePaymentSchema = z
       .trim()
       .transform((value) => value.toUpperCase())
       .optional(),
+    bankId: z.coerce.number().int().positive().optional(),
+    chequeDate: dateOnlySchema.optional(),
   })
   .superRefine((payment, context) => {
-    if (payment.method !== PAYMENT_METHODS.MPESA) return;
-    if (!payment.reference || !MPESA_CODE_PATTERN.test(payment.reference)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['reference'],
-        message: 'Enter the full 10-character M-Pesa code, e.g. QK52AB1XYZ',
-      });
+    /**
+     * @param {string} path
+     * @param {string} message
+     * @returns {void}
+     */
+    const problem = (path, message) => context.addIssue({ code: 'custom', path: [path], message });
+    const reference = payment.reference ?? '';
+    if (payment.method !== PAYMENT_METHODS.CASH && compareMoney(payment.amount, 0) <= 0)
+      problem('amount', 'Enter the amount');
+    if (payment.method === PAYMENT_METHODS.MPESA && !MPESA_CODE_PATTERN.test(reference))
+      problem('reference', 'Enter the full 10-character M-Pesa code, e.g. QK52AB1XYZ');
+    if (payment.method === PAYMENT_METHODS.CARD) {
+      if (!reference) problem('reference', 'Enter the approval code from the card machine slip');
+      else if (reference.length > LENGTH.cardApprovalCode)
+        problem('reference', `Use at most ${LENGTH.cardApprovalCode} characters`);
+    }
+    if (payment.method === PAYMENT_METHODS.CHEQUE) {
+      if (!reference) problem('reference', 'Enter the cheque number');
+      else if (reference.length > LENGTH.chequeNumber)
+        problem('reference', `Use at most ${LENGTH.chequeNumber} characters`);
+      if (!payment.bankId) problem('bankId', 'Choose the bank');
+      if (!payment.chequeDate) problem('chequeDate', 'Enter the date on the cheque');
     }
   });
 
