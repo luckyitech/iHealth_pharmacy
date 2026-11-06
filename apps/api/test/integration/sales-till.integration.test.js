@@ -170,6 +170,7 @@ describe('the till', () => {
       net: '250.00',
       heldBy: 'Carl Cashier',
     });
+    expect(Math.abs(Date.parse(held.body.data.heldAt) - Date.now())).toBeLessThan(120_000);
 
     const list = await otherTill.agent.get('/api/v1/sales/held');
     expect(list.body.data.map((/** @type {any} */ h) => h.id)).toEqual([held.body.data.id]);

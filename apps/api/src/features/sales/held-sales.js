@@ -1,7 +1,7 @@
 /* eslint-disable jsdoc/reject-any-type -- rows come from raw SQL over the additive table */
 import { priceBill } from '@ihealth/shared/pricing';
 
-import { Prisma } from '#db';
+import { fromDbTime, Prisma } from '#db';
 
 import { conflict, notFound, validationFailed } from '../../lib/errors.js';
 import { loadBatches } from './batches.repository.js';
@@ -45,7 +45,8 @@ const toSummary = (row) => ({
   lineCount: Number(row.lineCount),
   net: Number(row.net).toFixed(2),
   heldBy: textOrNull(row.heldBy),
-  heldAt: new Date(row.heldAt).toISOString(),
+  // The table's default is the database clock: the pharmacy's wall clock.
+  heldAt: fromDbTime(row.heldAt).toISOString(),
 });
 
 const SUMMARY_SQL = Prisma.sql`

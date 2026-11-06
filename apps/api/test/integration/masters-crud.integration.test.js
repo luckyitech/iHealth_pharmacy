@@ -113,9 +113,10 @@ describe('master data CRUD against the legacy manufacturer table', () => {
       active: true,
     });
     const [row] =
-      await db.select`SELECT CREATION_USER_ID AS createdBy, ACTIVE_S AS active, YEAR(LAST_UPDATE_TS) AS year FROM manufacturer WHERE MANUFACTURER_ID = ${response.body.data.id}`;
+      await db.select`SELECT CREATION_USER_ID AS createdBy, ACTIVE_S AS active, TIMESTAMPDIFF(SECOND, LAST_UPDATE_TS, NOW()) AS age FROM manufacturer WHERE MANUFACTURER_ID = ${response.body.data.id}`;
     expect(row).toMatchObject({ createdBy: '1', active: 'Y' });
-    expect(Number(row.year)).toBeGreaterThan(2000);
+    // Stamped with the database clock (the pharmacy's wall clock), as the legacy app stamps it.
+    expect(Math.abs(Number(row.age))).toBeLessThan(120);
   });
 
   it('refuses a duplicate name, whatever its case', async () => {

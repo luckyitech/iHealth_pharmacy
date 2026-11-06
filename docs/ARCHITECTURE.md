@@ -51,6 +51,10 @@ The factory's options, for when a master needs more than columns and a schema:
 | `beforeWrite`, `beforeDeactivate` | Refuse a write (a linked record is missing) or a deactivation (stock on hand)                                      | item suppliers, items            |
 | `nullsLast`                       | Sort fields whose empty values go last                                                                             | item-supplier priority           |
 
+### Times in the database
+
+The database keeps date-times as the pharmacy's wall clock: the legacy app writes them that way, and MySQL's `NOW()` and column defaults use the server's time zone (`DB_TIME_ZONE`, `+03:00`). Prisma reads and writes dates as UTC. So legacy stamp columns (`CREATION_TS`, `LAST_UPDATE_TS`) are written with `toDbTime()` from `#db`, and a date-time a column default filled (`CURRENT_TIMESTAMP`) is turned back into a real moment with `fromDbTime()` before it leaves the API. Legacy dates shown on screen are read as text (`CAST(... AS CHAR)`) and shown as written.
+
 ## Frontend structure (apps/web/src)
 
 | Folder                                       | What it holds                                                                                    |
