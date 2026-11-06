@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { PERMISSION_LIST } from '../../permissions/index.js';
-import { newPasswordSchema } from '../auth.js';
+import { newApprovalPinSchema, newPasswordSchema } from '../auth.js';
 import { idSchema, requiredIdSchema, requiredText } from '../common.js';
 
 /** Legacy USER_NM is VARCHAR(50). */
@@ -58,6 +58,17 @@ export const employeePasswordFormSchema = z
     message: 'The passwords do not match',
   });
 
+/** `PUT /masters/employees/:id/access/approval-pin`: an administrator sets or resets the PIN. */
+export const employeeApprovalPinBodySchema = z.object({ pin: newApprovalPinSchema });
+
+/** Set-approval-PIN form (with confirmation). */
+export const employeeApprovalPinFormSchema = employeeApprovalPinBodySchema
+  .extend({ confirmPin: z.string().min(1, 'Type the PIN again') })
+  .refine((values) => values.pin === values.confirmPin, {
+    path: ['confirmPin'],
+    message: 'The PINs do not match',
+  });
+
 /** `PUT /masters/employees/:id/access/status`. */
 export const loginStatusBodySchema = z.object({ enabled: z.boolean() });
 
@@ -87,6 +98,9 @@ export const employeeAccessSchema = z.object({
   lockedUntil: z.string().nullable(),
   twoFactorEnabled: z.boolean(),
   mustChangePassword: z.boolean(),
+  // Whether an approval PIN is set, and until when wrong PINs keep it locked; never the PIN.
+  hasApprovalPin: z.boolean(),
+  approvalPinLockedUntil: z.string().nullable(),
   roleId: z.number().int().nullable(),
   roleName: z.string().nullable(),
   // Individual grants (editable here) and those that come with the role (shown, not edited here).

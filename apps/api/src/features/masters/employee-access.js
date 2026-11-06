@@ -3,6 +3,7 @@ import { POLICIES } from '@ihealth/shared/permissions';
 import {
   dataResponseSchema,
   employeeAccessSchema,
+  employeeApprovalPinBodySchema,
   employeeLoginBodySchema,
   employeePasswordBodySchema,
   employeePermissionsBodySchema,
@@ -24,7 +25,7 @@ const accessResponse = dataResponseSchema(employeeAccessSchema);
 
 /**
  * An employee's sign-in and access: username and password, sign-in on or off, lockout, two-factor
- * reset, role and individual permissions. Every write answers with the updated access.
+ * reset, approval PIN, role and individual permissions. Every write answers with the updated access.
  *
  * @param {{ prisma: import('#db').PrismaClient, accountAdmin: import('../auth/account-admin.service.js').AccountAdminService, config: Readonly<import('../../config/env.js').Config> }} deps
  * @returns The routes.
@@ -97,6 +98,16 @@ export function createEmployeeAccessRoutes({ prisma, accountAdmin, config }) {
       body: employeePasswordBodySchema,
       permissions: POLICIES.employeePasswords.write,
       run: ({ id, body, actor: by }) => accountAdmin.setPassword({ employeeId: id, ...body }, by),
+    }),
+    write({
+      method: 'put',
+      path: '/approval-pin',
+      summary: 'Set or reset the approval PIN (also lifts a lock after wrong PINs)',
+      body: employeeApprovalPinBodySchema,
+      // A PIN is a secret like the password: the same people may set it.
+      permissions: POLICIES.employeePasswords.write,
+      run: ({ id, body, actor: by }) =>
+        accountAdmin.setApprovalPin({ employeeId: id, ...body }, by),
     }),
     write({
       method: 'put',

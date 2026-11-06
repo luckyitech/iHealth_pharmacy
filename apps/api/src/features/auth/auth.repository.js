@@ -4,6 +4,8 @@
  * (Prisma tagged templates; values are always bound, never interpolated).
  */
 
+import { toDbTime } from '#db';
+
 /** @typedef {import('#db').PrismaClient} PrismaClient */
 
 /**
@@ -225,6 +227,51 @@ export function createAuthRepository(prisma) {
         INSERT INTO ih_employee_password (EMPLOYEE_CREDENTIALS_ID, PASSWORD_HASH, LEGACY_FINGERPRINT)
         VALUES (${credentialsId}, ${hash}, ${fingerprint})
         ON DUPLICATE KEY UPDATE PASSWORD_HASH = VALUES(PASSWORD_HASH), LEGACY_FINGERPRINT = VALUES(LEGACY_FINGERPRINT)`;
+    },
+
+    /**
+     * The employee's hashed approval PIN and its wrong-try lock (the additive copy of the legacy PIN).
+     *
+     * @param {number} employeeId
+     * @returns {Promise<{ hash: string | null, fingerprint: string | null, lockedSeconds: number | null } | null>}
+     */
+    async findApprovalPin(employeeId) {
+      /** @type {{ hash: string | null, fingerprint: string | null, lockedSeconds: number | bigint | null }[]} */
+      const rows = await prisma.$queryRaw`
+        SELECT PIN_HASH AS hash, LEGACY_FINGERPRINT AS fingerprint,
+          IF(LOCKED_UNTIL > CURRENT_TIMESTAMP(3),
+            TIMESTAMPDIFF(SECOND, CURRENT_TIMESTAMP(3), LOCKED_UNTIL), NULL) AS lockedSeconds
+        FROM ih_approval_pin WHERE EMPLOYEE_ID = ${employeeId}`;
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        hash: row.hash,
+        fingerprint: row.fingerprint,
+        lockedSeconds: row.lockedSeconds === null ? null : Number(row.lockedSeconds),
+      };
+    },
+
+    /**
+     * Stores a new approval PIN: in the legacy column as the legacy screens read it (they compare
+     * it in the browser, so it stays as typed), and hashed for the new app. Wrong tries are cleared.
+     *
+     * @param {{ credentialsId: number, employeeId: number, pin: string, hash: string, fingerprint: string, by: string }} change
+     * @param {Pick<PrismaClient, '$executeRaw' | 'employeeCredentials'>} [client] A transaction client.
+     * @returns {Promise<void>}
+     */
+    async saveApprovalPin(
+      { credentialsId, employeeId, pin, hash, fingerprint, by },
+      client = prisma,
+    ) {
+      await client.employeeCredentials.update({
+        where: { employeeCredentialsId: credentialsId },
+        data: { approvalAccessPin: pin, lastUpdateUserId: by, lastUpdateTs: toDbTime() },
+      });
+      await client.$executeRaw`
+        INSERT INTO ih_approval_pin (EMPLOYEE_ID, PIN_HASH, LEGACY_FINGERPRINT, FAILED_COUNT, LOCKED_UNTIL)
+        VALUES (${employeeId}, ${hash}, ${fingerprint}, 0, NULL)
+        ON DUPLICATE KEY UPDATE PIN_HASH = VALUES(PIN_HASH),
+          LEGACY_FINGERPRINT = VALUES(LEGACY_FINGERPRINT), FAILED_COUNT = 0, LOCKED_UNTIL = NULL`;
     },
 
     /**

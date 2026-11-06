@@ -413,9 +413,76 @@ export function createAuthService({
     },
 
     /**
+     * The signed-in user changes their own approval PIN, after typing the current one. Wrong tries
+     * count towards the same lockout as checking a PIN. Never audits a PIN.
+     *
+     * @param {{ employeeId: number, credentialsId: number, currentPin: string, newPin: string }} input
+     * @param {ClientInfo} client
+     * @returns {Promise<void>}
+     */
+    async changeApprovalPin({ employeeId, credentialsId, currentPin, newPin }, client) {
+      const credentials = await repository.findCredentialsById(credentialsId);
+      if (!credentials) throw new AppError(ERROR_CODES.UNAUTHENTICATED);
+      const lockedFor = await pinThrottle.lockedFor(credentials.username);
+      if (lockedFor !== null) throw lockedError(lockedFor);
+      if (!credentials.approvalPin) {
+        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+          details: [
+            {
+              path: 'body.currentPin',
+              message: 'You have no approval PIN yet. Ask an administrator to set one.',
+            },
+          ],
+        });
+      }
+      const stored = await repository.findApprovalPin(employeeId);
+      if (stored?.lockedSeconds) throw lockedError(stored.lockedSeconds);
+      // The hashed copy is used while the legacy PIN is unchanged, as at the till.
+      const upToDate =
+        stored?.hash && stored.fingerprint === legacyFingerprint(credentials.approvalPin);
+      const valid = upToDate
+        ? await verifyPassword(/** @type {string} */ (stored.hash), currentPin)
+        : await verifyLegacySecret(credentials.approvalPin, currentPin);
+      if (!valid) {
+        await pinThrottle.recordFailure(credentials.username);
+        await audit.record({
+          action: AUDIT_ACTIONS.APPROVAL_PIN_CHANGED,
+          outcome: AUDIT_OUTCOMES.FAILURE,
+          employeeId,
+          ...client,
+        });
+        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+          details: [{ path: 'body.currentPin', message: 'This is not your current approval PIN' }],
+        });
+      }
+      if (newPin === currentPin) {
+        throw new AppError(ERROR_CODES.VALIDATION_FAILED, {
+          details: [
+            { path: 'body.newPin', message: 'Choose a PIN different from your current one' },
+          ],
+        });
+      }
+      await repository.saveApprovalPin({
+        credentialsId,
+        employeeId,
+        pin: newPin,
+        hash: await hashPassword(newPin),
+        fingerprint: legacyFingerprint(newPin),
+        by: String(employeeId),
+      });
+      await pinThrottle.reset(credentials.username);
+      await audit.record({
+        action: AUDIT_ACTIONS.APPROVAL_PIN_CHANGED,
+        outcome: AUDIT_OUTCOMES.SUCCESS,
+        employeeId,
+        ...client,
+      });
+    },
+
+    /**
      * Checks an approver's PIN (supervisor approval), exactly as the legacy verifyApprovalPin does:
-     * against BCrypt or plain text. The stored PIN is never rewritten, because legacy screens compare
-     * it in the browser.
+     * against BCrypt or plain text. The stored PIN is never hashed in place, because legacy screens
+     * compare it in the browser.
      *
      * @param {{ username: string, pin: string, action?: string }} input
      * @param {ClientInfo} client

@@ -27,6 +27,7 @@ async function mockApi(page) {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (path === 'auth/me') return json({ data: user });
     if (path === 'auth/csrf') return json({ data: { csrfToken: 'smoke' } });
+    if (path === 'auth/approval-pin') return route.fulfill({ status: 204 });
     if (path === 'app-info') {
       return json({
         data: {
@@ -198,4 +199,17 @@ test('turns effects off from the account menu and remembers it', async ({ page }
   await expect(html).toHaveAttribute('data-reduce-effects');
   await page.reload();
   await expect(html).toHaveAttribute('data-reduce-effects');
+});
+
+test('changes your own approval PIN from the account menu', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Account menu for/ }).click();
+  await page.getByRole('menuitem', { name: 'Change approval PIN' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Change your approval PIN' });
+  await dialog.getByLabel(/^Current PIN/).fill('482913');
+  await dialog.getByLabel(/^New PIN/).fill('735102');
+  await dialog.getByLabel(/^Confirm new PIN/).fill('735102');
+  await dialog.getByRole('button', { name: 'Change PIN' }).click();
+  await expect(page.getByText('Approval PIN changed')).toBeVisible();
+  await expect(dialog).toBeHidden();
 });

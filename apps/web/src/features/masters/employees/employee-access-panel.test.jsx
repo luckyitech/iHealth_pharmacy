@@ -17,6 +17,8 @@ const ACCESS = {
   lockedUntil: null,
   twoFactorEnabled: false,
   mustChangePassword: false,
+  hasApprovalPin: true,
+  approvalPinLockedUntil: null,
   roleId: 4,
   roleName: 'PHARMACIST',
   permissionIds: [],
@@ -40,6 +42,7 @@ function setup({ access = {}, signedInAs = 1 } = {}) {
     'GET lookups/roles': () => jsonResponse(200, { data: [{ id: 4, name: 'PHARMACIST' }] }),
     'PUT masters/employees/9/access/password': write('password'),
     'PUT masters/employees/9/access/permissions': write('permissions'),
+    'PUT masters/employees/9/access/approval-pin': write('approval-pin'),
     'POST masters/employees/9/access/unlock': write('unlock'),
   });
   vi.stubGlobal('fetch', api.fetch);
@@ -76,6 +79,35 @@ describe('EmployeeAccessPanel', () => {
       path: 'password',
       body: { password: 'Temporary-Pass-1', mustChangePassword: true },
     });
+  });
+
+  it('resets the approval PIN without ever showing it, and says when it is locked', async () => {
+    const { writes } = setup({ access: { approvalPinLockedUntil: '2026-11-04T12:00:00.000Z' } });
+    expect(await screen.findByText(/Locked after wrong PINs/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^New PIN/), '482913');
+    await userEvent.type(screen.getByLabelText(/^Confirm PIN/), '482910');
+    await userEvent.click(screen.getByRole('button', { name: 'Reset PIN' }));
+    expect(await screen.findByText('The PINs do not match')).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText(/^Confirm PIN/));
+    await userEvent.type(screen.getByLabelText(/^Confirm PIN/), '482913');
+    await userEvent.click(screen.getByRole('button', { name: 'Reset PIN' }));
+    const question = await screen.findByRole('alertdialog');
+    expect(within(question).queryByText('482913')).not.toBeInTheDocument();
+    expect(within(question).getByText('••••••')).toBeInTheDocument();
+    await confirmChange();
+    await waitFor(() =>
+      expect(writes).toEqual([{ path: 'approval-pin', body: { pin: '482913' } }]),
+    );
+  });
+
+  it('refuses a PIN the old system would not accept', async () => {
+    const { writes } = setup({ access: { hasApprovalPin: false } });
+    expect(await screen.findByText('No PIN yet')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^PIN/), '012345');
+    await userEvent.type(screen.getByLabelText(/^Confirm PIN/), '012345');
+    await userEvent.click(screen.getByRole('button', { name: 'Set PIN' }));
+    expect(await screen.findByText('Use 6 digits, not starting with 0')).toBeInTheDocument();
+    expect(writes).toHaveLength(0);
   });
 
   it('shows permissions from the role as fixed, and saves the individual ones', async () => {

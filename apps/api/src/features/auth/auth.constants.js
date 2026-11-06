@@ -55,6 +55,7 @@ export const AUDIT_ACTIONS = Object.freeze({
   PASSWORD_UPGRADED: 'auth.password_upgraded',
   PERMISSION_DENIED: 'auth.permission_denied',
   APPROVAL_PIN: 'auth.approval_pin',
+  APPROVAL_PIN_CHANGED: 'auth.approval_pin_changed',
   PASSWORD_RESET_REQUESTED: 'auth.password_reset_requested',
   PASSWORD_RESET_COMPLETED: 'auth.password_reset_completed',
   PASSWORD_CHANGED: 'auth.password_changed',

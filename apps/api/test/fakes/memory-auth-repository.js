@@ -74,6 +74,16 @@ export function createMemoryAuthRepository() {
     ) {
       state.upgraded.set(credentialsId, { hash, legacyFingerprint: fingerprint });
     },
+    async findApprovalPin(/** @type {number} */ employeeId) {
+      return state.approvalPins.get(employeeId) ?? null;
+    },
+    async saveApprovalPin(
+      /** @type {any} */ { credentialsId, employeeId, pin, hash, fingerprint },
+    ) {
+      const credentials = state.credentials.find((row) => row.credentialsId === credentialsId);
+      if (credentials) credentials.approvalPin = pin;
+      state.approvalPins.set(employeeId, { hash, fingerprint, lockedSeconds: null });
+    },
     async insertRefreshToken(/** @type {any} */ token) {
       const id = nextTokenId++;
       state.tokens.push({ id, ...token, revokedAt: null, revokedReason: null, replacedById: null });
@@ -197,6 +207,8 @@ function initialState() {
     grants: new Map([[2, new Set([6, 8])]]),
     /** @type {Map<number, { hash: string, legacyFingerprint: string }>} */
     upgraded: new Map(),
+    /** @type {Map<number, { hash: string | null, fingerprint: string | null, lockedSeconds: number | null }>} */
+    approvalPins: new Map(),
     /** @type {any[]} */
     tokens: [],
     /** @type {any[]} */
