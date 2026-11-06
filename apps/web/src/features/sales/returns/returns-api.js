@@ -41,6 +41,8 @@ export function useReturnGoods() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resourceKey(BILLS) });
       void queryClient.invalidateQueries({ queryKey: ['sales', 'bills'] });
+      void queryClient.invalidateQueries({ queryKey: resourceKey('sales/returns') });
+      void queryClient.invalidateQueries({ queryKey: ['sales', 'returns'] });
     },
   });
 }
@@ -65,15 +67,16 @@ export async function openReturnReceipt(returnId) {
 }
 
 /**
- * @param {string} date `YYYY-MM-DD`
- * @returns {import('@tanstack/react-query').UseQueryResult<ReturnSummary[]>}
+ * The people who have approved returns, for the approver filter.
+ *
+ * @returns {import('@tanstack/react-query').UseQueryResult<{ id: number, name: string }[]>}
  */
-export function useReturnsOfDay(date) {
+export function useReturnApprovers() {
   return useQuery({
-    queryKey: ['sales', 'returns', date],
+    queryKey: ['sales', 'returns', 'approvers'],
     queryFn: async () =>
-      /** @type {{ data: ReturnSummary[] }} */ (
-        await api.get('sales/returns', { searchParams: { date } }).json()
+      /** @type {{ data: { id: number, name: string }[] }} */ (
+        await api.get('sales/returns/approvers').json()
       ).data,
   });
 }

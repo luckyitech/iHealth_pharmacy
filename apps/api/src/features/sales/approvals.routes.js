@@ -2,7 +2,10 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import { priceBill } from '@ihealth/shared/pricing';
 import {
-  approvalReportQuerySchema,
+  approvalListFiltersShape,
+  cashierOptionSchema,
+  createListQuerySchema,
+  listResponseSchema,
   billApprovalSchema,
   cancelBillBodySchema,
   dataResponseSchema,
@@ -18,8 +21,8 @@ import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { getAuth } from '../auth/auth.guards.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { approvalsNeeded, createApprovalService, linesHash } from './approvals.js';
-import { createApprovalsRepository } from './approvals.repository.js';
-import { loadBatches, todayIn } from './batches.repository.js';
+import { APPROVAL_SORTABLE, createApprovalsRepository } from './approvals.repository.js';
+import { loadBatches } from './batches.repository.js';
 import { createCancelService } from './cancel-bill.js';
 
 const TAGS = ['Sales'];
@@ -34,6 +37,11 @@ export function createApprovalRoutes({ prisma, audit, config }) {
   const approvals = createApprovalService({ prisma, config });
   const cancels = createCancelService({ prisma, config });
   const repository = createApprovalsRepository(prisma);
+  const listQuery = createListQuerySchema({
+    sortable: APPROVAL_SORTABLE,
+    defaultSort: /** @type {any} */ ('-at'),
+    filters: approvalListFiltersShape,
+  });
 
   /**
    * @param {import('express').Request} req
@@ -156,21 +164,44 @@ export function createApprovalRoutes({ prisma, audit, config }) {
     defineRoute({
       method: 'get',
       path: '/sales/approvals',
-      summary: 'Approvals of one day: who asked, who approved, why, and how much',
+      summary: 'Approvals: who asked, who approved, why, and how much',
+      description:
+        'Newest first. `q` searches the bill number, the reason and the names. Filters: `from`, `to`, `kind`, `approverId`. Approvals never used are listed too (`used: false`).',
       tags: TAGS,
       permissions: POLICIES.sales.approve,
-      request: { query: approvalReportQuerySchema },
+      request: { query: listQuery },
       responses: {
-        200: {
-          description: 'Approvals, newest first',
-          schema: dataResponseSchema(z.array(billApprovalSchema)),
-        },
+        200: { description: 'A page of approvals', schema: listResponseSchema(billApprovalSchema) },
       },
-      handler: async ({ input }) => ({
-        data: await repository.ofDay(
+      handler: async ({ input }) => {
+        const query = /** @type {any} */ (input.query);
+        const { rows, total } = await repository.list(
+          query,
           await currentPharmacyId(prisma, config),
-          input.query.date ?? todayIn(config.region.timeZone),
-        ),
+        );
+        return {
+          data: rows,
+          meta: {
+            page: query.page,
+            pageSize: query.pageSize,
+            total,
+            totalPages: Math.ceil(total / query.pageSize),
+          },
+        };
+      },
+    }),
+
+    defineRoute({
+      method: 'get',
+      path: '/sales/approvals/approvers',
+      summary: 'People who have approved, for the approver filter',
+      tags: TAGS,
+      permissions: POLICIES.sales.approve,
+      responses: {
+        200: { description: 'Approvers', schema: dataResponseSchema(z.array(cashierOptionSchema)) },
+      },
+      handler: async () => ({
+        data: await repository.approvers(await currentPharmacyId(prisma, config)),
       }),
     }),
   ];

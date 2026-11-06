@@ -1,32 +1,31 @@
 /* eslint-disable jsdoc/reject-any-type -- credit note rows come from the generic list API */
 import { CREDIT_NOTE_STATES } from '@ihealth/shared/schemas';
-import { Printer, Search } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
-import { useAppInfo } from '@/app/use-app-info';
 import { DataTable } from '@/components/data-table/data-table';
+import { DateRangeFilter, ListSearch } from '@/components/data-table/list-filters';
 import { PageState } from '@/components/feedback/page-state';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useListParams } from '@/hooks/use-list-params';
-import { useFormat, wallClockNow } from '@/lib/format';
+import { useFormat } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { useResourceList } from '@/lib/resource-api';
 import { cn } from '@/lib/utils';
 
 import { SALES_LABELS } from '../labels.js';
 import { NOTE_STATE_LABELS, REFUND_LABELS } from './return-labels.js';
-import { openReturnReceipt, useCreditNoteUses, useReturnsOfDay } from './returns-api.js';
+import { openReturnReceipt, useCreditNoteUses, useReturnApprovers } from './returns-api.js';
 
 const TAB_PARAM = 'tab';
 const NOTES_TAB = 'credit-notes';
 const CREDIT_NOTES = 'sales/credit-notes';
 const NOTE_SORT = '-issuedOn';
+const RETURNS = 'sales/returns';
+const RETURN_SORT = '-at';
 const NO_FILTERS = Object.freeze({});
 
 /** How each state looks in the list. */
@@ -38,7 +37,7 @@ const STATE_STYLES = Object.freeze({
 });
 
 /**
- * Sales → Returns: the day's returns (who returned, who approved, how the money went back), and the
+ * Sales → Returns: the returns (who returned, who approved, how the money went back), and the
  * credit notes with what is left on each.
  *
  * @returns {React.JSX.Element}
@@ -88,17 +87,34 @@ export default function ReturnsPage() {
   );
 }
 
+/**
+ * The list's own filters: the tab lives in the address too, but it is not a filter of the list.
+ *
+ * @param {Record<string, string>} filters
+ * @returns {Record<string, string>}
+ */
+const listFilters = (filters) =>
+  Object.fromEntries(Object.entries(filters).filter(([name]) => name !== TAB_PARAM));
+
 /** @returns {React.JSX.Element} */
 function ReturnsTab() {
   const format = useFormat();
-  const today = wallClockNow(useAppInfo().data?.region.timeZone).slice(0, 10);
-  const [date, setDate] = useState(today);
-  const returns = useReturnsOfDay(date);
+  const { params, setParams } = useListParams({
+    defaultSort: RETURN_SORT,
+    defaultFilters: NO_FILTERS,
+  });
+  const approvers = useReturnApprovers();
+  const list = useResourceList(RETURNS, {
+    page: params.page,
+    pageSize: params.pageSize,
+    sort: params.sort,
+    q: params.q,
+    filters: listFilters(params.filters),
+  });
 
   useEffect(() => {
-    if (returns.error)
-      notify.failure('Could not load the returns', returns.error, { id: 'returns' });
-  }, [returns.error]);
+    if (list.error) notify.failure('Could not load the returns', list.error, { id: 'returns' });
+  }, [list.error]);
 
   /**
    * @param {number} id
@@ -112,84 +128,146 @@ function ReturnsTab() {
     }
   };
 
-  const rows = returns.data ?? [];
+  /**
+   * @param {Record<string, string | undefined>} filters
+   * @returns {void}
+   */
+  const filter = (filters) => setParams({ filters });
+
+  /** @type {import('@/components/data-table/data-table').DataTableColumn[]} */
+  const columns = [
+    {
+      id: 'at',
+      header: 'Returned',
+      sortable: true,
+      cell: (row) => format.dateTime(row.at),
+    },
+    { id: 'code', header: 'Return No', sortable: true, cell: (row) => row.code },
+    {
+      id: 'billCode',
+      header: SALES_LABELS.BILL_CODE,
+      cell: (row) => (
+        <Link
+          className="text-primary underline-offset-2 hover:underline"
+          to={`/sales/history?bill=${row.billId}`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {row.billCode ?? row.billId}
+        </Link>
+      ),
+    },
+    {
+      id: 'customerName',
+      header: SALES_LABELS.CUSTOMER_NAME,
+      cell: (row) => (
+        <span className="grid gap-0.5">
+          <span>{row.customerName ?? '—'}</span>
+          {row.customerPhone && (
+            <span className="text-xs text-muted-foreground tabular-nums">{row.customerPhone}</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: 'lineCount',
+      header: 'Items',
+      className: 'text-right tabular-nums',
+      cell: (row) => row.lineCount,
+    },
+    {
+      id: 'refund',
+      header: 'Refund',
+      sortable: true,
+      className: 'text-right tabular-nums',
+      cell: (row) => format.money(row.refund),
+    },
+    {
+      id: 'refundMethod',
+      header: 'As',
+      cell: (row) =>
+        row.refundMethod
+          ? REFUND_LABELS[/** @type {keyof typeof REFUND_LABELS} */ (row.refundMethod)]
+          : '—',
+    },
+    { id: 'reason', header: 'Reason', cell: (row) => row.reason ?? '—' },
+    { id: 'requestedBy', header: 'Returned by', cell: (row) => row.requestedBy ?? '—' },
+    { id: 'approvedBy', header: 'Approved by', cell: (row) => row.approvedBy ?? 'Old system' },
+    {
+      id: 'receipt',
+      header: 'Receipt',
+      cell: (row) =>
+        row.hasReceipt && (
+          <Button variant="ghost" size="sm" onClick={() => void print(row.id)}>
+            <Printer aria-hidden="true" />
+            <span className="sr-only">Print receipt of {row.code}</span>
+          </Button>
+        ),
+    },
+  ];
+
   return (
     <div className="grid gap-4">
-      <div className="grid w-44 gap-1.5">
-        <Label htmlFor="returns-date">Day</Label>
-        <Input
-          id="returns-date"
-          type="date"
-          max={today}
-          value={date}
-          onChange={(event) => setDate(event.target.value || today)}
+      <div className="flex flex-wrap gap-3">
+        <ListSearch
+          label="Search returns"
+          placeholder="Search by bill or return number, customer name or phone"
+          value={params.q}
+          onSearch={(q) => setParams({ q })}
         />
+        <DateRangeFilter
+          id="returns"
+          from={params.filters.from}
+          to={params.filters.to}
+          onChange={filter}
+        />
+        <NativeSelect
+          aria-label="Refunded as"
+          className="w-40"
+          value={params.filters.refundMethod ?? ''}
+          onChange={(event) => filter({ refundMethod: event.target.value })}
+        >
+          <option value="">Any refund</option>
+          {Object.entries(REFUND_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </NativeSelect>
+        <NativeSelect
+          aria-label="Approved by"
+          className="w-44"
+          value={params.filters.approverId ?? ''}
+          onChange={(event) => filter({ approverId: event.target.value })}
+        >
+          <option value="">Any approver</option>
+          {(approvers.data ?? []).map((approver) => (
+            <option key={approver.id} value={approver.id}>
+              {approver.name}
+            </option>
+          ))}
+        </NativeSelect>
       </div>
-      {returns.isLoading ? (
-        <PageState state="loading" />
-      ) : rows.length === 0 ? (
-        <PageState
-          state="empty"
-          title="No returns that day"
-          description="Returns are made from the bill, in Sales history."
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
-          <table className="w-full text-sm">
-            <caption className="sr-only">Returns of {format.date(date)}</caption>
-            <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Time</th>
-                <th className="px-3 py-2 font-medium">Return No</th>
-                <th className="px-3 py-2 font-medium">{SALES_LABELS.BILL_CODE}</th>
-                <th className="px-3 py-2 font-medium">{SALES_LABELS.CUSTOMER_NAME}</th>
-                <th className="px-3 py-2 text-right font-medium">Items</th>
-                <th className="px-3 py-2 text-right font-medium">Refund</th>
-                <th className="px-3 py-2 font-medium">As</th>
-                <th className="px-3 py-2 font-medium">Reason</th>
-                <th className="px-3 py-2 font-medium">Returned by</th>
-                <th className="px-3 py-2 font-medium">Approved by</th>
-                <th className="px-3 py-2">
-                  <span className="sr-only">Receipt</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-3 py-2 tabular-nums">{row.at ? format.time(row.at) : '—'}</td>
-                  <td className="px-3 py-2 tabular-nums">{row.code}</td>
-                  <td className="px-3 py-2 tabular-nums">
-                    <Link
-                      className="text-primary underline-offset-2 hover:underline"
-                      to={`/sales/history?bill=${row.billId}`}
-                    >
-                      {row.billCode ?? row.billId}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">{row.customerName ?? '—'}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.lineCount}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{format.money(row.refund)}</td>
-                  <td className="px-3 py-2">
-                    {row.refundMethod ? REFUND_LABELS[row.refundMethod] : '—'}
-                  </td>
-                  <td className="px-3 py-2">{row.reason ?? '—'}</td>
-                  <td className="px-3 py-2">{row.requestedBy ?? '—'}</td>
-                  <td className="px-3 py-2">{row.approvedBy ?? 'Old system'}</td>
-                  <td className="px-3 py-2 text-right">
-                    {row.hasReceipt && (
-                      <Button variant="ghost" size="sm" onClick={() => void print(row.id)}>
-                        <Printer aria-hidden="true" />
-                        <span className="sr-only">Print receipt of {row.code}</span>
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        caption="Returns"
+        columns={columns}
+        rows={/** @type {any} */ (list.data)?.data}
+        meta={/** @type {any} */ (list.data)?.meta}
+        sort={params.sort}
+        onSortChange={(sort) => setParams({ sort })}
+        onPageChange={(page) => setParams({ page })}
+        onPageSizeChange={(pageSize) => setParams({ pageSize })}
+        getRowId={(row) => row.id}
+        isLoading={list.isPending}
+        error={list.error}
+        onRetry={() => void list.refetch()}
+        empty={
+          <PageState
+            state="empty"
+            title="No returns match"
+            description="Returns are made from the bill, in Sales history."
+          />
+        }
+      />
     </div>
   );
 }
@@ -201,23 +279,14 @@ function CreditNotesTab() {
     defaultSort: NOTE_SORT,
     defaultFilters: NO_FILTERS,
   });
-  const [search, setSearch] = useState(params.q);
-  const debounced = useDebouncedValue(search);
   const [open, setOpen] = useState(/** @type {any | null} */ (null));
-
-  useEffect(() => {
-    if (debounced !== params.q) setParams({ q: debounced });
-  }, [debounced, params.q, setParams]);
 
   const list = useResourceList(CREDIT_NOTES, {
     page: params.page,
     pageSize: params.pageSize,
     sort: params.sort,
     q: params.q,
-    // The tab lives in the address too; it is not a filter of the list.
-    filters: Object.fromEntries(
-      Object.entries(params.filters).filter(([name]) => name !== TAB_PARAM),
-    ),
+    filters: listFilters(params.filters),
   });
   useEffect(() => {
     if (list.error) notify.failure('Could not load the credit notes', list.error, { id: 'notes' });
@@ -282,20 +351,18 @@ function CreditNotesTab() {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-56 flex-1">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            type="search"
-            aria-label="Search credit notes"
-            placeholder="Search by number, customer or bill"
-            className="pl-9"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
+        <ListSearch
+          label="Search credit notes"
+          placeholder="Search by number, customer or bill"
+          value={params.q}
+          onSearch={(q) => setParams({ q })}
+        />
+        <DateRangeFilter
+          id="notes"
+          from={params.filters.from}
+          to={params.filters.to}
+          onChange={(filters) => setParams({ filters })}
+        />
         <NativeSelect
           aria-label="Show"
           className="w-48"
