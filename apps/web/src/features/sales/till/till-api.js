@@ -11,7 +11,6 @@ import { BILLS } from '../history/sales-api.js';
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').saleQuoteSchema>} SaleQuote
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').heldSaleSummarySchema>} HeldSaleSummary
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').heldSaleSchema>} HeldSale
- * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').tillCustomerSchema>} TillCustomerOption
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').tillSettingsSchema>} TillSettings
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').completedSaleSchema>} CompletedSale
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').saleApprovalSchema>} SaleApproval
@@ -54,20 +53,6 @@ export function useBatchSearch(q) {
     queryFn: () => fetchBatches(q),
     enabled: q.length > 0,
     staleTime: SEARCH_STALE_MS,
-    placeholderData: keepPreviousData,
-  });
-}
-
-/**
- * @param {string} q At least two characters.
- * @param {boolean} enabled
- * @returns {import('@tanstack/react-query').UseQueryResult<TillCustomerOption[]>}
- */
-export function useCustomerSearch(q, enabled) {
-  return useQuery({
-    queryKey: ['sales', 'customers', q],
-    queryFn: () => data(api.get('sales/customers', { searchParams: { q } }).json()),
-    enabled,
     placeholderData: keepPreviousData,
   });
 }

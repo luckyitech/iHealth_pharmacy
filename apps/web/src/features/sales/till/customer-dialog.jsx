@@ -1,17 +1,11 @@
-import { MIN_CUSTOMER_SEARCH_LENGTH } from '@ihealth/shared/schemas';
-import { Loader2, Search, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { UserRound } from 'lucide-react';
 import { z } from 'zod';
 
 import { TextField } from '@/components/form/text-field';
 import { useZodForm } from '@/components/form/use-zod-form';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { notify } from '@/lib/notify';
-
-import { useCustomerSearch } from './till-api.js';
+import { CustomerNameField } from '@/features/customers/customer-name-field';
 
 /** Lengths of the bill's customer columns in the legacy `sales` table. */
 const NAME_LENGTH = 100;
@@ -40,7 +34,7 @@ export function CustomerDialog({ open, onOpenChange, onChoose }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         title="Customer"
-        description="Find a registered customer, or type a name for this bill."
+        description="Type a name or phone: registered customers appear as you type. Or type a name for this bill only."
         className="max-w-lg"
       >
         {/* Mounted while open only, so the search starts empty each time. */}
@@ -56,94 +50,46 @@ export function CustomerDialog({ open, onOpenChange, onChoose }) {
 }
 
 /**
+ * One name box: registered customers drop down as the name is typed; picking one puts them on the
+ * bill. A name that matches no one is kept on this bill only.
+ *
  * @param {{ onChoose: (customer: import('./till-state.js').TillCustomer | null) => void }} props
  * @returns {React.JSX.Element}
  */
 function CustomerChooser({ onChoose }) {
-  const [search, setSearch] = useState('');
-  const q = useDebouncedValue(search.trim());
-  const enabled = q.length >= MIN_CUSTOMER_SEARCH_LENGTH;
-  const customers = useCustomerSearch(q, enabled);
   const form = useZodForm(typedCustomerSchema, { defaultValues: { name: '', phone: '' } });
 
-  useEffect(() => {
-    if (customers.error)
-      notify.failure('Could not search the customers', customers.error, { id: 'till-customers' });
-  }, [customers.error]);
-
-  const choose = onChoose;
-
   return (
-    <>
-      <div className="grid gap-2">
-        <div className="relative">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            type="search"
-            aria-label="Search customers by name or phone"
-            placeholder="Name or phone"
-            className="pl-9"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        {enabled && (
-          <ul
-            aria-label="Matching customers"
-            className="max-h-56 overflow-y-auto rounded-md border"
-          >
-            {customers.isFetching && !customers.data && (
-              <li className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-                <Loader2 aria-hidden="true" className="size-4 animate-spin" /> Searching…
-              </li>
-            )}
-            {customers.data?.map((customer) => (
-              <li key={customer.id} className="border-b last:border-b-0">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                  onClick={() => choose(customer)}
-                >
-                  <span className="font-medium">{customer.name}</span>
-                  <span className="text-sm text-muted-foreground tabular-nums">
-                    {customer.phone ?? ''}
-                  </span>
-                </button>
-              </li>
-            ))}
-            {customers.data?.length === 0 && (
-              <li className="px-3 py-2 text-sm text-muted-foreground">
-                No customer matches “{q}”.
-              </li>
-            )}
-          </ul>
-        )}
+    <form
+      className="grid gap-4"
+      noValidate
+      onSubmit={form.handleSubmit((values) =>
+        onChoose({ name: values.name, phone: values.phone.replace(/[\s-]/g, '') || null }),
+      )}
+    >
+      <div className="grid gap-3">
+        <CustomerNameField
+          form={form}
+          name="name"
+          label="Name"
+          hint="Registered customers appear as you type."
+          onPick={(customer) => onChoose(customer)}
+        />
+        <TextField
+          form={form}
+          name="phone"
+          label="Phone"
+          inputMode="tel"
+          autoComplete="off"
+          className="sm:max-w-60"
+        />
       </div>
-
-      <form
-        className="grid gap-3 border-t pt-4"
-        noValidate
-        onSubmit={form.handleSubmit((values) =>
-          choose({ name: values.name, phone: values.phone.replace(/[\s-]/g, '') || null }),
-        )}
-      >
-        <p className="text-sm font-medium">Or type a name for this bill only</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField form={form} name="name" label="Name" autoComplete="off" />
-          <TextField form={form} name="phone" label="Phone" inputMode="tel" autoComplete="off" />
-        </div>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => choose(null)}>
-            <UserRound aria-hidden="true" /> Walk-in
-          </Button>
-          <Button type="submit" variant="secondary">
-            Use this name
-          </Button>
-        </div>
-      </form>
-    </>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+        <Button type="button" variant="outline" onClick={() => onChoose(null)}>
+          <UserRound aria-hidden="true" /> Walk-in
+        </Button>
+        <Button type="submit">Use this name</Button>
+      </div>
+    </form>
   );
 }
