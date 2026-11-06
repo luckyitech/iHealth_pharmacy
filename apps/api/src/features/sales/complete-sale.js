@@ -15,6 +15,7 @@ import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-cod
 import { createPharmacySettings } from '../masters/pharmacy-settings.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
 import { approvalsNeeded, createApprovalService, linesHash } from './approvals.js';
+import { createCreditNotes } from './credit-notes.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
 import { medicineKindOf } from './medicine-types.js';
 import { toDbTime } from '#db';
@@ -37,6 +38,7 @@ const METHOD_NAMES = Object.freeze({
   [PAYMENT_METHODS.MPESA]: 'M-Pesa',
   [PAYMENT_METHODS.CARD]: 'Card',
   [PAYMENT_METHODS.CHEQUE]: 'The cheque',
+  [PAYMENT_METHODS.CREDIT_NOTE]: 'The credit note',
 });
 
 /**
@@ -189,7 +191,8 @@ function assertLinesSellable(lines, batches, { today }) {
 
 /**
  * Checks the payments against the net and works out what stays in the till and the change.
- * M-Pesa, card and cheque together may not exceed the bill; cash may (the customer gets change).
+ * M-Pesa, card, cheque and credit note together may not exceed the bill; cash may (the customer
+ * gets change).
  *
  * @param {SalePayment[]} payments
  * @param {string} net
@@ -209,7 +212,7 @@ function settle(payments, net) {
         message:
           nonCash.length === 1
             ? `${METHOD_NAMES[/** @type {keyof typeof METHOD_NAMES} */ (last.payment.method)]} cannot be more than the bill`
-            : 'M-Pesa, card and cheque together cannot be more than the bill',
+            : 'M-Pesa, card, cheque and credit note together cannot be more than the bill',
       },
     ]);
   }
@@ -267,6 +270,31 @@ async function assertChequeAcceptable(tx, payments, { permissionIds, today, maxA
 }
 
 /**
+ * Finds the credit note a sale is paid with, locked, and refuses one that cannot pay that much.
+ *
+ * @param {any} tx
+ * @param {ReturnType<typeof createCreditNotes>} creditNotes
+ * @param {SalePayment[]} payments
+ * @param {string} amount What the note is to pay.
+ * @returns {Promise<import('./credit-notes.js').CreditNoteLookup>}
+ */
+async function usableNote(tx, creditNotes, payments, amount) {
+  const index = payments.findIndex((payment) => payment.method === PAYMENT_METHODS.CREDIT_NOTE);
+  const path = `body.payments.${index}`;
+  const note = await creditNotes.find(tx, String(payments[index].reference ?? ''), { lock: true });
+  if (!note)
+    throw validationFailed([
+      { path: `${path}.reference`, message: 'No credit note has this number' },
+    ]);
+  if (note.problem) throw validationFailed([{ path: `${path}.reference`, message: note.problem }]);
+  if (compareMoney(amount, note.balance) > 0)
+    throw validationFailed([
+      { path: `${path}.amount`, message: `Only ${note.balance} is left on this credit note` },
+    ]);
+  return note;
+}
+
+/**
  * Completes a sale in one transaction: the bill number, the bill, its lines and the request key are
  * saved together or not at all. Prices, VAT, profit and totals are worked out here from the batches.
  *
@@ -280,6 +308,7 @@ async function assertChequeAcceptable(tx, payments, { permissionIds, today, maxA
 export function createSaleService({ prisma, config }) {
   const approvals = createApprovalService({ prisma, config });
   const pharmacySettings = createPharmacySettings(prisma, config);
+  const creditNotes = createCreditNotes({ timeZone: config.region.timeZone });
   /**
    * @param {string} requestKey
    * @returns {Promise<number | null>} The bill already saved for this request.
@@ -345,6 +374,10 @@ export function createSaleService({ prisma, config }) {
             today,
             maxAgeMonths: config.sales.chequeMaxAgeMonths,
           });
+          const creditNote = payment.other.get(PAYMENT_METHODS.CREDIT_NOTE);
+          const note = creditNote
+            ? await usableNote(tx, creditNotes, input.payments, creditNote.amount)
+            : null;
           const mpesa = payment.other.get(PAYMENT_METHODS.MPESA);
           const card = payment.other.get(PAYMENT_METHODS.CARD);
           const cheque = payment.other.get(PAYMENT_METHODS.CHEQUE);
@@ -443,6 +476,8 @@ export function createSaleService({ prisma, config }) {
               upiTransId: mpesaCode,
               creditCardAmount: card ? Number(card.amount) : null,
               chequeAmt: cheque ? Number(cheque.amount) : null,
+              creditNoteAmount: creditNote ? Number(creditNote.amount) : null,
+              salesCreditRefNo: note?.code ?? null,
               chequeNumber: cheque?.payment.reference ?? null,
               chequeDate: toLegacyDate(cheque?.payment.chequeDate ?? null),
               remarks: input.remarks ?? null,
@@ -500,6 +535,13 @@ export function createSaleService({ prisma, config }) {
                 },
               ]);
           }
+
+          if (note && creditNote)
+            await creditNotes.spend(tx, note, {
+              billId: bill.billId,
+              amount: creditNote.amount,
+              employeeId,
+            });
 
           // The approval code and the bank have no legacy column (the legacy app put the code in TAXNO).
           if (card || cheque) {

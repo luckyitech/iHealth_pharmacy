@@ -103,7 +103,7 @@ describe('the payment window', () => {
       problems: {},
     });
     expect(previewPayment('1000.00', [cheque, mpesa], RULES).problems).toEqual({
-      'mpesa.amount': "M-Pesa, card and cheque together can't be more than the bill",
+      'mpesa.amount': "M-Pesa, card, cheque and credit note together can't be more than the bill",
     });
   });
 });

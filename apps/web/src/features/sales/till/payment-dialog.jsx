@@ -13,7 +13,15 @@ import { useFormat } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { METHOD_LABELS } from '../history/bill-labels.js';
-import { newRow, previewPayment, problemKey, quickAmounts, TILL_METHODS } from './payment.js';
+import { CreditNoteCheck } from './credit-note-check.jsx';
+import {
+  newRow,
+  parseAmount,
+  previewPayment,
+  problemKey,
+  quickAmounts,
+  TILL_METHODS,
+} from './payment.js';
 import { SALES_LABELS } from '../labels.js';
 
 /** Alt and a number add (or go to) each way of paying, in the order of TILL_METHODS. */
@@ -315,6 +323,31 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
         </div>
       );
     }
+    if (row.method === PAYMENT_METHODS.CREDIT_NOTE) {
+      return (
+        <div className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {referenceField(row, 'Credit note number', { placeholder: 'e.g. DPCN0611260001' })}
+            {amountField(row, 'Amount to use')}
+          </div>
+          <CreditNoteCheck
+            code={row.reference}
+            onUse={(balance) => {
+              // As much of the bill as the other non-cash payments leave, up to what is on the note.
+              const others = rows
+                .filter(
+                  (other) =>
+                    other.method !== PAYMENT_METHODS.CASH &&
+                    other.method !== PAYMENT_METHODS.CREDIT_NOTE,
+                )
+                .reduce((sum, other) => sum + Number(parseAmount(other.amount) ?? 0), 0);
+              const use = Math.max(Math.min(Number(balance), Number(net) - others), 0);
+              update(row.method, { amount: use.toFixed(2) });
+            }}
+          />
+        </div>
+      );
+    }
     if (row.method === PAYMENT_METHODS.CARD) {
       return (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -374,7 +407,7 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
       </div>
 
       <div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+        className="grid grid-cols-3 gap-2 sm:grid-cols-5"
         role="group"
         aria-label="Add a way of paying"
       >

@@ -6,12 +6,13 @@ import { billDetailSchema, PAYMENT_METHODS } from './bills.js';
 import { salePrescriptionSchema } from './prescriptions.js';
 import { saleQuoteBodySchema } from './quote.js';
 
-/** Ways to pay at the till. Credit sales come with the Finance phase; credit notes with returns. */
+/** Ways to pay at the till. Credit sales come with the Finance phase. */
 export const SALE_PAYMENT_METHODS = Object.freeze([
   PAYMENT_METHODS.CASH,
   PAYMENT_METHODS.MPESA,
   PAYMENT_METHODS.CARD,
   PAYMENT_METHODS.CHEQUE,
+  PAYMENT_METHODS.CREDIT_NOTE,
 ]);
 
 /** A full M-Pesa transaction code: 10 letters and digits, e.g. `QK52AB1XYZ`. */
@@ -24,6 +25,7 @@ const LENGTH = Object.freeze({
   remarks: 500,
   chequeNumber: 50,
   cardApprovalCode: 45,
+  creditNoteCode: 20,
 });
 
 /** Who the sale is for: a registered customer, or a name and phone typed on the bill. */
@@ -34,8 +36,8 @@ export const saleCustomerShape = Object.freeze({
 });
 
 /**
- * One way of paying. `reference` is the M-Pesa code, the card machine's approval code or the cheque
- * number; a cheque also has its bank and date.
+ * One way of paying. `reference` is the M-Pesa code, the card machine's approval code, the cheque
+ * number or the credit note's number; a cheque also has its bank and date.
  */
 export const salePaymentSchema = z
   .object({
@@ -65,6 +67,11 @@ export const salePaymentSchema = z
       if (!reference) problem('reference', 'Enter the approval code from the card machine slip');
       else if (reference.length > LENGTH.cardApprovalCode)
         problem('reference', `Use at most ${LENGTH.cardApprovalCode} characters`);
+    }
+    if (payment.method === PAYMENT_METHODS.CREDIT_NOTE) {
+      if (!reference) problem('reference', 'Enter the credit note number');
+      else if (reference.length > LENGTH.creditNoteCode)
+        problem('reference', `Use at most ${LENGTH.creditNoteCode} characters`);
     }
     if (payment.method === PAYMENT_METHODS.CHEQUE) {
       if (!reference) problem('reference', 'Enter the cheque number');

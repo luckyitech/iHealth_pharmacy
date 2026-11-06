@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import {
   APPROVER,
+  CREDIT_NOTE,
   createTillServer,
   mockTillApi,
   SYRUP_BARCODE,
@@ -375,4 +376,34 @@ test('prints the dosing labels after the sale, with the dose as typed', async ({
     ],
   });
   await expect(done).toBeVisible();
+});
+
+test('pays part of a bill with a credit note and the rest in cash', async ({ page }) => {
+  await page.goto('/sales/new');
+  await expect(search(page)).toBeFocused();
+  await search(page).fill('3*hypo');
+  await expect(page.getByRole('option', { name: /Hypotest/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('F9');
+  const pay = page.getByRole('dialog', { name: 'Take payment' });
+  await expect(pay.getByRole('textbox', { name: 'Cash received' })).toBeFocused();
+
+  await pay.getByRole('button', { name: 'Credit note' }).click();
+  await pay.getByRole('textbox', { name: /Credit note number/ }).fill(CREDIT_NOTE.code);
+  await expect(pay.getByText(/Jane Testcase/)).toBeVisible();
+  await expect(pay.getByText(/893\.00 left/)).toBeVisible();
+  await pay.getByRole('button', { name: 'Use it' }).click();
+  await expect(pay.getByRole('textbox', { name: 'Amount to use' })).toHaveValue('893.00');
+  await page.screenshot({ path: test.info().outputPath('credit-note-payment.png') });
+  // The untouched cash row made way for the note; cash pays the rest.
+  await pay.getByRole('button', { name: 'Cash', exact: true }).click();
+  await pay.getByRole('textbox', { name: /Cash received/ }).fill('1100');
+  await pay.getByRole('button', { name: 'Complete sale' }).click();
+  await expect(page.getByRole('dialog', { name: 'Sale complete' })).toBeVisible();
+  expect(server.lastSale?.payments).toEqual(
+    expect.arrayContaining([
+      { method: 'creditNote', amount: '893.00', reference: CREDIT_NOTE.code },
+      expect.objectContaining({ method: 'cash', amount: '1100.00' }),
+    ]),
+  );
 });

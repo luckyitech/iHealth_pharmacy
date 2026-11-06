@@ -11,6 +11,7 @@ export const TILL_METHODS = Object.freeze([
   PAYMENT_METHODS.MPESA,
   PAYMENT_METHODS.CARD,
   PAYMENT_METHODS.CHEQUE,
+  PAYMENT_METHODS.CREDIT_NOTE,
 ]);
 
 /** How each way of paying is named in messages. */
@@ -18,6 +19,7 @@ const NAMES = Object.freeze({
   [PAYMENT_METHODS.MPESA]: 'M-Pesa',
   [PAYMENT_METHODS.CARD]: 'Card',
   [PAYMENT_METHODS.CHEQUE]: 'The cheque',
+  [PAYMENT_METHODS.CREDIT_NOTE]: 'The credit note',
 });
 
 /**
@@ -67,7 +69,7 @@ export function monthsBefore(date, months) {
  * @typedef {object} PaymentRow
  * @property {string} method
  * @property {string} amount For cash, the cash handed over.
- * @property {string} reference M-Pesa code, card approval code or cheque number.
+ * @property {string} reference M-Pesa code, card approval code, cheque number or credit note number.
  * @property {string} bankId
  * @property {string} chequeDate `YYYY-MM-DD`
  */
@@ -126,6 +128,8 @@ export function previewPayment(net, rows, { today, chequeMaxAgeMonths }) {
       problem(row.method, 'reference', 'Enter all 10 characters of the M-Pesa code');
     if (row.method === PAYMENT_METHODS.CARD && !reference)
       problem(row.method, 'reference', 'Enter the approval code from the card machine slip');
+    if (row.method === PAYMENT_METHODS.CREDIT_NOTE && !reference)
+      problem(row.method, 'reference', 'Enter the credit note number');
     if (row.method === PAYMENT_METHODS.CHEQUE) {
       if (!reference) problem(row.method, 'reference', 'Enter the cheque number');
       if (!row.bankId) problem(row.method, 'bankId', 'Choose the bank');
@@ -146,7 +150,7 @@ export function previewPayment(net, rows, { today, chequeMaxAgeMonths }) {
       'amount',
       nonCash.length === 1
         ? `${NAMES[/** @type {keyof typeof NAMES} */ (last.method)]} can't be more than the bill`
-        : "M-Pesa, card and cheque together can't be more than the bill",
+        : "M-Pesa, card, cheque and credit note together can't be more than the bill",
     );
   }
 
