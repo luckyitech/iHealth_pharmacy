@@ -215,13 +215,19 @@ export function createLabelRoutes({ prisma, audit, config }) {
         const onBill = new Set(lines.map((line) => Number(line.lineId)));
         /** @type {{ lineId: number, text: string, copies: number }[]} */
         const labels = /** @type {any} */ (input.body).labels;
-        const details = labels
-          .map((label, index) => ({ label, index }))
-          .filter(({ label }) => !onBill.has(label.lineId))
-          .map(({ index }) => ({
-            path: `body.labels.${index}.lineId`,
-            message: 'This line is not on the bill',
-          }));
+        const details = labels.flatMap((label, index) => [
+          ...(onBill.has(label.lineId)
+            ? []
+            : [{ path: `body.labels.${index}.lineId`, message: 'This line is not on the bill' }]),
+          ...(label.copies > config.labels.maxCopies
+            ? [
+                {
+                  path: `body.labels.${index}.copies`,
+                  message: `Print at most ${config.labels.maxCopies} at a time`,
+                },
+              ]
+            : []),
+        ]);
         if (details.length) throw validationFailed(details);
 
         const printId = randomUUID();

@@ -20,8 +20,6 @@ const DOCTORS = '/sales/doctors';
 const DOCTOR_RESOURCE = 'masters/providers';
 /** Legacy flag of an active record. */
 const ACTIVE = 'Y';
-/** Most doctors or hospitals one search lists. */
-const SEARCH_LIMIT = 10;
 
 /**
  * @param {(string | null | undefined)[]} parts
@@ -116,7 +114,7 @@ export function createPrescriberRoutes({ prisma, audit, config }) {
           },
           select: doctorColumns,
           orderBy: [{ firstNm: 'asc' }, { lastNm: 'asc' }],
-          take: SEARCH_LIMIT,
+          take: config.sales.lookupLimit,
         });
         return { data: await toDoctors(rows) };
       },
@@ -193,7 +191,7 @@ export function createPrescriberRoutes({ prisma, audit, config }) {
           where: { activeS: ACTIVE, name: { contains: input.query.q } },
           select: { hospitalId: true, name: true },
           orderBy: { name: 'asc' },
-          take: SEARCH_LIMIT,
+          take: config.sales.lookupLimit,
         });
         return {
           data: rows.map((row) => ({ id: row.hospitalId, name: textOrNull(row.name) ?? '' })),

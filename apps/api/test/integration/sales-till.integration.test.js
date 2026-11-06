@@ -250,6 +250,7 @@ describe('the till', () => {
       cancelReasons: ['Wrong item', 'Customer changed mind', 'Payment failed'],
       medicineTypes: expect.any(Array),
       prescriptionPhotoMaxKb: 500,
+      labelMaxCopies: 20,
       controlledDrugRules: true,
       returnReasons: expect.any(Array),
       returnDays: 30,

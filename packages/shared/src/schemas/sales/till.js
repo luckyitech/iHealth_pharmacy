@@ -121,6 +121,8 @@ export const tillSettingsSchema = z.object({
   returnDays: z.number().int(),
   /** Whether a controlled drug needs the register's details before it can be paid. */
   controlledDrugRules: z.boolean(),
+  /** Most copies of one dosing sticker printed at a time. */
+  labelMaxCopies: z.number().int(),
   /** Largest prescription photo the server keeps, in kilobytes. */
   prescriptionPhotoMaxKb: z.number().int(),
 });

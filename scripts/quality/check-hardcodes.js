@@ -1,7 +1,8 @@
 /**
  * Fails when application code contains values that belong in the database or in configuration:
  * place and pharmacy names, currencies, dialling codes, time zones, locales, hosts and URLs, account or
- * till numbers.
+ * till numbers, ids of legacy rows (a payment type, a doctor, an account) and result limits written as
+ * numbers (a pharmacy may want more or fewer).
  *
  *   node scripts/quality/check-hardcodes.js
  *
@@ -29,6 +30,12 @@ const RULES = [
   },
   { name: 'locale', pattern: /['"`][a-z]{2}-[A-Z]{2}['"`]/ },
   { name: 'host or URL', pattern: /localhost|127\.0\.0\.1|https?:\/\/(?!(www\.)?w3\.org)/ },
+  {
+    name: 'legacy row id',
+    pattern:
+      /\b(paymentTypeId|PAYMENT_TYPE_ID|providerId|PROVIDER_ID|ACCOUNT_ID|accountId)\s*(:|={1,3})\s*\d+/,
+  },
+  { name: 'result limit', pattern: /\btake:\s*\d+|\bLIMIT\s+\d{2,}/ },
   {
     name: 'till or account number',
     pattern: /\b(till|paybill|account)(No|Number|_NO)?\s*[:=]\s*['"`]?\d{4,}/i,

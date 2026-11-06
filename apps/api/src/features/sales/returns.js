@@ -8,12 +8,13 @@ import {
   subtractMoney,
   toMoney,
 } from '@ihealth/shared/money';
+import { ERROR_CODES } from '@ihealth/shared/errors';
 import { POLICIES } from '@ihealth/shared/permissions';
 import { REFUND_METHODS, RETURN_CONDITIONS } from '@ihealth/shared/schemas';
 
 import { toDbTime } from '#db';
 
-import { conflict, notFound, validationFailed } from '../../lib/errors.js';
+import { AppError, conflict, notFound, validationFailed } from '../../lib/errors.js';
 import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-codes.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
 import { createApprovalService } from './approvals.js';
@@ -23,11 +24,12 @@ import { todayIn } from './batches.repository.js';
 const LEGACY_CANCEL = 'cancel';
 /** How the legacy tables name an approved return and its refund. */
 const LEGACY_APPROVED = 'Approved';
-const LEGACY = Object.freeze({
-  [REFUND_METHODS.CASH]: { paymentTypeId: 1, billType: 'Cash Back', paymentStatus: 'paid' },
-  [REFUND_METHODS.MPESA]: { paymentTypeId: 3, billType: 'Cash Back', paymentStatus: 'paid' },
+/** The legacy payment type (`payment_types.TYPE`) and bill type of each way of refunding. */
+export const LEGACY_REFUNDS = Object.freeze({
+  [REFUND_METHODS.CASH]: { paymentType: 'CASH', billType: 'Cash Back', paymentStatus: 'paid' },
+  [REFUND_METHODS.MPESA]: { paymentType: 'M-PESA', billType: 'Cash Back', paymentStatus: 'paid' },
   [REFUND_METHODS.CREDIT_NOTE]: {
-    paymentTypeId: 2,
+    paymentType: 'CREDIT',
     billType: 'Credit Note',
     paymentStatus: 'Pending',
   },
@@ -322,7 +324,15 @@ export function createReturnService({ prisma, config }) {
         const by = String(actor.employeeId);
         const now = new Date();
         const stamp = toDbTime(now);
-        const legacy = LEGACY[/** @type {keyof typeof LEGACY} */ (input.refund)];
+        const legacy = LEGACY_REFUNDS[/** @type {keyof typeof LEGACY_REFUNDS} */ (input.refund)];
+        /** @type {{ id: number }[]} */
+        const [paymentType] = await tx.$queryRaw`
+          SELECT PAYMENT_TYPE_ID AS id FROM payment_types WHERE UPPER(TYPE) = ${legacy.paymentType}`;
+        if (!paymentType)
+          throw new AppError(ERROR_CODES.INTERNAL_ERROR, {
+            message: `The legacy payment type ${legacy.paymentType} is missing`,
+          });
+        const paymentTypeId = Number(paymentType.id);
         const codeOptions = {
           prefix: config.documentCodePrefix,
           timeZone: config.region.timeZone,
@@ -336,7 +346,7 @@ export function createReturnService({ prisma, config }) {
             CREATION_TS, CREATION_USER_ID, LAST_UPDATE_TS, LAST_UPDATE_USER_ID, ACTIVE_S,
             PAYMENT_TYPE_ID, PHARMACY_ID, REMARKS, BILL_TYPE, PAYMENT_STATUS)
           VALUES (${returnCode}, ${toLegacyDate(today)}, ${LEGACY_APPROVED}, ${billId}, ${Number(refundText)},
-            ${stamp}, ${by}, ${stamp}, ${by}, ${YES}, ${legacy.paymentTypeId}, ${actor.pharmacyId},
+            ${stamp}, ${by}, ${stamp}, ${by}, ${YES}, ${paymentTypeId}, ${actor.pharmacyId},
             ${input.reason}, ${legacy.billType}, ${legacy.paymentStatus})`;
         /** @type {{ id: bigint | number }[]} */
         const [{ id: returnIdRaw }] = await tx.$queryRaw`SELECT LAST_INSERT_ID() AS id`;
@@ -351,7 +361,7 @@ export function createReturnService({ prisma, config }) {
           VALUES (${noteCode}, ${toLegacyDate(today)}, ${bill.code}, ${Number(refundText)}, ${input.reason},
             ${stamp}, ${by}, ${stamp}, ${by}, ${actor.pharmacyId}, ${YES}, ${LEGACY_RETURN_TYPE},
             ${LEGACY_RETURN_TYPE}, ${bill.customerId}, ${approver.employeeId}, ${toLegacyDate(today)},
-            ${LEGACY_APPROVED}, ${legacy.paymentTypeId}, ${Number(refundText)}, ${legacy.billType},
+            ${LEGACY_APPROVED}, ${paymentTypeId}, ${Number(refundText)}, ${legacy.billType},
             ${legacy.paymentStatus}, ${returnCode})`;
         /** @type {{ id: bigint | number }[]} */
         const [{ id: noteIdRaw }] = await tx.$queryRaw`SELECT LAST_INSERT_ID() AS id`;

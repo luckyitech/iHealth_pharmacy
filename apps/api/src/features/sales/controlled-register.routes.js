@@ -8,7 +8,7 @@ import {
 import { z } from 'zod';
 
 import { defineRoute } from '../../http/define-route.js';
-import { notFound } from '../../lib/errors.js';
+import { notFound, validationFailed } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { getAuth } from '../auth/auth.guards.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
@@ -18,6 +18,7 @@ import { renderRegister } from './controlled-register-pdf.js';
 const PATH = '/sales/controlled-register';
 const RESOURCE = 'sales/controlled-register';
 const TAGS = ['Sales'];
+const MS_PER_DAY = 86_400_000;
 /** `YYYY-MM-DD HH:MM` in a time zone, and dates as the pharmacy writes them. */
 const LOCAL_STAMP = 'sv-SE'; // hardcode-ok: a locale whose format is ISO-like, used only to build text
 
@@ -52,6 +53,11 @@ export function createControlledRegisterRoutes({ prisma, audit, config }) {
    * @returns {Promise<NonNullable<Awaited<ReturnType<typeof register.read>>>>}
    */
   const readOrFail = async (query) => {
+    const days = (Date.parse(query.to) - Date.parse(query.from)) / MS_PER_DAY + 1;
+    if (days > config.sales.registerMaxDays)
+      throw validationFailed([
+        { path: 'query.to', message: `Choose at most ${config.sales.registerMaxDays} days` },
+      ]);
     const found = await register.read(query, await currentPharmacyId(prisma, config));
     if (!found) throw notFound('This item is not a controlled drug');
     return found;
