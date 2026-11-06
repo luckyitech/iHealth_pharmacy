@@ -4,6 +4,9 @@ import { priceBill } from '@ihealth/shared/pricing';
 import { fromDbTime, Prisma } from '#db';
 
 import { conflict, notFound, validationFailed } from '../../lib/errors.js';
+import { ACTIVITY_ACTIONS, ACTIVITY_SUBJECTS } from '@ihealth/shared/schemas';
+
+import { createActivityLog } from '../activity/activity-log.js';
 import { loadBatches } from './batches.repository.js';
 
 const GONE = 'This sale is no longer on hold. It may have been recalled at another till.';
@@ -63,6 +66,37 @@ const SUMMARY_SQL = Prisma.sql`
  * @returns The service.
  */
 export function createHeldSales({ prisma, config }) {
+  const activity = createActivityLog(prisma);
+
+  /**
+   * A history line for a held sale, with what it was, because the held sale itself is removed
+   * once recalled or deleted.
+   *
+   * @param {any} tx
+   * @param {string} action
+   * @param {Record<string, any>} row The held sale.
+   * @param {{ employeeId: number, pharmacyId: number }} actor
+   * @returns {Promise<void>}
+   */
+  const line = (tx, action, row, { employeeId, pharmacyId }) =>
+    activity.record(
+      {
+        subjectType: ACTIVITY_SUBJECTS.HELD_SALE,
+        subjectId: Number(row.id),
+        action,
+        employeeId,
+        pharmacyId,
+        details: {
+          customerName: textOrNull(row.customerName),
+          lineCount: Number(row.lineCount),
+          net: Number(row.net).toFixed(2),
+          heldBy: textOrNull(row.heldBy),
+          heldAt: fromDbTime(row.heldAt).toISOString(),
+        },
+      },
+      tx,
+    );
+
   return {
     /**
      * @param {number} pharmacyId
@@ -152,6 +186,7 @@ export function createHeldSales({ prisma, config }) {
             ${JSON.stringify(lines)}, ${lines.length}, ${net})`;
         /** @type {Record<string, any>[]} */
         const [row] = await tx.$queryRaw`${SUMMARY_SQL} WHERE h.HELD_SALE_ID = LAST_INSERT_ID()`;
+        await line(tx, ACTIVITY_ACTIONS.SALE_HELD, row, { employeeId, pharmacyId });
         return toSummary(row);
       });
     },
@@ -160,19 +195,23 @@ export function createHeldSales({ prisma, config }) {
      * Takes a sale off hold and returns it.
      *
      * @param {number} id
-     * @param {number} pharmacyId
+     * @param {{ employeeId: number, pharmacyId: number }} actor
      * @returns {Promise<import('zod').infer<typeof import('@ihealth/shared/schemas').heldSaleSchema>>}
      */
-    async recall(id, pharmacyId) {
+    async recall(id, actor) {
       return prisma.$transaction(async (tx) => {
         /** @type {Record<string, any>[]} */
         const [row] = await tx.$queryRaw`
-          SELECT HELD_SALE_ID AS id, CUSTOMER_ID AS customerId, CUSTOMER_NAME AS customerName,
-            CUSTOMER_PHONE AS customerPhone, NOTE AS note, LINES_JSON AS linesJson
-          FROM ih_held_sale WHERE HELD_SALE_ID = ${id} AND PHARMACY_ID = ${pharmacyId}
+          SELECT h.HELD_SALE_ID AS id, h.CUSTOMER_ID AS customerId, h.CUSTOMER_NAME AS customerName,
+            h.CUSTOMER_PHONE AS customerPhone, h.NOTE AS note, h.LINES_JSON AS linesJson,
+            h.LINE_COUNT AS lineCount, h.NET_AMOUNT AS net, h.CREATED_AT AS heldAt,
+            TRIM(CONCAT_WS(' ', e.FIRST_NM, e.LAST_NM)) AS heldBy
+          FROM ih_held_sale h LEFT JOIN employee e ON e.EMPLOYEE_ID = h.EMPLOYEE_ID
+          WHERE h.HELD_SALE_ID = ${id} AND h.PHARMACY_ID = ${actor.pharmacyId}
           FOR UPDATE`;
         if (!row) throw notFound(GONE);
         await tx.$executeRaw`DELETE FROM ih_held_sale WHERE HELD_SALE_ID = ${id}`;
+        await line(tx, ACTIVITY_ACTIONS.SALE_RECALLED, row, actor);
         return {
           id: Number(row.id),
           customerId: row.customerId === null ? null : Number(row.customerId),
@@ -186,13 +225,33 @@ export function createHeldSales({ prisma, config }) {
 
     /**
      * @param {number} id
-     * @param {number} pharmacyId
+     * @param {{ employeeId: number, pharmacyId: number }} actor
      * @returns {Promise<void>}
      */
-    async discard(id, pharmacyId) {
-      const removed = await prisma.$executeRaw`
-        DELETE FROM ih_held_sale WHERE HELD_SALE_ID = ${id} AND PHARMACY_ID = ${pharmacyId}`;
-      if (!removed) throw notFound(GONE);
+    async discard(id, actor) {
+      await prisma.$transaction(async (tx) => {
+        /** @type {Record<string, any>[]} */
+        const [row] = await tx.$queryRaw`
+          ${SUMMARY_SQL} WHERE h.HELD_SALE_ID = ${id} AND h.PHARMACY_ID = ${actor.pharmacyId}
+          FOR UPDATE`;
+        if (!row) throw notFound(GONE);
+        await tx.$executeRaw`DELETE FROM ih_held_sale WHERE HELD_SALE_ID = ${id}`;
+        await line(tx, ACTIVITY_ACTIONS.SALE_DELETED, row, actor);
+      });
+    },
+
+    /**
+     * Today's held, recalled and deleted sales, newest first.
+     *
+     * @param {number} pharmacyId
+     * @returns {Promise<import('@ihealth/shared/schemas').ActivityEntry[]>}
+     */
+    today(pharmacyId) {
+      return activity.latest(ACTIVITY_SUBJECTS.HELD_SALE, {
+        pharmacyId,
+        todayOnly: true,
+        limit: config.historyLimit,
+      });
     },
   };
 }

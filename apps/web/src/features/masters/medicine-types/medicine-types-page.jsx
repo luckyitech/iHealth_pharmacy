@@ -8,6 +8,8 @@ import { PageState } from '@/components/feedback/page-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
+import { HISTORY_KEY } from '@/features/activity/activity-api';
+import { HistoryList } from '@/features/activity/history-list';
 import { useConfirm } from '@/hooks/use-confirm';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useListParams } from '@/hooks/use-list-params';
@@ -74,7 +76,10 @@ export default function MedicineTypesPage() {
       /** @type {{ data: { updated: number } }} */ (
         await api.post(`${ITEMS}/medicine-type`, { json: body }).json()
       ).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: resourceKey(ITEMS) }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [HISTORY_KEY] });
+      return queryClient.invalidateQueries({ queryKey: resourceKey(ITEMS) });
+    },
   });
 
   /**
@@ -239,6 +244,13 @@ export default function MedicineTypesPage() {
         onRetry={() => void list.refetch()}
         empty={<PageState state="empty" title="No items match" description="Try another search." />}
       />
+      <div className="max-h-96 overflow-y-auto rounded-md border p-4">
+        <HistoryList
+          path="masters/items/medicine-type/history"
+          title="Recent changes"
+          empty="No medicine types changed in the new system yet."
+        />
+      </div>
       {dialog}
     </div>
   );

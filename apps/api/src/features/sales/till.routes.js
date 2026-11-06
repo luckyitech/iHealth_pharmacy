@@ -3,6 +3,7 @@ import {
   batchSearchQuerySchema,
   batchSearchSchema,
   dataResponseSchema,
+  activityEntrySchema,
   heldSaleBodySchema,
   heldSaleSchema,
   heldSaleSummarySchema,
@@ -149,6 +150,20 @@ export function createTillRoutes({ prisma, audit, config }) {
     }),
 
     defineRoute({
+      method: 'get',
+      path: `${HELD}/history`,
+      summary: "Today's held, recalled and deleted sales",
+      description:
+        'Who did it and when, newest first. Kept after a held sale is recalled or deleted.',
+      tags: TAGS,
+      permissions: POLICIES.sales.sell,
+      responses: {
+        200: { description: 'History', schema: dataResponseSchema(z.array(activityEntrySchema)) },
+      },
+      handler: async () => ({ data: await held.today(await currentPharmacyId(prisma, config)) }),
+    }),
+
+    defineRoute({
       method: 'post',
       path: HELD,
       summary: 'Put a sale on hold',
@@ -179,8 +194,11 @@ export function createTillRoutes({ prisma, audit, config }) {
       responses: {
         200: { description: 'The recalled sale', schema: dataResponseSchema(heldSaleSchema) },
       },
-      handler: async ({ input }) => ({
-        data: await held.recall(input.params.id, await currentPharmacyId(prisma, config)),
+      handler: async ({ res, input }) => ({
+        data: await held.recall(input.params.id, {
+          employeeId: getAuth(res).employeeId,
+          pharmacyId: await currentPharmacyId(prisma, config),
+        }),
       }),
     }),
 
@@ -192,8 +210,11 @@ export function createTillRoutes({ prisma, audit, config }) {
       permissions: POLICIES.sales.sell,
       request: { params: idParamsSchema },
       responses: { 204: { description: 'Discarded' } },
-      handler: async ({ req, input }) => {
-        await held.discard(input.params.id, await currentPharmacyId(prisma, config));
+      handler: async ({ req, res, input }) => {
+        await held.discard(input.params.id, {
+          employeeId: getAuth(res).employeeId,
+          pharmacyId: await currentPharmacyId(prisma, config),
+        });
         await audit.record({
           action: `${HELD_RESOURCE}.discard`,
           outcome: AUDIT_OUTCOMES.SUCCESS,

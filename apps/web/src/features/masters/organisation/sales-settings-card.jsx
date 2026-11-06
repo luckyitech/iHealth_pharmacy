@@ -5,6 +5,8 @@ import { PageState } from '@/components/feedback/page-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckboxField } from '@/components/ui/checkbox-field';
+import { HISTORY_KEY } from '@/features/activity/activity-api';
+import { HistoryList } from '@/features/activity/history-list';
 import { useConfirm } from '@/hooks/use-confirm';
 import { api } from '@/lib/api-client';
 import { notify } from '@/lib/notify';
@@ -47,6 +49,7 @@ export function SalesSettingsCard({ canWrite }) {
     onSuccess: (data) => {
       queryClient.setQueryData(SETTINGS_KEY, data);
       void queryClient.invalidateQueries({ queryKey: TILL_SETTINGS_KEY });
+      void queryClient.invalidateQueries({ queryKey: [HISTORY_KEY] });
       setRules(null);
       notify.success('Sales settings saved');
     },
@@ -111,6 +114,11 @@ export function SalesSettingsCard({ canWrite }) {
             )}
           </div>
         )}
+        <HistoryList
+          path={`${RESOURCE}/history`}
+          title="Changes"
+          empty="Not changed in the new system yet."
+        />
       </CardContent>
       {dialog}
     </Card>

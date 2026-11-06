@@ -223,6 +223,13 @@ describe('prescriptions at the till', () => {
       SELECT COUNT(*) AS n FROM ih_audit_log
       WHERE ACTION = 'sales/bills.prescription-photo.view' AND RESOURCE_ID = ${String(response.body.data.id)}`;
     expect(Number(seen.n)).toBe(1);
+
+    const history = await cashier.agent.get(`${API}/bills/${response.body.data.id}/history`);
+    expect(history.status).toBe(200);
+    expect(history.body.data.map((/** @type {any} */ entry) => [entry.action, entry.by])).toEqual([
+      ['sale.made', 'Carl Cashier'],
+      ['prescription-photo.taken', 'Carl Cashier'],
+    ]);
   });
 
   it('keeps the legacy placeholder on a bill without a doctor, and shows it as none', async () => {
@@ -358,6 +365,12 @@ describe('setting the medicine type of many items', () => {
     const [audited] = await db.select`
       SELECT COUNT(*) AS n FROM ih_audit_log WHERE ACTION = 'masters/items.medicine-type'`;
     expect(Number(audited.n)).toBe(2);
+
+    const history = await admin.agent.get('/api/v1/masters/items/medicine-type/history');
+    expect(history.body.data.slice(0, 2)).toMatchObject([
+      { subjectId: String(testamol.id), by: 'Ada Admin', details: { from: 'X', to: null } },
+      { subjectId: String(testamol.id), details: { from: null, to: 'X' } },
+    ]);
   });
 
   it('is only for people who keep the master data', async () => {
@@ -451,5 +464,11 @@ describe('a pharmacy that turns the controlled-drug rules off', () => {
         payments: [{ method: 'cash', amount: '100' }],
       });
     expect(sale.status).toBe(400);
+
+    const history = await admin.agent.get('/api/v1/masters/sales-settings/history');
+    expect(history.body.data.map((/** @type {any} */ entry) => entry.details)).toEqual([
+      { from: false, to: true },
+      { from: true, to: false },
+    ]);
   });
 });

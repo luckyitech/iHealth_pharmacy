@@ -66,6 +66,8 @@ export const billApprovalSchema = z.object({
   reason: z.string(),
   items: z.array(approvedItemSchema),
   givenAway: z.string(),
+  // False for an approval given but never used: the sale was not completed.
+  used: z.boolean(),
 });
 
 export const approvalReportQuerySchema = z.object({ date: dateOnlySchema.optional() });

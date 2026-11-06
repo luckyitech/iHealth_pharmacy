@@ -140,6 +140,8 @@ const envSchema = z.object({
   LABEL_WARNING: z.string().trim().default('Keep out of reach and sight of children'),
   // Largest prescription photo kept with a bill, in kilobytes (the till makes photos smaller first).
   PRESCRIPTION_PHOTO_MAX_KB: z.coerce.number().int().min(50).max(700).default(500),
+  // Most lines one History list shows (a bill's, an employee's, today's held sales ...).
+  HISTORY_LIMIT: z.coerce.number().int().min(10).max(1000).default(200),
   // Most customers, doctors or hospitals one type-ahead lists.
   SALES_LOOKUP_LIMIT: z.coerce.number().int().min(5).max(50).default(10),
   // Most copies of one dosing sticker printed at a time.
@@ -177,6 +179,7 @@ const RETURN_DAYS_PLACEHOLDER = '{days}';
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
+ * @property {number} historyLimit Most lines one History list shows.
  * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, controlledDrugRules: boolean, returnDays: number, returnReasons: string[], creditNoteValidMonths: number, maxHeld: number, searchLimit: number, lookupLimit: number, registerMaxDays: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
  * @property {{ warning: string, maxCopies: number }} labels
@@ -237,6 +240,7 @@ export function loadConfig(env) {
       exemptTaxCodes: values.RECEIPT_EXEMPT_TAX_CODES,
     }),
     labels: Object.freeze({ warning: values.LABEL_WARNING, maxCopies: values.LABEL_MAX_COPIES }),
+    historyLimit: values.HISTORY_LIMIT,
     medicine: Object.freeze({
       types: Object.freeze([
         Object.freeze({

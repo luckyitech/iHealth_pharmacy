@@ -98,6 +98,9 @@ export function createReturnsRepository(prisma) {
         SELECT c.credit_note_id AS id, c.credit_note_no AS code, CAST(c.credit_date AS CHAR) AS issuedOn,
           c.amount AS amount, COALESCE(n.BALANCE, c.amount) AS balance, CAST(n.EXPIRES_ON AS CHAR) AS expiresOn,
           c.bill_id AS originalBillCode, TRIM(CONCAT_WS(' ', cu.FIRST_NM, cu.LAST_NM)) AS customerName,
+          CAST(c.CREATION_TS AS CHAR) AS issuedAt,
+          NULLIF(TRIM(CONCAT_WS(' ', ie.FIRST_NM, ie.LAST_NM)), '') AS issuedBy,
+          NULLIF(TRIM(CONCAT_WS(' ', ae.FIRST_NM, ae.LAST_NM)), '') AS approvedBy,
           CASE
             WHEN COALESCE(c.ACTIVE_S, ${LEGACY_ACTIVE}) <> ${LEGACY_ACTIVE} THEN ${CREDIT_NOTE_STATES.CANCELLED}
             WHEN LOWER(COALESCE(c.PAYMENT_STATUS, '')) <> ${LEGACY_OPEN} OR COALESCE(n.BALANCE, c.amount) <= 0
@@ -108,6 +111,8 @@ export function createReturnsRepository(prisma) {
         FROM credit_note c
           LEFT JOIN ih_credit_note n ON n.CREDIT_NOTE_ID = c.credit_note_id
           LEFT JOIN customer cu ON cu.CUSTOMER_ID = c.CUSTOMER_ID
+          LEFT JOIN employee ie ON ie.EMPLOYEE_ID = c.CREATION_USER_ID
+          LEFT JOIN employee ae ON ae.EMPLOYEE_ID = c.APPROVED_BY
         WHERE COALESCE(c.return_type, '') <> ${LEGACY_PURCHASE} AND c.SUPPLIER_ID IS NULL
           ${like ? Prisma.sql`AND (c.credit_note_no LIKE ${like} OR CONCAT_WS(' ', cu.FIRST_NM, cu.LAST_NM) LIKE ${like} OR c.bill_id LIKE ${like})` : Prisma.empty}`;
       const filtered = Prisma.sql`SELECT * FROM (${base}) notes ${query.state ? Prisma.sql`WHERE state = ${query.state}` : Prisma.empty}`;
@@ -126,6 +131,9 @@ export function createReturnsRepository(prisma) {
           id: Number(row.id),
           code: String(row.code),
           issuedOn: text(row.issuedOn),
+          issuedAt: text(row.issuedAt),
+          issuedBy: text(row.issuedBy),
+          approvedBy: text(row.approvedBy),
           customerName: text(row.customerName),
           amount: money(row.amount),
           balance: money(row.balance),

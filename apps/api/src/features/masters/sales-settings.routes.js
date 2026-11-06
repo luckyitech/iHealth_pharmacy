@@ -1,9 +1,11 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
+  activityEntrySchema,
   dataResponseSchema,
   salesSettingsInputSchema,
   salesSettingsSchema,
 } from '@ihealth/shared/schemas';
+import { z } from 'zod';
 
 import { defineRoute } from '../../http/define-route.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
@@ -35,6 +37,21 @@ export function createSalesSettingsRoutes({ prisma, audit, config }) {
       },
       handler: async () => ({
         data: await settings.sales(await currentPharmacyId(prisma, config)),
+      }),
+    }),
+
+    defineRoute({
+      method: 'get',
+      path: `${PATH}/history`,
+      summary: "Changes to the pharmacy's sales settings: who, when, from what to what",
+      description: 'Newest first.',
+      tags: TAGS,
+      permissions: POLICIES.masters.read,
+      responses: {
+        200: { description: 'History', schema: dataResponseSchema(z.array(activityEntrySchema)) },
+      },
+      handler: async () => ({
+        data: await settings.history(await currentPharmacyId(prisma, config)),
       }),
     }),
 

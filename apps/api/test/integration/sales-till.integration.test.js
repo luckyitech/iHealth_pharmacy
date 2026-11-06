@@ -237,6 +237,35 @@ describe('the till', () => {
     expect(response.status).toBe(400);
   });
 
+  it('keeps who held, recalled and deleted each sale, and when, after the sale is gone', async () => {
+    const line = { stockId: ids.LATE, quantity: 1, discountPercent: 0 };
+    const first = await hold({ lines: [line], customerName: 'History Example' });
+    await cashier.agent
+      .post(`/api/v1/sales/held/${first.body.data.id}/recall`)
+      .set('x-csrf-token', cashier.csrf);
+    const second = await hold({ lines: [line, line], customerName: 'History Sample' });
+    await cashier.agent
+      .delete(`/api/v1/sales/held/${second.body.data.id}`)
+      .set('x-csrf-token', cashier.csrf);
+
+    const history = await cashier.agent.get('/api/v1/sales/held/history');
+    expect(history.status).toBe(200);
+    const mine = history.body.data.filter((/** @type {any} */ entry) =>
+      [String(first.body.data.id), String(second.body.data.id)].includes(entry.subjectId),
+    );
+    expect(mine.map((/** @type {any} */ entry) => entry.action)).toEqual([
+      'sale.deleted',
+      'sale.held',
+      'sale.recalled',
+      'sale.held',
+    ]);
+    expect(mine[0]).toMatchObject({
+      by: 'Carl Cashier',
+      details: { customerName: 'History Sample', lineCount: 2, heldBy: 'Carl Cashier' },
+    });
+    expect(Date.parse(mine[0].at)).toBeGreaterThan(Date.now() - 60_000);
+  });
+
   it('tells the till the rules it shows', async () => {
     const response = await cashier.agent.get('/api/v1/sales/till-settings');
     expect(response.body.data).toEqual({

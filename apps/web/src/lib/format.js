@@ -23,7 +23,7 @@ const NO_SHIFT = 'UTC'; // hardcode-ok: the values are local wall-clock times, s
 /**
  * Money, dates and times in this installation's locale and currency (from GET /app-info).
  *
- * @returns {{ money: (value: string | number) => string, date: (value: string | null) => string, dateTime: (value: string | null) => string, time: (instant: string) => string }}
+ * @returns {{ money: (value: string | number) => string, date: (value: string | null) => string, dateTime: (value: string | null) => string, time: (instant: string) => string, instant: (instant: string) => string }}
  */
 export function useFormat() {
   const { data } = useAppInfo();
@@ -41,6 +41,11 @@ export function useFormat() {
       timeStyle: 'short',
       timeZone: region?.timeZone,
     });
+    const instantFormat = new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: region?.timeZone,
+    });
     return {
       money: (value) => (region ? formatMoney(value, region) : String(value)),
       date: (value) => {
@@ -53,6 +58,7 @@ export function useFormat() {
         return value?.includes(' ') ? dateTimeFormat.format(parsed) : dateFormat.format(parsed);
       },
       time: (instant) => timeFormat.format(new Date(instant)),
+      instant: (instant) => instantFormat.format(new Date(instant)),
     };
   }, [region]);
 }

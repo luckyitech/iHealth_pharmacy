@@ -1,5 +1,8 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_SUBJECTS,
+  activityEntrySchema,
   controlledItemSchema,
   controlledRegisterQuerySchema,
   controlledRegisterSchema,
@@ -11,6 +14,7 @@ import { defineRoute } from '../../http/define-route.js';
 import { notFound, validationFailed } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { getAuth } from '../auth/auth.guards.js';
+import { createActivityLog } from '../activity/activity-log.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { createControlledRegister } from './controlled-register.js';
 import { renderRegister } from './controlled-register-pdf.js';
@@ -31,15 +35,19 @@ const LOCAL_STAMP = 'sv-SE'; // hardcode-ok: a locale whose format is ISO-like, 
  */
 export function createControlledRegisterRoutes({ prisma, audit, config }) {
   const register = createControlledRegister({ prisma, config });
+  const activity = createActivityLog(prisma);
 
   /**
+   * Audited, and kept on the register's history (who read or printed which drug, for which days).
+   *
    * @param {import('express').Request} req
-   * @param {string} action
+   * @param {import('express').Response} res
+   * @param {'view' | 'print'} action
    * @param {{ itemId: number, from: string, to: string }} query
    * @returns {Promise<void>}
    */
-  const record = (req, action, query) =>
-    audit.record({
+  const record = async (req, res, action, query) => {
+    await audit.record({
       action: `${RESOURCE}.${action}`,
       outcome: AUDIT_OUTCOMES.SUCCESS,
       resourceType: RESOURCE,
@@ -47,6 +55,26 @@ export function createControlledRegisterRoutes({ prisma, audit, config }) {
       ipAddress: req.ip,
       details: { from: query.from, to: query.to },
     });
+    const pharmacyId = await currentPharmacyId(prisma, config);
+    const item = await prisma.items.findUnique({
+      where: { itemId: query.itemId },
+      select: { itemNm: true },
+    });
+    await activity.record({
+      subjectType: ACTIVITY_SUBJECTS.CONTROLLED_REGISTER,
+      subjectId: pharmacyId,
+      action:
+        action === 'print' ? ACTIVITY_ACTIONS.REGISTER_PRINTED : ACTIVITY_ACTIONS.REGISTER_VIEWED,
+      employeeId: getAuth(res).employeeId,
+      pharmacyId,
+      details: {
+        itemId: query.itemId,
+        itemName: item?.itemNm?.trim() ?? null,
+        from: query.from,
+        to: query.to,
+      },
+    });
+  };
 
   /**
    * @param {{ itemId: number, from: string, to: string }} query
@@ -64,6 +92,26 @@ export function createControlledRegisterRoutes({ prisma, audit, config }) {
   };
 
   return [
+    defineRoute({
+      method: 'get',
+      path: `${PATH}/history`,
+      summary: 'Who read or printed the register, and when',
+      description: 'Newest first.',
+      tags: TAGS,
+      permissions: POLICIES.sales.controlledRegister,
+      responses: {
+        200: { description: 'History', schema: dataResponseSchema(z.array(activityEntrySchema)) },
+      },
+      handler: async () => {
+        const pharmacyId = await currentPharmacyId(prisma, config);
+        return {
+          data: await activity.latest(ACTIVITY_SUBJECTS.CONTROLLED_REGISTER, {
+            pharmacyId,
+            limit: config.historyLimit,
+          }),
+        };
+      },
+    }),
     defineRoute({
       method: 'get',
       path: `${PATH}/items`,
@@ -93,9 +141,9 @@ export function createControlledRegisterRoutes({ prisma, audit, config }) {
       responses: {
         200: { description: 'The register', schema: dataResponseSchema(controlledRegisterSchema) },
       },
-      handler: async ({ req, input }) => {
+      handler: async ({ req, res, input }) => {
         const data = await readOrFail(input.query);
-        await record(req, 'view', input.query);
+        await record(req, res, 'view', input.query);
         return { data };
       },
     }),
@@ -132,7 +180,7 @@ export function createControlledRegisterRoutes({ prisma, audit, config }) {
           }).format(new Date()),
           formatDate: (date) => dates.format(new Date(`${date}T00:00:00Z`)),
         });
-        await record(req, 'print', input.query);
+        await record(req, res, 'print', input.query);
         res.set({
           'Content-Type': 'application/pdf',
           'Content-Disposition': `inline; filename="controlled-register-${input.query.itemId}.pdf"`,

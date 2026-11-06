@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { HISTORY_KEY } from '@/features/activity/activity-api';
 import { api } from '@/lib/api-client';
 import { resourceKey } from '@/lib/resource-api';
 
@@ -45,7 +46,10 @@ export function useAccessAction(employeeId, method, path) {
       /** @type {{ data: EmployeeAccess }} */ (
         await api[method](`${EMPLOYEES}/${employeeId}/access/${path}`, { json: body ?? {} }).json()
       ).data,
-    onSuccess: (access) => queryClient.setQueryData(accessKey(employeeId), access),
+    onSuccess: (access) => {
+      queryClient.setQueryData(accessKey(employeeId), access);
+      void queryClient.invalidateQueries({ queryKey: [HISTORY_KEY] });
+    },
   });
 }
 

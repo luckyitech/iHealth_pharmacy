@@ -1,6 +1,9 @@
 /* eslint-disable jsdoc/reject-any-type -- list queries are typed by their Zod schema */
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_SUBJECTS,
+  activityEntrySchema,
   billDetailSchema,
   billListFiltersShape,
   billSummarySchema,
@@ -25,7 +28,9 @@ import {
   toBillDetail,
   toBillSummary,
 } from './bills.repository.js';
+import { createActivityLog } from '../activity/activity-log.js';
 import { createApprovalsRepository } from './approvals.repository.js';
+import { createBillHistory } from './bill-history.js';
 import { createSaleService } from './complete-sale.js';
 import { renderReceipt } from './receipt-pdf.js';
 import { createReceiptSettings } from './receipt-settings.js';
@@ -69,6 +74,8 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
   const sales = createSaleService({ prisma, config });
   const receiptSettings = createReceiptSettings(prisma);
   const approvalsRepo = createApprovalsRepository(prisma);
+  const activity = createActivityLog(prisma);
+  const history = createBillHistory({ prisma, config });
   const listQuery = createListQuerySchema({
     sortable: BILL_SORTABLE,
     defaultSort: /** @type {any} */ ('-billDate'),
@@ -187,6 +194,25 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
 
     defineRoute({
       method: 'get',
+      path: `${PATH}/:id/history`,
+      summary: 'Everything done to a bill, with who did it and when',
+      description:
+        'Oldest first: the sale, its prescription photo, labels and receipts printed, approvals, a cancellation, returns and credit notes spent on it.',
+      tags: TAGS,
+      permissions: POLICIES.sales.read,
+      request: { params: idParamsSchema },
+      responses: {
+        200: { description: 'History', schema: dataResponseSchema(z.array(activityEntrySchema)) },
+      },
+      handler: async ({ input }) => {
+        const entries = await history.of(input.params.id, await currentPharmacyId(prisma, config));
+        if (!entries) throw notFound('Bill not found');
+        return { data: entries };
+      },
+    }),
+
+    defineRoute({
+      method: 'get',
       path: `${PATH}/:id/receipt`,
       summary: "Print a bill's receipt (PDF)",
       description:
@@ -247,6 +273,13 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
           footerLines,
         });
         await record(req, original ? PRINT : REPRINT, bill.id);
+        await activity.record({
+          subjectType: ACTIVITY_SUBJECTS.BILL,
+          subjectId: bill.id,
+          action: original ? ACTIVITY_ACTIONS.RECEIPT_PRINTED : ACTIVITY_ACTIONS.RECEIPT_REPRINTED,
+          employeeId: getAuth(res).employeeId,
+          pharmacyId,
+        });
         res.set({
           'Content-Type': 'application/pdf',
           'Content-Disposition': `inline; filename="receipt-${encodeURIComponent(bill.code ?? String(bill.id))}.pdf"`,

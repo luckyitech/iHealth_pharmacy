@@ -1,3 +1,4 @@
+import { createActivityLog } from '../activity/activity-log.js';
 import { createAuditLog } from '../audit/audit-log.js';
 import { createAccountAdminRepository } from './account-admin.repository.js';
 import { createAccountAdminService } from './account-admin.service.js';
@@ -23,6 +24,7 @@ import { createAccessTokens } from './tokens.js';
  * @param {import('./auth.repository.js').AuthRepository} [deps.repository] Replaced by an in-memory fake in tests.
  * @param {import('../audit/audit-log.js').AuditLog} [deps.audit] Shared with the other modules.
  * @param {import('./account-admin.repository.js').AccountAdminRepository} [deps.adminRepository]
+ * @param {import('../activity/activity-log.js').ActivityLog} [deps.activity] Who did what and when, shown on screen.
  * @returns `{ routes, guards, apiRateLimit, accountAdmin }` (`accountAdmin` administers staff accounts).
  */
 export function createAuthModule({
@@ -35,6 +37,7 @@ export function createAuthModule({
   repository = createAuthRepository(prisma),
   adminRepository = createAccountAdminRepository(prisma),
   audit = createAuditLog(prisma, logger),
+  activity = createActivityLog(prisma),
 }) {
   const accessTokens = createAccessTokens(config.auth.accessSecret);
   const csrf = createCsrf({
@@ -54,6 +57,7 @@ export function createAuthModule({
     mailer,
     appUrl: config.appUrl,
     audit,
+    activity,
     logger,
   });
 
@@ -76,6 +80,7 @@ export function createAuthModule({
       loginThrottle,
       pinThrottle,
       audit,
+      activity,
     }),
   };
 }

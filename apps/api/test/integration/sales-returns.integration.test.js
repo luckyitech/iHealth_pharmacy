@@ -261,6 +261,19 @@ describe('sales returns', () => {
       .get(`${API}/returns/${response.body.data.id}/receipt`)
       .buffer(true);
     expect(receipt.headers['content-type']).toBe('application/pdf');
+    await cashier.agent.get(`${API}/returns/${response.body.data.id}/receipt`).buffer(true);
+
+    // The bill's history shows each return, who approved it, and each paper printed.
+    const history = (await cashier.agent.get(`${API}/bills/${bill.id}/history`)).body.data;
+    const returned = history.filter((/** @type {any} */ e) => e.action === 'return.made');
+    expect(returned).toHaveLength(2);
+    expect(returned[1].details).toMatchObject({ method: 'creditNote', creditNote: noteCode });
+    expect(returned[1].details.approvedBy).toBeTruthy();
+    expect(
+      history
+        .filter((/** @type {any} */ e) => e.action.startsWith('return-receipt.'))
+        .map((/** @type {any} */ e) => e.action),
+    ).toEqual(['return-receipt.printed', 'return-receipt.reprinted']);
   });
 
   it('refuses a cancelled bill and a bill older than the return limit', async () => {
@@ -455,5 +468,8 @@ describe('the Returns page', () => {
       [(Number(noteAmount) - 100).toFixed(2), '0.00'],
     ]);
     expect(uses[0].usedBy).toBe('Carl Cashier');
+    const note = all.data.find((/** @type {any} */ n) => n.code === noteCode);
+    expect(note.issuedBy).toBe('Carl Cashier');
+    expect(note.approvedBy).toBeTruthy();
   });
 });

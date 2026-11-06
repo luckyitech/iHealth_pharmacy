@@ -145,6 +145,10 @@ export const CREDIT_NOTE_STATES = Object.freeze({
 
 export const creditNoteSummarySchema = creditNoteSchema.extend({
   issuedOn: text,
+  // Who issued and who approved it, and when it was made (the legacy columns, never typed).
+  issuedAt: text,
+  issuedBy: text,
+  approvedBy: text,
   state: z.enum(Object.values(CREDIT_NOTE_STATES)),
 });
 

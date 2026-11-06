@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_SUBJECTS,
   billLabelsSchema,
   dataResponseSchema,
   idParamsSchema,
@@ -13,6 +15,7 @@ import { defineRoute } from '../../http/define-route.js';
 import { notFound, validationFailed } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { getAuth } from '../auth/auth.guards.js';
+import { createActivityLog } from '../activity/activity-log.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { batchExpiry } from './batches.repository.js';
 import { renderLabels } from './labels-pdf.js';
@@ -38,6 +41,7 @@ const textOrNull = (value) => String(value ?? '').trim() || null;
  * @returns The routes.
  */
 export function createLabelRoutes({ prisma, audit, config }) {
+  const activity = createActivityLog(prisma);
   const settings = createReceiptSettings(prisma);
   const dates = new Intl.DateTimeFormat(config.region.locale, {
     day: '2-digit',
@@ -262,11 +266,19 @@ export function createLabelRoutes({ prisma, audit, config }) {
       responses: { 200: { description: 'The stickers, application/pdf' } },
       handler: async ({ req, res, input }) => {
         const billId = input.params.id;
-        const { bill, lines } = await readBill(billId, await currentPharmacyId(prisma, config));
+        const pharmacyId = await currentPharmacyId(prisma, config);
+        const { bill, lines } = await readBill(billId, pharmacyId);
         const saved = await lastPrint(billId);
         if (!saved.size) throw notFound('No labels were printed for this bill');
         const pdf = await pdfOf(bill, lines, saved);
         await record(req, 'labels.reprint', billId);
+        await activity.record({
+          subjectType: ACTIVITY_SUBJECTS.BILL,
+          subjectId: billId,
+          action: ACTIVITY_ACTIONS.LABELS_REPRINTED,
+          employeeId: getAuth(res).employeeId,
+          pharmacyId,
+        });
         sendPdf(res, pdf, billId);
       },
     }),

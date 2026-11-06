@@ -2,7 +2,7 @@ import { MS_PER_MINUTE } from '@ihealth/shared/units';
 import { randomUUID } from 'node:crypto';
 
 import { ERROR_CODES } from '@ihealth/shared/errors';
-import { isEmailIdentifier } from '@ihealth/shared/schemas';
+import { ACTIVITY_ACTIONS, ACTIVITY_SUBJECTS, isEmailIdentifier } from '@ihealth/shared/schemas';
 
 import { AppError } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
@@ -48,6 +48,7 @@ import { generateRefreshToken, hashToken } from './tokens.js';
  * @property {import('../../infra/mailer.js').Mailer} mailer
  * @property {string} appUrl Public address of the web app, for links in emails.
  * @property {import('../audit/audit-log.js').AuditLog} audit
+ * @property {import('../activity/activity-log.js').ActivityLog} activity
  * @property {import('pino').Logger} logger
  * @property {() => Date} [now]
  */
@@ -69,6 +70,7 @@ export function createAuthService({
   loginThrottle,
   pinThrottle,
   resetThrottle,
+  activity,
   mailer,
   appUrl,
   audit,
@@ -471,6 +473,12 @@ export function createAuthService({
         by: String(employeeId),
       });
       await pinThrottle.reset(credentials.username);
+      await activity.record({
+        subjectType: ACTIVITY_SUBJECTS.EMPLOYEE,
+        subjectId: employeeId,
+        action: ACTIVITY_ACTIONS.APPROVAL_PIN_CHANGED,
+        employeeId,
+      });
       await audit.record({
         action: AUDIT_ACTIONS.APPROVAL_PIN_CHANGED,
         outcome: AUDIT_OUTCOMES.SUCCESS,
