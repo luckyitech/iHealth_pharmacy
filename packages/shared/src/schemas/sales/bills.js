@@ -62,6 +62,8 @@ export const billSummarySchema = z.object({
   lineCount: z.number().int(),
   netAmount: amount,
   paidAmount: amount,
+  /** What was paid at the counter: cash kept, M-Pesa, card, cheque and credit notes as stored. */
+  totalPaid: amount,
   balance: amount,
   status: statusSchema,
   paymentMethods: z.array(methodSchema),

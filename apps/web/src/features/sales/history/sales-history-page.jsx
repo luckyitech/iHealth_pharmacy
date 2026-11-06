@@ -142,11 +142,11 @@ export default function SalesHistoryPage() {
           : '—',
     },
     {
-      id: 'netAmount',
-      header: 'Net',
+      id: 'totalPaid',
+      header: 'Total paid',
       sortable: true,
       className: 'text-right tabular-nums',
-      cell: (row) => format.money(row.netAmount),
+      cell: (row) => format.money(row.totalPaid),
     },
     { id: 'status', header: 'Status', cell: (row) => <BillStatus status={row.status} /> },
   ];
