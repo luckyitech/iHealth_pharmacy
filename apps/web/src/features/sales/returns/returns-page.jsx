@@ -190,7 +190,7 @@ function ReturnsTab() {
           : '—',
     },
     { id: 'reason', header: 'Reason', cell: (row) => row.reason ?? '—' },
-    { id: 'requestedBy', header: 'Returned by', cell: (row) => row.requestedBy ?? '—' },
+    { id: 'requestedBy', header: 'Handled by', cell: (row) => row.requestedBy ?? '—' },
     { id: 'approvedBy', header: 'Approved by', cell: (row) => row.approvedBy ?? 'Old system' },
     {
       id: 'receipt',
@@ -440,7 +440,7 @@ function CreditNoteDialog({ note, onClose }) {
                 <th className="py-1 font-medium">{SALES_LABELS.BILL_CODE}</th>
                 <th className="py-1 text-right font-medium">Used</th>
                 <th className="py-1 text-right font-medium">Left after</th>
-                <th className="py-1 font-medium">By</th>
+                <th className="py-1 font-medium">Handled by</th>
               </tr>
             </thead>
             <tbody className="divide-y">

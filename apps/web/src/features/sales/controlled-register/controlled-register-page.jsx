@@ -154,7 +154,7 @@ export default function ControlledRegisterPage() {
                     <th className="px-3 py-2 text-right font-medium">In</th>
                     <th className="px-3 py-2 text-right font-medium">Out</th>
                     <th className="px-3 py-2 text-right font-medium">Balance</th>
-                    <th className="px-3 py-2 font-medium">By</th>
+                    <th className="px-3 py-2 font-medium">Handled by</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">

@@ -37,7 +37,7 @@ const COLUMNS = Object.freeze([
   { label: 'In', share: 0.05, align: 'right' },
   { label: 'Out', share: 0.05, align: 'right' },
   { label: 'Balance', share: 0.06, align: 'right' },
-  { label: 'By', share: 0.08, align: 'left' },
+  { label: 'Handled by', share: 0.08, align: 'left' },
 ]);
 
 /**
