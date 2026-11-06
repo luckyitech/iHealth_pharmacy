@@ -34,6 +34,8 @@
  * @property {number} employeeId
  * @property {Date} expiresAt
  * @property {Date | null} revokedAt
+ * @property {string | null} revokedReason
+ * @property {number | null} revokedSecondsAgo By the database clock, which also stamped the revocation.
  */
 
 /**
@@ -249,7 +251,8 @@ export function createAuthRepository(prisma) {
       /** @type {RefreshTokenRecord[]} */
       const rows = await client.$queryRaw`
         SELECT REFRESH_TOKEN_ID AS id, FAMILY_ID AS familyId, EMPLOYEE_ID AS employeeId,
-               EXPIRES_AT AS expiresAt, REVOKED_AT AS revokedAt
+               EXPIRES_AT AS expiresAt, REVOKED_AT AS revokedAt, REVOKED_REASON AS revokedReason,
+               TIMESTAMPDIFF(SECOND, REVOKED_AT, CURRENT_TIMESTAMP(3)) AS revokedSecondsAgo
         FROM ih_refresh_token WHERE TOKEN_HASH = ${tokenHash} FOR UPDATE`;
       return rows[0] ?? null;
     },

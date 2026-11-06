@@ -93,6 +93,9 @@ describe('auth against MySQL 9.7.1 with the legacy schema', () => {
         ?.split(';')[0],
     );
     expect((await agent.post('/api/v1/auth/refresh')).status).toBe(200);
+    // Long after the rotation (beyond the grace for tabs refreshing together), the old token is a copy.
+    await db.prisma
+      .$executeRaw`UPDATE ih_refresh_token SET REVOKED_AT = REVOKED_AT - INTERVAL 1 MINUTE WHERE REVOKED_REASON = 'ROTATED'`;
     expect((await request(app).post('/api/v1/auth/refresh').set('Cookie', original)).status).toBe(
       401,
     );
@@ -102,6 +105,34 @@ describe('auth against MySQL 9.7.1 with the legacy schema', () => {
     expect(reasons.map((/** @type {{ reason: string }} */ row) => row.reason)).toEqual(
       expect.arrayContaining(['REUSE_DETECTED', 'ROTATED']),
     );
+  });
+
+  it('lets two tabs of one sign-in refresh at the same moment without signing out', async () => {
+    const { agent, response } = await signIn('test.cashier', 'Test-Cashier-Pass-1');
+    const cookies = /** @type {string[]} */ (
+      /** @type {unknown} */ (response.headers['set-cookie'])
+    );
+    const refresh = String(
+      cookies.find((cookie) => cookie.startsWith('ihealth_refresh='))?.split(';')[0],
+    );
+    const session = String(
+      cookies.find((cookie) => cookie.startsWith('ihealth_session='))?.split(';')[0],
+    );
+    const [first, second] = await Promise.all([
+      agent.post('/api/v1/auth/refresh'),
+      request(app).post('/api/v1/auth/refresh').set('Cookie', [refresh, session].join('; ')),
+    ]);
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect((await agent.get('/api/v1/auth/me')).status).toBe(200);
+  });
+
+  it('keeps the access cookie as long as the sign-in, so an expired token can be renewed', async () => {
+    const { response } = await signIn('test.cashier', 'Test-Cashier-Pass-1');
+    const access = /** @type {string[]} */ (
+      /** @type {unknown} */ (response.headers['set-cookie'])
+    ).find((cookie) => cookie.startsWith('ihealth_access='));
+    // Seven days, as the refresh cookie: the token inside still expires after 15 minutes.
+    expect(access).toMatch(/Max-Age=604800/);
   });
 
   it('locks a username in Redis after five failures', async () => {

@@ -11,6 +11,7 @@ import {
   AUDIT_ACTIONS,
   PASSWORD_RESET_TTL_MS,
   REFRESH_TOKEN_TTL_MS,
+  REFRESH_GRACE_SECONDS,
   REVOKE_REASONS,
 } from './auth.constants.js';
 import {
@@ -266,7 +267,8 @@ export function createAuthService({
 
     /**
      * Rotates a refresh token. Presenting a token that was already rotated means it was copied:
-     * the whole sign-in (token family) is revoked.
+     * the whole sign-in (token family) is revoked, unless it was rotated in the last few seconds
+     * (another tab of the same sign-in refreshing at the same moment).
      *
      * @param {string | undefined} refreshToken
      * @param {ClientInfo} client
@@ -279,7 +281,12 @@ export function createAuthService({
       const outcome = await repository.transaction(async (tx) => {
         const stored = await repository.findRefreshToken(tokenHash, tx);
         if (!stored) return { status: 'unknown' };
-        if (stored.revokedAt) return { status: 'reused', stored };
+        // Another tab of this sign-in rotated it a moment ago: not a copied token.
+        const justRotated =
+          stored.revokedReason === REVOKE_REASONS.ROTATED &&
+          stored.revokedSecondsAgo !== null &&
+          Number(stored.revokedSecondsAgo) <= REFRESH_GRACE_SECONDS;
+        if (stored.revokedAt && !justRotated) return { status: 'reused', stored };
         if (stored.expiresAt.getTime() <= now().getTime()) return { status: 'expired' };
 
         const credentials = await repository.findCredentialsByEmployee(stored.employeeId);
@@ -292,12 +299,13 @@ export function createAuthService({
           client,
           tx,
         );
-        await repository.revokeRefreshToken(
-          stored.id,
-          REVOKE_REASONS.ROTATED,
-          session.refreshTokenId,
-          tx,
-        );
+        if (!justRotated)
+          await repository.revokeRefreshToken(
+            stored.id,
+            REVOKE_REASONS.ROTATED,
+            session.refreshTokenId,
+            tx,
+          );
         return { status: 'rotated', session };
       });
 
