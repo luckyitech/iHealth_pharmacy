@@ -111,10 +111,20 @@ export function createApprovalService({ prisma, config }) {
    * right approval PIN. The legacy PIN is plain text; a hashed copy is kept from its first use.
    *
    * @param {{ approver: string, pin: string }} input
-   * @param {{ requesterId: number, own: string }} rules `own` ends "You can't approve your own …".
+   * @param {{ requesterId: number, own: string, policy?: ReadonlyArray<import('@ihealth/shared/permissions').PermissionDefinition>, refused?: string }} rules
+   *   `own` ends "You can't approve your own …"; `policy` is the permission the approver needs
+   *   (sales approval unless said), and `refused` what to say when they lack it.
    * @returns {Promise<{ employeeId: number, name: string }>}
    */
-  async function verifyApprover({ approver, pin }, { requesterId, own }) {
+  async function verifyApprover(
+    { approver, pin },
+    {
+      requesterId,
+      own,
+      policy = POLICIES.sales.approve,
+      refused = 'This person may not approve sales',
+    },
+  ) {
     const credentials = await auth.findCredentialsByUsername(approver.trim());
     /** @type {{ activeS: string | null, firstNm: string | null, lastNm: string | null } | null} */
     const employee = credentials
@@ -134,10 +144,8 @@ export function createApprovalService({ prisma, config }) {
         { path: 'body.approver', message: `You can't approve your own ${own}. Ask someone else.` },
       ]);
     const permissions = new Set(await auth.findEffectivePermissionIds(credentials.employeeId));
-    if (!hasAnyPermission(permissions, POLICIES.sales.approve))
-      throw validationFailed([
-        { path: 'body.approver', message: 'This person may not approve sales' },
-      ]);
+    if (!hasAnyPermission(permissions, policy))
+      throw validationFailed([{ path: 'body.approver', message: refused }]);
     if (!credentials.approvalPin)
       throw validationFailed([{ path: 'body.pin', message: 'This person has no approval PIN' }]);
 
@@ -214,6 +222,22 @@ export function createApprovalService({ prisma, config }) {
         WHERE TOKEN = ${token} AND KIND = ${APPROVAL_KINDS.SALE} AND REQUESTED_BY = ${employeeId}
           AND LINES_HASH = ${hash} AND USED_AT IS NULL AND EXPIRES_AT > CURRENT_TIMESTAMP(3)`;
       return Number(used) === 1;
+    },
+
+    /**
+     * Records an approved return, for the day's approvals.
+     *
+     * @param {any} tx
+     * @param {{ billId: number, reason: string, approverId: number, refund: string }} approval
+     * @param {{ employeeId: number, pharmacyId: number }} actor
+     * @returns {Promise<void>}
+     */
+    async recordReturn(tx, { billId, reason, approverId, refund }, { employeeId, pharmacyId }) {
+      await tx.$executeRaw`
+        INSERT INTO ih_sale_approval (TOKEN, KIND, PHARMACY_ID, REQUESTED_BY, APPROVED_BY, REASON,
+          DETAILS, GIVEN_AWAY, BILL_ID, USED_AT)
+        VALUES (${randomUUID()}, ${APPROVAL_KINDS.RETURN}, ${pharmacyId}, ${employeeId}, ${approverId},
+          ${reason}, ${JSON.stringify([])}, ${refund}, ${billId}, CURRENT_TIMESTAMP(3))`;
     },
 
     /**

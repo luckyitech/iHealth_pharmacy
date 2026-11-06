@@ -17,4 +17,5 @@ export const APPROVAL_REASON_TITLES = Object.freeze({
 export const APPROVAL_KIND_LABELS = Object.freeze({
   [APPROVAL_KINDS.SALE]: 'Sale approved',
   [APPROVAL_KINDS.CANCEL]: 'Bill cancelled',
+  [APPROVAL_KINDS.RETURN]: 'Goods returned',
 });

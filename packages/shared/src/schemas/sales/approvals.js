@@ -4,7 +4,7 @@ import { dateOnlySchema, requiredText } from '../common.js';
 import { APPROVAL_REASONS, saleQuoteBodySchema } from './quote.js';
 
 /** What was approved. */
-export const APPROVAL_KINDS = Object.freeze({ SALE: 'sale', CANCEL: 'cancel' });
+export const APPROVAL_KINDS = Object.freeze({ SALE: 'sale', CANCEL: 'cancel', RETURN: 'return' });
 
 const REASON_LENGTH = 200;
 const USERNAME_LENGTH = 100;

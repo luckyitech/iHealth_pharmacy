@@ -62,8 +62,25 @@ const envSchema = z.object({
   SALES_MAX_HELD: z.coerce.number().int().min(1).max(500).default(30),
   // Cheques dated longer ago than this many months are refused: banks no longer pay them.
   SALES_CHEQUE_MAX_AGE_MONTHS: z.coerce.number().int().min(1).max(24).default(6),
-  // Printed in quotes under the receipt's totals, as the legacy receipt did. Empty prints nothing.
-  RECEIPT_RETURN_NOTE: z.string().default('GOODS ONCE SOLD CANNOT BE RETURNED'),
+  // Printed in quotes under the receipt's totals, as the legacy receipt did; {days} is the return
+  // limit below. Empty prints nothing.
+  RECEIPT_RETURN_NOTE: z.string().default('Returns within {days} days with this receipt'),
+  // Most days after a sale that its goods can be returned.
+  SALES_RETURN_DAYS: z.coerce.number().int().min(0).max(3650).default(30),
+  // Quick reasons offered when goods come back (comma-separated); the legacy app's five.
+  SALES_RETURN_REASONS: z
+    .string()
+    .default(
+      'Treatment changed,Medicine changed,Wrong medicine,Not required any more,Customer did not turn up',
+    )
+    .transform((value) =>
+      value
+        .split(',')
+        .map((reason) => reason.trim())
+        .filter(Boolean),
+    ),
+  // Months a new credit note can be spent for. 0 = it never expires.
+  CREDIT_NOTE_VALID_MONTHS: z.coerce.number().int().min(0).max(120).default(12),
   // Tax codes printed as "Exempt" instead of a rate on the receipt (comma-separated).
   RECEIPT_EXEMPT_TAX_CODES: z
     .string()
@@ -136,6 +153,8 @@ const envSchema = z.object({
 });
 
 const BYTES_PER_KB = 1024;
+/** Where the return limit goes in the receipt's return note. */
+const RETURN_DAYS_PLACEHOLDER = '{days}';
 
 /**
  * @typedef {object} Config
@@ -151,7 +170,7 @@ const BYTES_PER_KB = 1024;
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, controlledDrugRules: boolean, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, controlledDrugRules: boolean, returnDays: number, returnReasons: string[], creditNoteValidMonths: number, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
  * @property {{ warning: string }} labels
  * @property {{ types: ReadonlyArray<Readonly<{ kind: 'prescription' | 'controlled' | 'antibiotic', code: string, name: string }>>, photoMaxBytes: number }} medicine
@@ -203,7 +222,11 @@ export function loadConfig(env) {
     pharmacyId: values.PHARMACY_ID,
     documentCodePrefix: values.DOCUMENT_CODE_PREFIX,
     receipt: Object.freeze({
-      returnNote: values.RECEIPT_RETURN_NOTE.trim() || null,
+      returnNote:
+        values.RECEIPT_RETURN_NOTE.trim().replace(
+          RETURN_DAYS_PLACEHOLDER,
+          String(values.SALES_RETURN_DAYS),
+        ) || null,
       exemptTaxCodes: values.RECEIPT_EXEMPT_TAX_CODES,
     }),
     labels: Object.freeze({ warning: values.LABEL_WARNING }),
@@ -232,6 +255,9 @@ export function loadConfig(env) {
       selfDiscountLimit: values.SALES_SELF_DISCOUNT_LIMIT,
       defaultProviderId: values.SALES_DEFAULT_PROVIDER_ID,
       controlledDrugRules: values.SALES_CONTROLLED_DRUG_RULES,
+      returnDays: values.SALES_RETURN_DAYS,
+      returnReasons: values.SALES_RETURN_REASONS,
+      creditNoteValidMonths: values.CREDIT_NOTE_VALID_MONTHS,
       maxHeld: values.SALES_MAX_HELD,
       searchLimit: values.SALES_SEARCH_LIMIT,
       quickCashNotes: values.SALES_QUICK_CASH_NOTES,

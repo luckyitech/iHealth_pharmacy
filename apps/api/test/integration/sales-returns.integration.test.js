@@ -1,0 +1,262 @@
+import { randomUUID } from 'node:crypto';
+
+import pino from 'pino';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { loadConfig } from '../../src/config/env.js';
+import { createAuditLog } from '../../src/features/audit/audit-log.js';
+import { createAuthModule } from '../../src/features/auth/auth.module.js';
+import { createSalesBillRoutes } from '../../src/features/sales/bills.routes.js';
+import { createReturnRoutes } from '../../src/features/sales/returns.routes.js';
+import { collectRoutes } from '../../src/routes.js';
+import { buildTestApp, TEST_ENV } from '../helpers.js';
+import { startTestDatabase } from './database.js';
+
+const API = '/api/v1/sales';
+const ADMIN_PIN = '4321';
+/** "Sales Return Approval", the legacy permission. */
+const RETURN_APPROVAL = 8;
+const CREDIT_NOTE_MONTHS = 12;
+
+/** @type {Awaited<ReturnType<typeof startTestDatabase>>} */
+let db;
+/** @type {import('express').Express} */
+let app;
+/** @type {Record<string, number>} */
+const ids = {};
+
+beforeAll(async () => {
+  db = await startTestDatabase();
+  const config = loadConfig({
+    ...TEST_ENV,
+    DATABASE_URL: db.url,
+    CREDIT_NOTE_VALID_MONTHS: String(CREDIT_NOTE_MONTHS),
+  });
+  const logger = pino({ level: 'silent' });
+  const audit = createAuditLog(db.prisma, logger);
+  const auth = createAuthModule({
+    config,
+    prisma: db.prisma,
+    counters: db.redis,
+    redis: db.redis,
+    logger,
+    audit,
+    mailer: { send: async () => {} },
+  });
+  const deps = { prisma: db.prisma, audit, config };
+  app = buildTestApp({
+    prisma: db.prisma,
+    redis: db.redis,
+    routes: collectRoutes({
+      auth,
+      sales: { routes: [...createSalesBillRoutes(deps), ...createReturnRoutes(deps)] },
+    }),
+    guards: auth.guards,
+  });
+
+  await db.prisma.$executeRaw`
+    INSERT INTO generateuniquecode (UNIQUE_CODE_NAME, UNIQUE_CODE_NUMBER) VALUES ('SB', 0), ('SR', 0), ('CN', 0)`;
+  await db.prisma
+    .$executeRaw`INSERT INTO account_type (ACCOUNT_TYPE_ID, ACCOUNT_TYPE) VALUES (18, 'Till (9900-9999)')`;
+  await db.prisma
+    .$executeRaw`INSERT INTO chart_of_accounts (ACCOUNT_ID, ACCOUNT_NAME, ACCOUNT_TYPE, CURRENT_BALANCE, PHARMACY_ID) VALUES (63, 'Sales Till', 18, 0, 1)`;
+  await db.prisma.$executeRaw`
+    INSERT INTO customer (FIRST_NM, LAST_NM, PHONE_NBR, ACTIVE_S) VALUES ('Jane', 'Testcase', '0700000104', 'Y')`;
+  const [customer] = await db.select`SELECT CUSTOMER_ID AS id FROM customer`;
+  ids.customer = customer.id;
+
+  // Made-up stock: one item in two batches, sold from both on one bill, and a second item.
+  await db.prisma.$executeRaw`
+    INSERT INTO items (ITEM_NM, ITEM_CD, ACTIVE_S) VALUES ('Testamol 500mg', 'TST500', 'Y'), ('Samplocillin 250mg', 'SMP250', 'Y')`;
+  for (const row of await db.select`SELECT ITEM_ID AS id, ITEM_CD AS code FROM items`)
+    ids[row.code] = row.id;
+  await db.prisma.$executeRaw`
+    INSERT INTO stock (ITEM_ID, PHARMACY_ID, QUANTITY, BATCH_NO, EXPIRY_DT, UNIT_SALE_RATE, UNIT_PURCHASE_RATE)
+    VALUES (${ids.TST500}, 1, 10, 'TM-OLDER', '2030-01-31', 116, 80),
+           (${ids.TST500}, 1, 10, 'TM-NEWER', '2031-01-31', 116, 80),
+           (${ids.SMP250}, 1, 10, 'SMP-1', '2030-12-31', 20.25, 15)`;
+  for (const row of await db.select`SELECT STOCK_ID AS id, BATCH_NO AS batch FROM stock`)
+    ids[row.batch] = row.id;
+
+  // The admin approves returns; the cashier holds the permission too but may not approve their own.
+  await db.prisma
+    .$executeRaw`UPDATE employee_credentials SET APPROVAL_ACCESS_PIN = ${ADMIN_PIN} WHERE EMPLOYEE_ID = 1`;
+  await db.prisma.$executeRaw`
+    INSERT INTO employee_access (EMPLOYEE_ID, PHARMA_ACCESS_ID, ACTIVE_S, CREATION_USER_ID) VALUES (1, ${RETURN_APPROVAL}, 'Y', 'test')`;
+});
+
+afterAll(async () => {
+  await db?.stop();
+});
+
+/**
+ * @param {number} stockId
+ * @returns {Promise<number>}
+ */
+const quantityOf = async (stockId) =>
+  Number((await db.select`SELECT QUANTITY AS q FROM stock WHERE STOCK_ID = ${stockId}`)[0].q);
+const till = async () =>
+  Number(
+    (await db.select`SELECT CURRENT_BALANCE AS b FROM chart_of_accounts WHERE ACCOUNT_ID = 63`)[0]
+      .b,
+  );
+
+describe('sales returns', () => {
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let cashier;
+  /** @type {any} */
+  let bill;
+
+  beforeAll(async () => {
+    const agent = request.agent(app);
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'test.cashier', password: 'Test-Cashier-Pass-1' });
+    cashier = { agent, csrf: login.body.data.csrfToken };
+    const sale = await agent
+      .post(`${API}/bills`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({
+        requestKey: randomUUID(),
+        customerId: ids.customer,
+        lines: [
+          { stockId: ids['TM-OLDER'], quantity: 3 },
+          { stockId: ids['TM-NEWER'], quantity: 2 },
+          { stockId: ids['SMP-1'], quantity: 4, discountPercent: 10 },
+        ],
+        payments: [{ method: 'cash', amount: '1000' }],
+      });
+    expect(sale.status).toBe(201);
+    bill = sale.body.data;
+  });
+
+  /**
+   * @param {Record<string, unknown>} body
+   * @returns {import('supertest').Test}
+   */
+  const giveBack = (body) =>
+    cashier.agent
+      .post(`${API}/bills/${bill.id}/returns`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({ reason: 'Treatment changed', approver: 'test.admin', pin: ADMIN_PIN, ...body });
+
+  it('lists what each line can still return and what a unit gives back', async () => {
+    const response = await cashier.agent.get(`${API}/bills/${bill.id}/returnable`);
+    expect(response.body.data).toMatchObject({ billId: bill.id, blocked: null, returnDays: 30 });
+    expect(
+      response.body.data.lines.map((/** @type {any} */ l) => [l.sold, l.returnable, l.unitRefund]),
+    ).toEqual([
+      [3, 3, '116.00'],
+      [2, 2, '116.00'],
+      [4, 4, '18.23'],
+    ]);
+  });
+
+  it('refuses the cashier as approver and more than was sold', async () => {
+    const own = await giveBack({
+      approver: 'test.cashier',
+      lines: [{ lineId: bill.lines[0].id, quantity: 1, condition: 'restock' }],
+      refund: 'cash',
+    });
+    expect(own.status).toBe(400);
+    expect(own.body.error.details[0].message).toMatch(/own return/);
+    const tooMany = await giveBack({
+      lines: [{ lineId: bill.lines[0].id, quantity: 4, condition: 'restock' }],
+      refund: 'cash',
+    });
+    expect(tooMany.body.error.details).toEqual([
+      { path: 'body.lines.0.quantity', message: 'Only 3 left to return' },
+    ]);
+  });
+
+  it('puts good units back in the batch they were sold from, writes off the rest, and pays cash from the till', async () => {
+    const before = {
+      older: await quantityOf(ids['TM-OLDER']),
+      newer: await quantityOf(ids['TM-NEWER']),
+      smp: await quantityOf(ids['SMP-1']),
+      till: await till(),
+    };
+    const response = await giveBack({
+      lines: [
+        { lineId: bill.lines[0].id, quantity: 2, condition: 'restock' },
+        { lineId: bill.lines[2].id, quantity: 1, condition: 'writeOff' },
+      ],
+      refund: 'cash',
+    });
+    expect(response.status).toBe(201);
+    expect(response.body.data).toMatchObject({
+      refund: '250.23',
+      refundMethod: 'cash',
+      approvedBy: 'Ada Admin',
+      creditNote: null,
+    });
+    expect(response.body.data.code).toMatch(/^DPSR\d{6}0001$/);
+    expect(await quantityOf(ids['TM-OLDER'])).toBe(before.older + 2);
+    expect(await quantityOf(ids['TM-NEWER'])).toBe(before.newer);
+    expect(await quantityOf(ids['SMP-1'])).toBe(before.smp);
+    expect(await till()).toBeCloseTo(before.till - 250.23, 2);
+
+    // The legacy tables see it; the bill itself is untouched.
+    const [legacy] = await db.select`
+      SELECT r.STATUS AS status, r.TOTAL_AMOUNT AS total, c.bill_type_id AS billType, s.PAYMENT_STATUS AS bill
+      FROM sales_return r JOIN credit_note c ON c.SOURCE_REF = r.SALES_RETURN_NO JOIN sales s ON s.BILL_ID = r.BILL_ID
+      WHERE r.BILL_ID = ${bill.id}`;
+    expect(legacy).toMatchObject({ status: 'Approved', billType: 'Cash Back', bill: 'Paid' });
+    expect(Number(legacy.total)).toBeCloseTo(250.23, 2);
+    const kinds = await db.select`
+      SELECT ENTRY_TYPE AS type, COUNT(*) AS n FROM stock_history
+      WHERE ENTRY_TYPE IN ('Sales Return', 'Return Write-off') GROUP BY ENTRY_TYPE ORDER BY ENTRY_TYPE`;
+    expect(kinds.map((/** @type {any} */ row) => row.type)).toEqual([
+      'Return Write-off',
+      'Sales Return',
+    ]);
+    const [approval] =
+      await db.select`SELECT KIND AS kind FROM ih_sale_approval WHERE BILL_ID = ${bill.id}`;
+    expect(approval.kind).toBe('return');
+  });
+
+  it('gives back exactly what is left of the bill as a credit note when everything else comes back', async () => {
+    const returnable = (await cashier.agent.get(`${API}/bills/${bill.id}/returnable`)).body.data;
+    expect(returnable.lines.map((/** @type {any} */ l) => l.returnable)).toEqual([1, 2, 3]);
+    const response = await giveBack({
+      lines: returnable.lines.map((/** @type {any} */ l) => ({
+        lineId: l.lineId,
+        quantity: l.returnable,
+        condition: 'restock',
+      })),
+      refund: 'creditNote',
+    });
+    expect(response.status).toBe(201);
+    const expected = (Number(bill.totals.net) - 250.23).toFixed(2);
+    expect(response.body.data.refund).toBe(expected);
+    expect(response.body.data.creditNote).toMatchObject({
+      amount: expected,
+      balance: expected,
+      customerName: 'Jane Testcase',
+      originalBillCode: bill.code,
+    });
+    expect(response.body.data.creditNote.code).toMatch(/^DPCN\d{6}0002$/);
+    expect(response.body.data.creditNote.expiresOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const after = (await cashier.agent.get(`${API}/bills/${bill.id}/returnable`)).body.data;
+    expect(after.lines.every((/** @type {any} */ l) => l.returnable === 0)).toBe(true);
+    const receipt = await cashier.agent
+      .get(`${API}/returns/${response.body.data.id}/receipt`)
+      .buffer(true);
+    expect(receipt.headers['content-type']).toBe('application/pdf');
+  });
+
+  it('refuses a cancelled bill and a bill older than the return limit', async () => {
+    const [old] = await db.select`SELECT BILL_ID AS id FROM sales WHERE BILL_ID = ${bill.id}`;
+    void old;
+    await db.prisma.$executeRaw`
+      INSERT INTO sales (BILL_CODE, BILL_DATE, PAYMENT_STATUS, NET_AMOUNT, PHARMACY_ID, EMPLOYEE_ID, ACTIVE_S)
+      VALUES ('OLD-1', '2020-01-15', 'Paid', 100, 1, 2, 'Y'), ('CAN-1', CURDATE(), 'Cancel', 100, 1, 2, 'Y')`;
+    for (const code of ['OLD-1', 'CAN-1']) {
+      const [row] = await db.select`SELECT BILL_ID AS id FROM sales WHERE BILL_CODE = ${code}`;
+      const response = await cashier.agent.get(`${API}/bills/${row.id}/returnable`);
+      expect(response.body.data.blocked).toMatch(code === 'OLD-1' ? /days old/ : /cancelled/);
+    }
+  });
+});
