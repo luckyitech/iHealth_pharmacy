@@ -110,6 +110,18 @@ export function useTillSettings() {
 }
 
 /**
+ * Banks a cheque can be drawn on (kept under Masters → Banks).
+ *
+ * @returns {import('@tanstack/react-query').UseQueryResult<{ id: number, name: string }[]>}
+ */
+export function useBanks() {
+  return useQuery({
+    queryKey: ['sales', 'banks'],
+    queryFn: () => data(api.get('sales/banks').json()),
+  });
+}
+
+/**
  * @returns {import('@tanstack/react-query').UseQueryResult<HeldSaleSummary[]>}
  */
 export function useHeldSales() {

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAmount, previewPayment, quickAmounts } from './payment.js';
+import { monthsBefore, newRow, parseAmount, previewPayment, quickAmounts } from './payment.js';
 
-const CASH = { cash: true, mpesa: false, cashText: '', mpesaText: '', code: '' };
+const RULES = { today: '2026-11-06', chequeMaxAgeMonths: 6 };
+
+/**
+ * @param {string} method
+ * @param {string} amount
+ * @param {Partial<import('./payment.js').PaymentRow>} [extra]
+ * @returns {import('./payment.js').PaymentRow}
+ */
+const row = (method, amount, extra = {}) => ({ ...newRow(method, amount), ...extra });
 
 describe('the payment window', () => {
   it('reads amounts as typed, with commas and spaces', () => {
@@ -28,49 +36,74 @@ describe('the payment window', () => {
   });
 
   it('gives change on cash, and says how much is short', () => {
-    expect(previewPayment('267.00', { ...CASH, cashText: '300' })).toMatchObject({
+    expect(previewPayment('267.00', [row('cash', '300')], RULES)).toMatchObject({
       change: '33.00',
-      problems: {},
+      ready: true,
       payments: [{ method: 'cash', amount: '300.00' }],
     });
-    expect(previewPayment('267.00', { ...CASH, cashText: '200' }).problems).toEqual({
-      cash: '67.00 short',
-    });
+    const short = previewPayment('267.00', [row('cash', '200')], RULES);
+    expect(short).toMatchObject({ remaining: '67.00', ready: false });
+    expect(short.problems).toEqual({ 'cash.amount': '67.00 short' });
   });
 
-  it('takes M-Pesa alone for the whole bill, with the full code in capitals', () => {
-    const preview = previewPayment('267.00', {
-      ...CASH,
-      cash: false,
-      mpesa: true,
-      code: 'qk52ab1xyz',
-    });
-    expect(preview.problems).toEqual({});
+  it('takes M-Pesa with its full code in capitals', () => {
+    const preview = previewPayment(
+      '267.00',
+      [row('mpesa', '267', { reference: 'qk52ab1xyz' })],
+      RULES,
+    );
+    expect(preview.ready).toBe(true);
     expect(preview.payments).toEqual([
       { method: 'mpesa', amount: '267.00', reference: 'QK52AB1XYZ' },
     ]);
-    expect(
-      previewPayment('267.00', { ...CASH, cash: false, mpesa: true, code: 'AB12' }).problems,
-    ).toEqual({
-      code: 'Enter all 10 characters of the M-Pesa code',
-    });
   });
 
-  it('splits M-Pesa and cash, and refuses M-Pesa above the bill', () => {
-    const both = {
-      cash: true,
-      mpesa: true,
-      cashText: '300',
-      mpesaText: '1000',
-      code: 'QK52AB1XYZ',
-    };
-    expect(previewPayment('1267.00', both)).toMatchObject({
-      cashDue: '267.00',
-      change: '33.00',
+  it('needs the approval code for a card, and nothing else', () => {
+    expect(previewPayment('500.00', [row('card', '500')], RULES).problems).toEqual({
+      'card.reference': 'Enter the approval code from the card machine slip',
+    });
+    expect(
+      previewPayment('500.00', [row('card', '500', { reference: '482193' })], RULES).ready,
+    ).toBe(true);
+  });
+
+  it('needs the number, bank and a recent date for a cheque', () => {
+    expect(previewPayment('500.00', [row('cheque', '500')], RULES).problems).toEqual({
+      'cheque.reference': 'Enter the cheque number',
+      'cheque.bankId': 'Choose the bank',
+      'cheque.chequeDate': 'Enter the date on the cheque',
+    });
+    const stale = row('cheque', '500', {
+      reference: '000731',
+      bankId: '1',
+      chequeDate: '2026-01-12',
+    });
+    expect(previewPayment('500.00', [stale], RULES).problems).toEqual({
+      'cheque.chequeDate': 'Older than 6 months',
+    });
+    expect(monthsBefore('2026-11-06', 6)).toBe('2026-05-06');
+  });
+
+  it('splits any mix, gives change only from cash, and shows what is still to pay', () => {
+    const card = row('card', '2000', { reference: '482193' });
+    expect(previewPayment('2480.00', [card, row('cash', '500')], RULES)).toMatchObject({
+      cashDue: '480.00',
+      change: '20.00',
+      ready: true,
+    });
+    const mpesa = row('mpesa', '3000', { reference: 'QK52AB1XYZ' });
+    const cheque = row('cheque', '15000', {
+      reference: '000731',
+      bankId: '1',
+      chequeDate: '2026-11-01',
+    });
+    expect(previewPayment('18650.00', [cheque, mpesa], RULES)).toMatchObject({
+      remaining: '650.00',
+      ready: false,
       problems: {},
     });
-    expect(previewPayment('900.00', both).problems.mpesa).toBe(
-      'M-Pesa cannot be more than the bill',
-    );
+    expect(previewPayment('1000.00', [cheque, mpesa], RULES).problems).toEqual({
+      'mpesa.amount': "M-Pesa, card and cheque together can't be more than the bill",
+    });
   });
 });

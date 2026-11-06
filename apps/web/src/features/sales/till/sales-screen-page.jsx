@@ -36,8 +36,10 @@ import {
   useHoldSale,
   useQuote,
   useRecallSale,
+  useBanks,
   useTillSettings,
 } from './till-api.js';
+import { problemKey } from './payment.js';
 import { KEY_LABELS, TILL_KEYS } from './till-keys.js';
 import { customerForApi, linesForApi, newSale, tillReducer, ZERO_TOTALS } from './till-state.js';
 
@@ -47,18 +49,17 @@ const HELD_SHOWN = 4;
 /** @typedef {'pay' | 'customer' | 'discount' | 'held' | null} OpenDialog */
 
 /**
- * Which payment field a server problem belongs to.
+ * Which payment field a server problem belongs to, keyed like the payment window's problems.
  *
  * @param {string} path e.g. `body.payments.1.reference`
- * @param {{ method: string }[]} payments As sent.
- * @returns {'cash' | 'mpesa' | 'code' | null}
+ * @param {Record<string, unknown>[]} payments As sent.
+ * @returns {string | null}
  */
 function paymentField(path, payments) {
   const match = /^body\.payments(?:\.(\d+)\.(\w+))?$/.exec(path);
   if (!match) return null;
-  if (!match[1]) return 'cash';
-  if (match[2] === 'reference') return 'code';
-  return payments[Number(match[1])]?.method === 'mpesa' ? 'mpesa' : 'cash';
+  if (!match[1]) return problemKey('payments', 'total');
+  return problemKey(String(payments[Number(match[1])]?.method), match[2]);
 }
 
 /**
@@ -94,6 +95,7 @@ export default function SalesScreenPage() {
   const { ask, dialog: confirmDialog } = useConfirm();
 
   const settings = useTillSettings();
+  const banks = useBanks();
   const lines = useMemo(() => linesForApi(state), [state]);
   const quote = useQuote(lines);
   const held = useHeldSales();
@@ -153,7 +155,7 @@ export default function SalesScreenPage() {
   };
 
   /**
-   * @param {{ method: string, amount: string, reference?: string }[]} payments
+   * @param {Record<string, unknown>[]} payments
    * @returns {void}
    */
   const submitPayment = (payments) => {
@@ -169,18 +171,17 @@ export default function SalesScreenPage() {
           const details = isApiError(error) ? (error.details ?? []) : [];
           /** @type {Record<string, string>} */
           const fields = {};
-          const others = [];
           for (const detail of details) {
             const field = paymentField(detail.path, payments);
             if (field) fields[field] = detail.message;
-            else others.push(detail.message);
           }
           setPaymentErrors(fields);
-          if (!details.length || others.length) {
-            notify.failure('Could not complete the sale', error, {
-              description: others.length ? others.join(' ') : undefined,
-            });
-          }
+          // The toast says it too, problems on the lines included.
+          notify.failure('Could not complete the sale', error, {
+            description: details.length
+              ? details.map((detail) => detail.message).join('. ')
+              : undefined,
+          });
         },
       },
     );
@@ -462,7 +463,12 @@ export default function SalesScreenPage() {
         onOpenChange={(open) => setDialog(open ? 'pay' : null)}
         net={totals.net}
         summary={`${customerName} · ${state.lines.length} ${state.lines.length === 1 ? 'line' : 'lines'}`}
-        notes={settings.data?.quickCashNotes ?? []}
+        rules={{
+          notes: settings.data?.quickCashNotes ?? [],
+          banks: banks.data ?? [],
+          canAcceptCheques: settings.data?.canAcceptCheques ?? false,
+          chequeMaxAgeMonths: settings.data?.chequeMaxAgeMonths ?? 0,
+        }}
         pending={complete.isPending}
         serverErrors={paymentErrors}
         onSubmit={submitPayment}
