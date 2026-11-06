@@ -150,6 +150,14 @@ export function createAppRouter() {
                         Component: (await import('@/features/masters/items/items-page')).default,
                       }),
                     },
+                    {
+                      path: 'medicine-types',
+                      lazy: async () => ({
+                        Component: (
+                          await import('@/features/masters/medicine-types/medicine-types-page')
+                        ).default,
+                      }),
+                    },
                     ...ITEM_LOOKUP_ROUTES.map((lookup) => ({
                       path: lookup,
                       lazy: async () => {

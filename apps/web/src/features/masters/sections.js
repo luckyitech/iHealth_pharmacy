@@ -12,6 +12,7 @@ import {
   Package,
   Pill,
   Ruler,
+  ShieldCheck,
   Stethoscope,
   Tags,
   Truck,
@@ -51,6 +52,7 @@ export const MASTER_SECTIONS = Object.freeze([
   ...sections('Customers', [['customers', 'Customers', Users]]),
   ...sections('Products', [
     ['items', 'Items', Package],
+    ['medicine-types', 'Medicine types', ShieldCheck, POLICIES.masters.write],
     ['item-categories', 'Categories', Tags],
     ['item-groups', 'Groups', Layers],
     ['item-forms', 'Dosage forms', Pill],

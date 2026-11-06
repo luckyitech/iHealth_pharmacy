@@ -6,6 +6,11 @@
  * @property {PickedHospital | null} hospital
  * @property {string} prescribedOn `YYYY-MM-DD`, or empty.
  * @property {string | null} photo A data URL of the photo, made smaller.
+ * @property {string} patientIdNumber For controlled drugs: the patient's ID or passport number.
+ */
+
+/**
+ * @typedef {'customerName' | 'customerPhone' | 'doctorId' | 'prescribedOn' | 'patientIdNumber'} RegisterField
  */
 
 /** @type {Readonly<TillPrescription>} */
@@ -14,11 +19,42 @@ export const NO_PRESCRIPTION = Object.freeze({
   hospital: null,
   prescribedOn: '',
   photo: null,
+  patientIdNumber: '',
+});
+
+/** What a controlled drug cannot be sold without, as the strip names it. */
+export const REGISTER_FIELDS = Object.freeze({
+  customerName: "patient's name",
+  customerPhone: 'phone',
+  patientIdNumber: 'ID number',
+  doctorId: 'doctor',
+  prescribedOn: 'prescription date',
 });
 
 /**
+ * What the controlled-drug register still needs before the sale can be paid.
+ *
  * @param {TillPrescription} prescription
- * @returns {{ doctorId?: number, hospitalId?: number, prescribedOn?: string, photo?: string } | undefined}
+ * @param {{ name: string | null, phone: string | null } | null} customer
+ * @returns {RegisterField[]}
+ */
+export function missingForRegister(prescription, customer) {
+  /** @type {Record<RegisterField, boolean>} */
+  const filled = {
+    customerName: Boolean(customer?.name?.trim()),
+    customerPhone: Boolean(customer?.phone?.trim()),
+    patientIdNumber: Boolean(prescription.patientIdNumber.trim()),
+    doctorId: Boolean(prescription.doctor),
+    prescribedOn: Boolean(prescription.prescribedOn),
+  };
+  return /** @type {RegisterField[]} */ (Object.keys(REGISTER_FIELDS)).filter(
+    (field) => !filled[field],
+  );
+}
+
+/**
+ * @param {TillPrescription} prescription
+ * @returns {{ doctorId?: number, hospitalId?: number, prescribedOn?: string, photo?: string, patientIdNumber?: string } | undefined}
  *   What the sale sends; nothing when no part was filled in.
  */
 export function prescriptionForApi(prescription) {
@@ -27,6 +63,9 @@ export function prescriptionForApi(prescription) {
     ...(prescription.hospital ? { hospitalId: prescription.hospital.id } : {}),
     ...(prescription.prescribedOn ? { prescribedOn: prescription.prescribedOn } : {}),
     ...(prescription.photo ? { photo: prescription.photo } : {}),
+    ...(prescription.patientIdNumber.trim()
+      ? { patientIdNumber: prescription.patientIdNumber.trim() }
+      : {}),
   };
   return Object.keys(body).length ? body : undefined;
 }

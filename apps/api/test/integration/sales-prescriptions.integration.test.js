@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { PERMISSIONS } from '@ihealth/shared/permissions';
 import pino from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,6 +9,7 @@ import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createSalesBillRoutes } from '../../src/features/sales/bills.routes.js';
+import { createMedicineTypeRoutes } from '../../src/features/masters/medicine-types.js';
 import { createPrescriberRoutes } from '../../src/features/sales/prescribers.js';
 import { createSaleQuoteRoutes } from '../../src/features/sales/quote.routes.js';
 import { createTillRoutes } from '../../src/features/sales/till.routes.js';
@@ -75,6 +77,7 @@ beforeAll(async () => {
           ...createPrescriberRoutes(deps),
         ],
       },
+      masters: { routes: createMedicineTypeRoutes(deps) },
     }),
     guards: auth.guards,
   });
@@ -249,5 +252,122 @@ describe('prescriptions at the till', () => {
       'body.prescription.photo',
       'body.prescription.prescribedOn',
     ]);
+  });
+});
+
+describe('controlled drugs at the till', () => {
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let cashier;
+
+  beforeAll(async () => {
+    const agent = request.agent(app);
+    const response = await agent
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'test.cashier', password: 'Test-Cashier-Pass-1' });
+    cashier = { agent, csrf: response.body.data.csrfToken };
+  });
+
+  /** @param {Record<string, unknown>} body */
+  const sell = (body) =>
+    cashier.agent
+      .post(`${API}/bills`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({ requestKey: randomUUID(), payments: [{ method: 'cash', amount: '1000' }], ...body });
+
+  it('refuses a controlled drug without what the register needs, saying what is missing', async () => {
+    const response = await sell({ lines: [{ stockId: ids['CAL-1'], quantity: 2 }] });
+    expect(response.status).toBe(400);
+    expect(response.body.error.details.map((/** @type {any} */ d) => d.path)).toEqual([
+      'body.customerName',
+      'body.customerPhone',
+      'body.prescription.doctorId',
+      'body.prescription.prescribedOn',
+      'body.prescription.patientIdNumber',
+    ]);
+    const [stock] =
+      await db.select`SELECT QUANTITY AS q FROM stock WHERE STOCK_ID = ${ids['CAL-1']}`;
+    expect(Number(stock.q)).toBe(50);
+  });
+
+  it('sells it with the details and writes the register entry with the bill', async () => {
+    const response = await sell({
+      customerName: 'Jane Testcase',
+      customerPhone: '0700000104',
+      lines: [
+        { stockId: ids['CAL-1'], quantity: 2 },
+        { stockId: ids['TST-1'], quantity: 1 },
+      ],
+      prescription: { doctorId: ids.Bora, prescribedOn: '2026-11-01', patientIdNumber: 'test1234' },
+    });
+    expect(response.status).toBe(201);
+    const rows = await db.select`
+      SELECT ITEM_ID AS itemId, STOCK_ID AS stockId, QUANTITY AS quantity, PATIENT_NAME AS name,
+        PATIENT_PHONE AS phone, PATIENT_ID_NUMBER AS idNumber, DOCTOR_ID AS doctor,
+        CAST(PRESCRIBED_ON AS CHAR) AS prescribedOn
+      FROM ih_controlled_dispense WHERE BILL_ID = ${response.body.data.id}`;
+    expect(rows).toEqual([
+      {
+        itemId: expect.any(Number),
+        stockId: ids['CAL-1'],
+        quantity: 2,
+        name: 'Jane Testcase',
+        phone: '0700000104',
+        idNumber: 'TEST1234',
+        doctor: ids.Bora,
+        prescribedOn: '2026-11-01',
+      },
+    ]);
+  });
+});
+
+describe('setting the medicine type of many items', () => {
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let admin;
+
+  beforeAll(async () => {
+    // The administrator role keeps the master data.
+    await db.prisma
+      .$executeRaw`INSERT INTO ih_role_permission (ROLE_ID, PHARMA_ACCESS_ID) VALUES (1, ${PERMISSIONS.MASTER_MASTERS_ENTRY.id})`;
+    const agent = request.agent(app);
+    const response = await agent
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'test.admin', password: 'Test-Admin-Pass-1' });
+    admin = { agent, csrf: response.body.data.csrfToken };
+  });
+
+  it('marks the items chosen, clears it again, and refuses a type not on the list', async () => {
+    const [testamol] = await db.select`SELECT ITEM_ID AS id FROM items WHERE ITEM_CD = 'TST500'`;
+    /** @param {Record<string, unknown>} body */
+    const set = (body) =>
+      admin.agent
+        .post('/api/v1/masters/items/medicine-type')
+        .set('x-csrf-token', admin.csrf)
+        .send(body);
+    const typeOf = async () =>
+      (
+        await db.select`SELECT SCHEDULE_CATEGORY_CODE_ID AS code FROM items WHERE ITEM_ID = ${testamol.id}`
+      )[0].code;
+
+    const marked = await set({ itemIds: [testamol.id], scheduleCodeId: ids['schedule X'] });
+    expect(marked.body.data).toEqual({ updated: 1 });
+    expect(await typeOf()).toBe(ids['schedule X']);
+    await set({ itemIds: [testamol.id], scheduleCodeId: null });
+    expect(await typeOf()).toBeNull();
+    expect((await set({ itemIds: [testamol.id], scheduleCodeId: 999 })).status).toBe(400);
+    const [audited] = await db.select`
+      SELECT COUNT(*) AS n FROM ih_audit_log WHERE ACTION = 'masters/items.medicine-type'`;
+    expect(Number(audited.n)).toBe(2);
+  });
+
+  it('is only for people who keep the master data', async () => {
+    const agent = request.agent(app);
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'test.cashier', password: 'Test-Cashier-Pass-1' });
+    const response = await agent
+      .post('/api/v1/masters/items/medicine-type')
+      .set('x-csrf-token', login.body.data.csrfToken)
+      .send({ itemIds: [1], scheduleCodeId: null });
+    expect(response.status).toBe(403);
   });
 });

@@ -297,10 +297,12 @@ export function createItemRoutes({ prisma, audit, config }) {
         shape: {
           productKind: z.enum([PRODUCT_KINDS.MEDICAL, PRODUCT_KINDS.NON_MEDICAL]).optional(),
           groupId: optionalIdSchema.optional(),
+          scheduleCodeId: optionalIdSchema.optional(),
         },
         toWhere: (query) => ({
           ...(query.productKind ? { medicalOrNonMedical: LEGACY_KIND[query.productKind] } : {}),
           ...(query.groupId ? { itemGroupId: query.groupId } : {}),
+          ...(query.scheduleCodeId ? { scheduleCategoryCodeId: query.scheduleCodeId } : {}),
         }),
       },
       activeField: 'activeS',

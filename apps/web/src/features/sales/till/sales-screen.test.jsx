@@ -210,6 +210,37 @@ describe('the sales screen', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeEnabled());
   });
 
+  it('will not take payment for a controlled drug until the register details are in', async () => {
+    renderPage({ medicineKind: 'controlled' });
+    await addTestamol();
+    const strip = await screen.findByRole('region', { name: /Controlled drug/ });
+    expect(strip).toHaveTextContent('required for the register');
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(
+          /Fill in the patient's name, phone, ID number, doctor and prescription date/,
+        )[0],
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeDisabled();
+
+    await userEvent.type(
+      within(strip).getByRole('combobox', { name: /Patient's name/ }),
+      'Jane Testcase',
+    );
+    await userEvent.type(within(strip).getByRole('textbox', { name: /Phone/ }), '0700000104');
+    await userEvent.type(
+      within(strip).getByRole('textbox', { name: /ID or passport/ }),
+      'TEST1234',
+    );
+    await userEvent.type(within(strip).getByRole('combobox', { name: /Doctor/ }), 'am');
+    await userEvent.click(await screen.findByRole('option', { name: /Amani Demo/ }));
+    expect(screen.getAllByText(/Fill in the prescription date for the/)[0]).toBeInTheDocument();
+    await userEvent.type(within(strip).getByLabelText(/Prescription date/), '2026-11-01');
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeEnabled());
+    expect(screen.getByRole('button', { name: /Customer\s*Jane Testcase/ })).toBeInTheDocument();
+  });
+
   it('asks a second person to approve a discount above the limit, then takes the payment', async () => {
     const { quotes } = renderPage();
     await addTestamol();

@@ -1,12 +1,14 @@
-import { Camera, FileText, Trash2, UserPlus } from 'lucide-react';
+import { Camera, FileText, ShieldAlert, Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 import { useAppInfo } from '@/app/use-app-info';
 import { FormField } from '@/components/form/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CustomerTypeahead } from '@/features/customers/customer-typeahead';
 import { wallClockNow } from '@/lib/format';
 import { notify } from '@/lib/notify';
+import { cn } from '@/lib/utils';
 
 import { LookupPicker } from './lookup-picker.jsx';
 import { NewDoctorDialog } from './new-doctor-dialog.jsx';
@@ -15,18 +17,35 @@ import { pickedDoctor, withDoctor } from './prescription.js';
 import { useDoctorSearch, useHospitalSearch } from './prescriptions-api.js';
 
 /**
- * The prescription a sale of prescription-only medicines is made against. Every part is optional:
- * the cashier is reminded, not stopped.
+ * The prescription a sale is made against. For prescription-only medicines and antibiotics every
+ * part is optional: the cashier is reminded, not stopped. A controlled drug needs the patient's
+ * name, phone and ID number, the doctor and the date, for the controlled-drug register; the
+ * patient is the sale's customer.
  *
  * @param {object} props
  * @param {number} props.itemCount Lines that need a prescription.
+ * @param {number} props.controlledCount Lines of controlled drugs.
  * @param {import('./prescription.js').TillPrescription} props.value
  * @param {(value: import('./prescription.js').TillPrescription) => void} props.onChange
+ * @param {import('../till/till-state.js').TillCustomer | null} props.customer
+ * @param {(customer: import('../till/till-state.js').TillCustomer | null) => void} props.onCustomer
+ * @param {Partial<Record<import('./prescription.js').RegisterField | 'photo' | 'hospitalId', string>>} props.errors From the server.
  * @param {number} props.photoMaxKb
  * @param {React.Ref<HTMLInputElement>} props.doctorRef Focused by the shortcut.
  * @returns {React.JSX.Element}
  */
-export function PrescriptionStrip({ itemCount, value, onChange, photoMaxKb, doctorRef }) {
+export function PrescriptionStrip({
+  itemCount,
+  controlledCount,
+  value,
+  onChange,
+  customer,
+  onCustomer,
+  errors,
+  photoMaxKb,
+  doctorRef,
+}) {
+  const controlled = controlledCount > 0;
   const [newDoctor, setNewDoctor] = useState(/** @type {string | null} */ (null));
   const [reading, setReading] = useState(false);
   const today = wallClockNow(useAppInfo().data?.region.timeZone).slice(0, 10);
@@ -50,22 +69,74 @@ export function PrescriptionStrip({ itemCount, value, onChange, photoMaxKb, doct
   return (
     <section
       aria-labelledby="prescription-heading"
-      className="grid gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4"
+      className={cn(
+        'grid gap-3 rounded-lg border p-4',
+        controlled ? 'border-destructive/50 bg-destructive/5' : 'border-primary/40 bg-primary/5',
+      )}
     >
       <div>
         <h2 id="prescription-heading" className="flex items-center gap-2 text-sm font-semibold">
-          <FileText aria-hidden="true" className="size-4 text-primary" />
-          Prescription
+          {controlled ? (
+            <ShieldAlert aria-hidden="true" className="size-4 text-destructive" />
+          ) : (
+            <FileText aria-hidden="true" className="size-4 text-primary" />
+          )}
+          {controlled ? 'Controlled drug' : 'Prescription'}
           <span className="font-normal text-muted-foreground">
-            recommended · {itemCount} {itemCount === 1 ? 'item needs' : 'items need'} one
+            {controlled
+              ? 'required for the register'
+              : `recommended · ${itemCount} ${itemCount === 1 ? 'item needs' : 'items need'} one`}
           </span>
         </h2>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {controlled && (
+          <>
+            <FormField label="Patient's name" required error={errors.customerName}>
+              {(control) => (
+                <CustomerTypeahead
+                  control={control}
+                  value={customer?.name ?? ''}
+                  // A typed name is no longer the registered customer picked before.
+                  onChange={(name) => onCustomer({ name, phone: customer?.phone ?? null })}
+                  onPick={onCustomer}
+                />
+              )}
+            </FormField>
+            <FormField label="Phone" required error={errors.customerPhone}>
+              {(control) => (
+                <Input
+                  {...control}
+                  inputMode="tel"
+                  value={customer?.phone ?? ''}
+                  onChange={(event) =>
+                    onCustomer({ name: customer?.name ?? null, phone: event.target.value })
+                  }
+                />
+              )}
+            </FormField>
+            <FormField
+              label="ID or passport number"
+              required
+              error={errors.patientIdNumber}
+              className="sm:col-span-2 sm:max-w-[calc(50%-0.375rem)]"
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  value={value.patientIdNumber}
+                  onChange={(event) => onChange({ ...value, patientIdNumber: event.target.value })}
+                />
+              )}
+            </FormField>
+          </>
+        )}
         <LookupPicker
           label="Doctor"
           placeholder="Name or licence number"
+          required={controlled}
+          error={errors.doctorId}
           inputRef={doctorRef}
           value={value.doctor}
           onChange={(doctor) => onChange(withDoctor(value, doctor))}
@@ -92,8 +163,9 @@ export function PrescriptionStrip({ itemCount, value, onChange, photoMaxKb, doct
           toOption={(hospital) => ({ id: hospital.id, label: hospital.name })}
           failure="Could not search the hospitals"
           empty="No hospital found"
+          error={errors.hospitalId}
         />
-        <FormField label="Prescription date">
+        <FormField label="Prescription date" required={controlled} error={errors.prescribedOn}>
           {(control) => (
             <Input
               {...control}
@@ -104,7 +176,7 @@ export function PrescriptionStrip({ itemCount, value, onChange, photoMaxKb, doct
             />
           )}
         </FormField>
-        <FormField label="Photo" hint={value.photo ? undefined : 'Optional'}>
+        <FormField label="Photo" hint={value.photo ? undefined : 'Optional'} error={errors.photo}>
           {(control) =>
             value.photo ? (
               <div className="flex items-center gap-2">

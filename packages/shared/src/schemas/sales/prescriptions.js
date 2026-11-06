@@ -77,10 +77,34 @@ export const prescriptionPhotoSchema = z
   .string()
   .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/, 'Attach a photo (JPEG or PNG)');
 
-/** The prescription a sale was made against. Every part is optional for prescription-only items. */
+/** A national ID or passport number, as the controlled-drug register asks for it. */
+export const PATIENT_ID_PATTERN = /^[A-Za-z0-9-]{4,20}$/;
+
+/**
+ * The prescription a sale was made against. Every part is optional for prescription-only items; a
+ * controlled drug needs the doctor, the date and the patient's ID number (checked on the server,
+ * which knows which items are controlled).
+ */
 export const salePrescriptionSchema = z.object({
   doctorId: z.coerce.number().int().positive().optional(),
   hospitalId: z.coerce.number().int().positive().optional(),
   prescribedOn: dateOnlySchema.optional(),
   photo: prescriptionPhotoSchema.optional(),
+  patientIdNumber: z
+    .string()
+    .trim()
+    .regex(PATIENT_ID_PATTERN, 'Enter the ID or passport number (letters and digits)')
+    .optional(),
+});
+
+/** Most items whose medicine type can be set at once. */
+export const MAX_MEDICINE_TYPE_ITEMS = 500;
+
+/** Setting the medicine type (the legacy schedule code) of many items at once; null clears it. */
+export const medicineTypeBodySchema = z.object({
+  itemIds: z
+    .array(z.coerce.number().int().positive())
+    .min(1, 'Choose at least one item')
+    .max(MAX_MEDICINE_TYPE_ITEMS, `Choose at most ${MAX_MEDICINE_TYPE_ITEMS} items at a time`),
+  scheduleCodeId: z.coerce.number().int().positive().nullable(),
 });
