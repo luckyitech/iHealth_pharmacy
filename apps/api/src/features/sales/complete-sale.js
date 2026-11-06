@@ -13,6 +13,7 @@ import { PAYMENT_METHODS } from '@ihealth/shared/schemas';
 import { forbidden, validationFailed } from '../../lib/errors.js';
 import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-codes.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
+import { approvalsNeeded, createApprovalService, linesHash } from './approvals.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
 import { toDbTime } from '#db';
 
@@ -49,24 +50,26 @@ function monthsBefore(date, months) {
 /**
  * @typedef {object} SaleInput
  * @property {string} requestKey
- * @property {{ stockId: number, quantity: number, discountPercent: number }[]} lines
+ * @property {{ stockId: number, quantity: number, discountPercent: number, labelPrice?: string }[]} lines
  * @property {number} [customerId]
  * @property {string | null} [customerName]
  * @property {string | null} [customerPhone]
  * @property {SalePayment[]} payments
  * @property {string | null} [remarks]
+ * @property {string} [approvalToken]
  */
 
 /**
  * Refuses lines that cannot be sold as asked: a batch that is gone or expired, more units than it
- * has (across lines), or a discount above what a cashier may give alone.
+ * has (across lines). What needs a second person (a big discount, a changed price, selling below
+ * cost) is checked against the sale's approval instead.
  *
  * @param {SaleInput['lines']} lines
  * @param {Map<number, Record<string, any>>} batches
- * @param {{ today: string, discountLimit: number }} rules
+ * @param {{ today: string }} rules
  * @returns {void}
  */
-function assertLinesSellable(lines, batches, { today, discountLimit }) {
+function assertLinesSellable(lines, batches, { today }) {
   /** @type {{ path: string, message: string }[]} */
   const details = [];
   /** @type {Map<number, number>} */
@@ -90,12 +93,6 @@ function assertLinesSellable(lines, batches, { today, discountLimit }) {
       details.push({
         path: `${path}.quantity`,
         message: `Only ${Math.max(available, 0)} left in this batch`,
-      });
-    }
-    if (line.discountPercent > discountLimit) {
-      details.push({
-        path: `${path}.discountPercent`,
-        message: `Discounts above ${discountLimit}% need a second person's approval`,
       });
     }
   });
@@ -193,6 +190,7 @@ async function assertChequeAcceptable(tx, payments, { permissionIds, today, maxA
  * @returns The service.
  */
 export function createSaleService({ prisma, config }) {
+  const approvals = createApprovalService({ prisma, config });
   /**
    * @param {string} requestKey
    * @returns {Promise<number | null>} The bill already saved for this request.
@@ -223,15 +221,13 @@ export function createSaleService({ prisma, config }) {
             { lock: true },
           );
           const today = todayIn(config.region.timeZone);
-          assertLinesSellable(input.lines, batches, {
-            today,
-            discountLimit: config.sales.selfDiscountLimit,
-          });
+          assertLinesSellable(input.lines, batches, { today });
 
           const inputs = input.lines.map((line) => {
             const batch = /** @type {Record<string, any>} */ (batches.get(line.stockId));
             return {
-              labelPrice: Number(batch.labelPrice ?? 0),
+              // A changed price is used as typed; it needs the sale's approval.
+              labelPrice: line.labelPrice ?? Number(batch.labelPrice ?? 0),
               quantity: line.quantity,
               discountPercent: line.discountPercent,
               vatPercent: Number(batch.vatPercent ?? 0),
@@ -240,6 +236,20 @@ export function createSaleService({ prisma, config }) {
             };
           });
           const priced = priceBill(inputs, { roundingStep: config.sales.roundingStep });
+          const needing = approvalsNeeded(
+            input.lines,
+            batches,
+            priced.lines,
+            config.sales.selfDiscountLimit,
+          ).filter((item) => item.reasons.length);
+          if (needing.length && !input.approvalToken) {
+            throw validationFailed([
+              {
+                path: 'body.approvalToken',
+                message: "This sale needs a second person's approval before it can be paid",
+              },
+            ]);
+          }
           const payment = settle(input.payments, priced.net);
           await assertChequeAcceptable(tx, input.payments, {
             permissionIds,
@@ -342,7 +352,7 @@ export function createSaleService({ prisma, config }) {
                 stockId: line.stockId,
                 saleQty: line.quantity,
                 unitSalePrice: Number(lineMoney.unitPrice),
-                spVat: inputs[index].labelPrice,
+                spVat: Number(inputs[index].labelPrice),
                 unitPurchasePrice: inputs[index].unitCost,
                 discountPercentage: line.discountPercent,
                 vat: inputs[index].vatPercent,
@@ -358,6 +368,23 @@ export function createSaleService({ prisma, config }) {
               };
             }),
           });
+
+          if (needing.length) {
+            const fits = await approvals.useSaleApproval(tx, {
+              token: /** @type {string} */ (input.approvalToken),
+              employeeId,
+              hash: linesHash(input.lines),
+              billId: bill.billId,
+            });
+            if (!fits)
+              throw validationFailed([
+                {
+                  path: 'body.approvalToken',
+                  message:
+                    'The approval no longer fits this sale (it changed, was used or expired). Ask for approval again.',
+                },
+              ]);
+          }
 
           // The approval code and the bank have no legacy column (the legacy app put the code in TAXNO).
           if (card || cheque) {

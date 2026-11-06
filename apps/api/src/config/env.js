@@ -74,6 +74,23 @@ const envSchema = z.object({
         .map((code) => code.trim())
         .filter(Boolean),
     ),
+  // Minutes after a sale during which its cashier may cancel it alone (with a reason).
+  SALES_CANCEL_ALONE_MINUTES: z.coerce.number().int().min(0).max(1440).default(10),
+  // Wrong approval PINs allowed before the approver is locked out, and for how long.
+  SALES_APPROVAL_PIN_TRIES: z.coerce.number().int().min(1).max(20).default(3),
+  SALES_APPROVAL_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  // How long an approval given at the till stays usable for completing that sale.
+  SALES_APPROVAL_VALID_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
+  // Quick reasons offered in the approval window (comma-separated).
+  SALES_APPROVAL_REASONS: z
+    .string()
+    .default('Regular customer,Price match,Near expiry,Staff purchase')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((reason) => reason.trim())
+        .filter(Boolean),
+    ),
   // Bank notes offered as quick amounts in the payment window, smallest first.
   SALES_QUICK_CASH_NOTES: z
     .string()
@@ -107,7 +124,7 @@ const envSchema = z.object({
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
@@ -168,6 +185,11 @@ export function loadConfig(env) {
       searchLimit: values.SALES_SEARCH_LIMIT,
       quickCashNotes: values.SALES_QUICK_CASH_NOTES,
       chequeMaxAgeMonths: values.SALES_CHEQUE_MAX_AGE_MONTHS,
+      cancelAloneMinutes: values.SALES_CANCEL_ALONE_MINUTES,
+      approvalPinTries: values.SALES_APPROVAL_PIN_TRIES,
+      approvalLockMinutes: values.SALES_APPROVAL_LOCK_MINUTES,
+      approvalValidMinutes: values.SALES_APPROVAL_VALID_MINUTES,
+      approvalReasons: values.SALES_APPROVAL_REASONS,
     }),
     region: Object.freeze({
       locale: values.APP_LOCALE,

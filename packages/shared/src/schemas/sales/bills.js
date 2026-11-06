@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { dateOnlySchema } from '../common.js';
+import { billApprovalSchema } from './approvals.js';
 
 /** Where a bill stands. The legacy `PAYMENT_STATUS` text, in any case, maps to one of these. */
 export const BILL_STATUSES = Object.freeze({
@@ -113,6 +114,8 @@ export const billDetailSchema = billSummarySchema.extend({
   }),
   lines: z.array(billLineSchema),
   payments: z.array(billPaymentSchema),
+  /** Approvals given on this bill (new till only), oldest first. */
+  approvals: z.array(billApprovalSchema),
   audit: z.object({
     createdBy: text,
     createdAt: text,

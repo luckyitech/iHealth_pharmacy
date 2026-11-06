@@ -53,6 +53,8 @@ export function createTillRoutes({ prisma, audit, config }) {
           maxHeld: config.sales.maxHeld,
           quickCashNotes: config.sales.quickCashNotes,
           chequeMaxAgeMonths: config.sales.chequeMaxAgeMonths,
+          cancelAloneMinutes: config.sales.cancelAloneMinutes,
+          approvalReasons: config.sales.approvalReasons,
           canAcceptCheques: hasAnyPermission(
             getAuth(res).permissionIds,
             POLICIES.sales.acceptCheque,

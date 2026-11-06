@@ -739,4 +739,11 @@ export const PERMISSIONS = Object.freeze({
     name: 'Accept cheque payments',
     active: true,
   }),
+  // Added by the new system (apps/api/db/sql/additive/0008-sales-approvals.sql).
+  SALES_SALES_APPROVAL: Object.freeze({
+    id: 900003,
+    group: 'Sales',
+    name: 'Sales approval',
+    active: true,
+  }),
 });

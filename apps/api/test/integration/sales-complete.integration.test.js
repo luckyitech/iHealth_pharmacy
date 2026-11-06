@@ -215,7 +215,7 @@ describe('completing a sale', () => {
     expect(over.body.error.details[0].message).toBe('M-Pesa cannot be more than the bill');
   });
 
-  it('refuses expired batches, more units than in stock, and discounts above the limit', async () => {
+  it('refuses expired batches and more units than in stock (big discounts need an approval)', async () => {
     const before = await quantityOf(ids.EXPIRED);
     const response = await sell({
       lines: [
@@ -229,10 +229,6 @@ describe('completing a sale', () => {
     expect(response.body.error.details).toEqual([
       { path: 'body.lines.0.stockId', message: 'This batch has expired and cannot be sold' },
       { path: 'body.lines.1.quantity', message: 'Only 1 left in this batch' },
-      {
-        path: 'body.lines.2.discountPercent',
-        message: "Discounts above 25% need a second person's approval",
-      },
     ]);
     expect(await quantityOf(ids.EXPIRED)).toBe(before);
   });
