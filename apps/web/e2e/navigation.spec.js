@@ -91,6 +91,8 @@ test.describe('desktop', () => {
     await page.goto('/masters/suppliers');
     const panel = page.locator('[data-expanded]');
     const main = page.locator('#main-content');
+    // The panel only opens once the section's pages are on it; before that a move does nothing.
+    await expect(page.getByRole('navigation', { name: 'Masters' })).toBeVisible();
 
     // The mouse starts at the top-left corner, already over the column: moving there must open it.
     await page.mouse.move(8, 8);
