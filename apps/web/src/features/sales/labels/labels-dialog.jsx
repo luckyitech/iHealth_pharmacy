@@ -30,6 +30,19 @@ function draftOf(line) {
 }
 
 /**
+ * A dose typed where there was none asks for a sticker; a dose erased asks for none. A count the
+ * pharmacist already set is left alone while they type.
+ *
+ * @param {LabelDraft} draft
+ * @param {string} text The dose as now typed.
+ * @returns {number} How many stickers to print.
+ */
+function copiesAfterTyping(draft, text) {
+  if (!text.trim()) return 0;
+  return draft.copies === 0 && !draft.text.trim() ? 1 : draft.copies;
+}
+
+/**
  * Dosing stickers for a bill: one row per line, the dose prefilled from the last print or the
  * item's usual instruction, and how many stickers to print.
  *
@@ -159,7 +172,12 @@ function LabelsEditor({ billId, onDone }) {
                   placeholder="e.g. Take one tablet 3 times a day after meals"
                   className="min-h-14"
                   value={item.text}
-                  onChange={(event) => change(line.lineId, { text: event.target.value })}
+                  onChange={(event) =>
+                    change(line.lineId, {
+                      text: event.target.value,
+                      copies: copiesAfterTyping(item, event.target.value),
+                    })
+                  }
                 />
               </div>
               <div className="grid content-start gap-1 sm:justify-items-end">

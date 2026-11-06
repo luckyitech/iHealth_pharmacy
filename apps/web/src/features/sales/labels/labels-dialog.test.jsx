@@ -100,6 +100,22 @@ describe('the labels window', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('counts one sticker once a dose is typed, and none once it is erased', async () => {
+    setup();
+    const testamol = await screen.findByRole('textbox', { name: 'Dose for Testamol 500mg' });
+    expect(screen.getByRole('button', { name: 'Print 1 label' })).toBeInTheDocument();
+    await userEvent.type(testamol, 'Take two tablets');
+    expect(screen.getByRole('button', { name: 'Print 2 labels' })).toBeInTheDocument();
+    // A count set by hand stays while the dose is edited.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'One sticker more for Testamol 500mg' }),
+    );
+    await userEvent.type(testamol, ' a day');
+    expect(screen.getByRole('button', { name: 'Print 3 labels' })).toBeInTheDocument();
+    await userEvent.clear(testamol);
+    expect(screen.getByRole('button', { name: 'Print 1 label' })).toBeInTheDocument();
+  });
+
   it('asks for a dose before printing a sticker without one', async () => {
     const { printed } = setup();
     await screen.findByRole('textbox', { name: 'Dose for Testamol 500mg' });
