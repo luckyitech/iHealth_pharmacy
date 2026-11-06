@@ -25,6 +25,7 @@ import {
   toBillDetail,
   toBillSummary,
 } from './bills.repository.js';
+import { createApprovalsRepository } from './approvals.repository.js';
 import { createSaleService } from './complete-sale.js';
 import { renderReceipt } from './receipt-pdf.js';
 import { createReceiptSettings } from './receipt-settings.js';
@@ -66,6 +67,7 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
   const bills = createBillsRepository(prisma);
   const sales = createSaleService({ prisma, config });
   const receiptSettings = createReceiptSettings(prisma);
+  const approvalsRepo = createApprovalsRepository(prisma);
   const listQuery = createListQuerySchema({
     sortable: BILL_SORTABLE,
     defaultSort: /** @type {any} */ ('-billDate'),
@@ -75,12 +77,12 @@ export function createSalesBillRoutes({ prisma, audit, config }) {
   /**
    * @param {number} id
    * @param {number} pharmacyId
-   * @returns {Promise<ReturnType<typeof toBillDetail>>}
+   * @returns {Promise<import('zod').infer<typeof import('@ihealth/shared/schemas').billDetailSchema>>}
    */
   const findOrFail = async (id, pharmacyId) => {
     const found = await bills.find(id, pharmacyId);
     if (!found) throw notFound('Bill not found');
-    return toBillDetail(found);
+    return { ...toBillDetail(found), approvals: await approvalsRepo.ofBill(id) };
   };
 
   /**

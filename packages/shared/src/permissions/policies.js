@@ -27,6 +27,8 @@ export const POLICIES = Object.freeze({
     sell: Object.freeze([PERMISSIONS.SALES_SALES_BILLING_SUBMISSION]),
     // Taking a cheque (new): given at first to the people who approve sales.
     acceptCheque: Object.freeze([PERMISSIONS.SALES_ACCEPT_CHEQUE_PAYMENTS]),
+    // Approving what a cashier may not do alone (new): given at first to managers and super admins.
+    approve: Object.freeze([PERMISSIONS.SALES_SALES_APPROVAL]),
     read: Object.freeze([
       PERMISSIONS.SALES_SALES_BILLING_SUBMISSION,
       PERMISSIONS.SALES_SALES_BILLING_BONUS_ITEMS_APPROVAL,

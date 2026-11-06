@@ -97,6 +97,7 @@ test('splits a bill between card, cheque and cash, with change only from cash', 
 
   const pay = page.getByRole('dialog', { name: 'Take payment' });
   // Card for part of the bill: Alt 3, and only the approval code besides the amount.
+  await expect(pay.getByRole('textbox', { name: 'Cash received' })).toBeFocused();
   await page.keyboard.press('Alt+Digit3');
   await expect(pay.getByRole('group', { name: 'Cash' })).toHaveCount(0);
   const card = pay.getByRole('group', { name: 'Card' });

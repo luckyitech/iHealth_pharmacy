@@ -104,6 +104,10 @@ export const tillSettingsSchema = z.object({
   chequeMaxAgeMonths: z.number().int(),
   /** Whether the person at the till may take cheques. */
   canAcceptCheques: z.boolean(),
+  /** Minutes after a sale during which its cashier may cancel it alone. */
+  cancelAloneMinutes: z.number().int(),
+  /** Quick reasons offered in the approval window. */
+  approvalReasons: z.array(z.string()),
 });
 
 /** A bank a cheque can be drawn on. */

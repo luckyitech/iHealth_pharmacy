@@ -352,7 +352,7 @@ export function createBillsRepository(prisma) {
 
 /**
  * @param {{ bill: Record<string, any>, lines: Record<string, any>[] }} found
- * @returns {import('zod').infer<typeof import('@ihealth/shared/schemas').billDetailSchema>}
+ * @returns {Omit<import('zod').infer<typeof import('@ihealth/shared/schemas').billDetailSchema>, 'approvals'>} The bill; its approvals are read separately.
  */
 export function toBillDetail({ bill, lines }) {
   const summary = toBillSummary(bill);

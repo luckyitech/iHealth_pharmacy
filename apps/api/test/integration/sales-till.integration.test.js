@@ -240,6 +240,8 @@ describe('the till', () => {
       quickCashNotes: [50, 100, 200, 500, 1000],
       chequeMaxAgeMonths: 6,
       canAcceptCheques: false,
+      cancelAloneMinutes: 10,
+      approvalReasons: ['Regular customer', 'Price match', 'Near expiry', 'Staff purchase'],
     });
     const banks = await cashier.agent.get('/api/v1/sales/banks');
     expect(banks.body.data.map((/** @type {any} */ bank) => bank.name)).toContain('KCB Bank');

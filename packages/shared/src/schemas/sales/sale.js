@@ -90,6 +90,8 @@ export const saleBodySchema = saleQuoteBodySchema.extend({
       'Each way of paying can appear once',
     ),
   remarks: optionalText(LENGTH.remarks),
+  /** From POST /sales/approvals, when a line needs a second person's approval. */
+  approvalToken: z.uuid().optional(),
 });
 
 /** A completed sale: the saved bill, and the change to give back. */

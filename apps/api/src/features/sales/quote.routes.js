@@ -12,6 +12,7 @@ import {
 import { defineRoute } from '../../http/define-route.js';
 import { validationFailed } from '../../lib/errors.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
+import { approvalsNeeded } from './approvals.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
 
 /**
@@ -43,7 +44,7 @@ export function createSaleQuoteRoutes({ prisma, config }) {
       },
       handler: async ({ input }) => {
         const { lines } =
-          /** @type {{ lines: { stockId: number, quantity: number, discountPercent: number }[] }} */ (
+          /** @type {{ lines: { stockId: number, quantity: number, discountPercent: number, labelPrice?: string }[] }} */ (
             input.body
           );
         const pharmacyId = await currentPharmacyId(prisma, config);
@@ -70,13 +71,22 @@ export function createSaleQuoteRoutes({ prisma, config }) {
         const inputs = lines.map((line) => {
           const batch = /** @type {Record<string, any>} */ (batches.get(line.stockId));
           return {
-            labelPrice: Number(batch.labelPrice ?? 0),
+            labelPrice: line.labelPrice ?? Number(batch.labelPrice ?? 0),
             quantity: line.quantity,
             discountPercent: line.discountPercent,
             vatPercent: Number(batch.vatPercent ?? 0),
+            // Costs only tell whether a line is below cost; they never leave the server.
+            unitCost: batch.unitCost === null ? null : Number(batch.unitCost),
+            costDiscountPercent: Number(batch.costDiscountPercent ?? 0),
           };
         });
         const priced = priceBill(inputs, { roundingStep: config.sales.roundingStep });
+        const approvals = approvalsNeeded(
+          lines,
+          batches,
+          priced.lines,
+          config.sales.selfDiscountLimit,
+        );
 
         return {
           data: {
@@ -105,12 +115,14 @@ export function createSaleQuoteRoutes({ prisma, config }) {
                 vatPercent: inputs[index].vatPercent,
                 taxCode: textOrNull(batch.taxCode),
                 labelPrice: moneyToString(roundMoney(inputs[index].labelPrice)),
+                batchLabelPrice: moneyToString(roundMoney(Number(batch.labelPrice ?? 0))),
                 unitPrice,
                 gross,
                 discount,
                 vat,
                 amount,
                 warnings: /** @type {any} */ (warnings),
+                needsApproval: /** @type {any} */ (approvals[index].reasons),
               };
             }),
             totals: {
