@@ -113,3 +113,51 @@ export const creditNoteLookupSchema = creditNoteSchema.extend({
   /** Why it cannot pay for anything, when it cannot. */
   problem: text,
 });
+
+/** A return in the day's list. Returns made in the legacy app have no approver or receipt here. */
+export const returnSummarySchema = z.object({
+  id: z.number().int(),
+  code: z.string(),
+  /** When it was made; legacy returns only have a date. */
+  at: text,
+  billId: z.number().int(),
+  billCode: text,
+  customerName: text,
+  lineCount: z.number().int(),
+  refund: z.string(),
+  refundMethod: z.enum(Object.values(REFUND_METHODS)).nullable(),
+  reason: text,
+  requestedBy: text,
+  approvedBy: text,
+  /** Made in the new app, so its receipt can be printed again. */
+  hasReceipt: z.boolean(),
+});
+
+export const returnDayQuerySchema = z.object({ date: z.iso.date('Use the format YYYY-MM-DD') });
+
+/** Where a credit note stands. */
+export const CREDIT_NOTE_STATES = Object.freeze({
+  OPEN: 'open',
+  USED_UP: 'usedUp',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled',
+});
+
+export const creditNoteSummarySchema = creditNoteSchema.extend({
+  issuedOn: text,
+  state: z.enum(Object.values(CREDIT_NOTE_STATES)),
+});
+
+export const creditNoteListFiltersShape = Object.freeze({
+  state: z.enum(Object.values(CREDIT_NOTE_STATES)).optional(),
+});
+
+/** One time a credit note paid for a bill. */
+export const creditNoteUseSchema = z.object({
+  billId: z.number().int(),
+  billCode: text,
+  usedAt: z.string(),
+  amount: z.string(),
+  balanceAfter: z.string(),
+  usedBy: text,
+});

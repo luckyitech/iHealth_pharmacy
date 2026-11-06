@@ -5,7 +5,10 @@ import {
   idParamsSchema,
   returnableBillSchema,
   returnBodySchema,
+  returnDayQuerySchema,
+  returnSummarySchema,
 } from '@ihealth/shared/schemas';
+import { z } from 'zod';
 
 import { defineRoute } from '../../http/define-route.js';
 import { notFound } from '../../lib/errors.js';
@@ -14,6 +17,7 @@ import { getAuth } from '../auth/auth.guards.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { renderReturnReceipt } from './return-receipt-pdf.js';
 import { createReturnService } from './returns.js';
+import { createReturnsRepository } from './returns.repository.js';
 
 const TAGS = ['Sales'];
 const RESOURCE = 'sales/returns';
@@ -27,6 +31,7 @@ const RESOURCE = 'sales/returns';
  */
 export function createReturnRoutes({ prisma, audit, config }) {
   const returns = createReturnService({ prisma, config });
+  const lists = createReturnsRepository(prisma);
   const money = new Intl.NumberFormat(config.region.locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -53,6 +58,21 @@ export function createReturnRoutes({ prisma, audit, config }) {
   };
 
   return [
+    defineRoute({
+      method: 'get',
+      path: '/sales/returns',
+      summary: "A day's returns, the legacy app's included",
+      tags: TAGS,
+      permissions: POLICIES.sales.read,
+      request: { query: returnDayQuerySchema },
+      responses: {
+        200: { description: 'Returns', schema: dataResponseSchema(z.array(returnSummarySchema)) },
+      },
+      handler: async ({ input }) => ({
+        data: await lists.ofDay(input.query.date, await currentPharmacyId(prisma, config)),
+      }),
+    }),
+
     defineRoute({
       method: 'get',
       path: '/sales/bills/:id/returnable',

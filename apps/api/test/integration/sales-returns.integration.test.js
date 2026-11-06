@@ -388,3 +388,69 @@ describe('paying with a credit note', () => {
     expect((await lookUp('DPCN0101250001')).balance).toBe('0.00');
   });
 });
+
+describe('the Returns page', () => {
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let cashier;
+
+  beforeAll(async () => {
+    const agent = request.agent(app);
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'test.cashier', password: 'Test-Cashier-Pass-1' });
+    cashier = { agent, csrf: login.body.data.csrfToken };
+  });
+
+  it("lists the day's returns, the legacy app's included", async () => {
+    const [today] =
+      await db.select`SELECT CAST(MAX(SALES_RETURN_DATE) AS CHAR) AS day FROM sales_return`;
+    const [bill] = await db.select`SELECT BILL_ID AS id FROM sales WHERE BILL_CODE = 'OLD-1'`;
+    await db.prisma.$executeRaw`
+      INSERT INTO sales_return (SALES_RETURN_NO, SALES_RETURN_DATE, STATUS, BILL_ID, TOTAL_AMOUNT, PAYMENT_TYPE_ID, PHARMACY_ID, REMARKS, ACTIVE_S)
+      VALUES ('LEGACY-SR-1', ${today.day}, 'Approved', ${bill.id}, 50, 3, 1, 'Wrong medicine', 'Y')`;
+    const response = await cashier.agent.get(`${API}/returns`).query({ date: today.day });
+    const rows = response.body.data;
+    expect(rows.map((/** @type {any} */ r) => [r.refundMethod, r.hasReceipt])).toEqual([
+      ['cash', true],
+      ['creditNote', true],
+      ['mpesa', false],
+    ]);
+    expect(rows[0]).toMatchObject({
+      approvedBy: 'Ada Admin',
+      requestedBy: 'Carl Cashier',
+      lineCount: 2,
+    });
+    expect(rows[2]).toMatchObject({
+      code: 'LEGACY-SR-1',
+      approvedBy: null,
+      reason: 'Wrong medicine',
+    });
+  });
+
+  it('lists credit notes with where each stands, and each time one was used', async () => {
+    const list = async (/** @type {Record<string, string>} */ query = {}) =>
+      (await cashier.agent.get(`${API}/credit-notes`).query(query)).body;
+    const all = await list();
+    const states = Object.fromEntries(all.data.map((/** @type {any} */ n) => [n.code, n.state]));
+    expect(states).toMatchObject({
+      [noteCode]: 'usedUp',
+      DPCN0101250001: 'usedUp',
+      DPCN0101250002: 'expired',
+    });
+    // Supplier notes are not shown.
+    expect(states.DPCN0101250003).toBeUndefined();
+    expect((await list({ state: 'expired' })).data.map((/** @type {any} */ n) => n.code)).toEqual([
+      'DPCN0101250002',
+    ]);
+    expect((await list({ q: 'jane' })).data.map((/** @type {any} */ n) => n.code)).toContain(
+      noteCode,
+    );
+
+    const uses = (await cashier.agent.get(`${API}/credit-notes/${noteCode}/uses`)).body.data;
+    expect(uses.map((/** @type {any} */ u) => [u.amount, u.balanceAfter])).toEqual([
+      ['100.00', (Number(noteAmount) - 100).toFixed(2)],
+      [(Number(noteAmount) - 100).toFixed(2), '0.00'],
+    ]);
+    expect(uses[0].usedBy).toBe('Carl Cashier');
+  });
+});
