@@ -130,6 +130,11 @@ describe('completing a sale', () => {
       change: '32.00',
     });
     expect(response.body.data.code).toMatch(/^DPSB\d{6}0001$/);
+    // Both prices come back: the shelf price (SP_VAT) and the price before VAT.
+    expect(response.body.data.lines[0]).toMatchObject({
+      labelPrice: '116.00',
+      unitPrice: '100.00',
+    });
 
     const lines =
       await db.select`SELECT SALE_QTY AS qty, UNIT_SALE_PRICE AS unit, SP_VAT AS label, SALE_AMOUNT AS amount, PNL AS pnl, VAT AS vat FROM sales_items WHERE BILL_ID = ${response.body.data.id} ORDER BY SALES_ITEMS_ID`;

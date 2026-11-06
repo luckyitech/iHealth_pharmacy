@@ -5,6 +5,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { useFormat } from '@/lib/format';
 
 import { KEY_LABELS } from './till-keys.js';
+import { SALES_LABELS } from '../labels.js';
 
 /**
  * @typedef {import('./till-api.js').SaleQuote['totals']} QuoteTotals
@@ -26,14 +27,16 @@ export function SaleTotals({ totals, lineCount, units, updating, blocked, onPay 
   const format = useFormat();
   /** @type {[string, string][]} */
   const rows = [
+    // The names staff know from the legacy billing screen.
+    [SALES_LABELS.TOTAL_ITEMS, String(lineCount)],
+    [SALES_LABELS.TOTAL_QTY, String(units)],
+    [SALES_LABELS.TOTAL_AMOUNT, format.money(totals.gross)],
     [
-      'Items',
-      `${lineCount} ${lineCount === 1 ? 'line' : 'lines'} · ${units} ${units === 1 ? 'unit' : 'units'}`,
+      SALES_LABELS.TOTAL_DISCOUNT,
+      Number(totals.discount) ? `−${format.money(totals.discount)}` : format.money(0),
     ],
-    ['Before discount', format.money(totals.gross)],
-    ['Discount', Number(totals.discount) ? `−${format.money(totals.discount)}` : format.money(0)],
-    ['VAT included', format.money(totals.vat)],
-    ['Rounded', format.money(totals.roundedOff)],
+    [SALES_LABELS.VAT, format.money(totals.vat)],
+    [SALES_LABELS.ROUND_OFF, format.money(totals.roundedOff)],
   ];
   return (
     <section aria-label="Totals" className="grid gap-3 rounded-lg border bg-card p-4">
@@ -46,7 +49,7 @@ export function SaleTotals({ totals, lineCount, units, updating, blocked, onPay 
         ))}
       </dl>
       <div className="flex items-baseline justify-between gap-4 border-t pt-3">
-        <span className="text-sm font-medium">To pay</span>
+        <span className="text-sm font-medium">{SALES_LABELS.NET_AMOUNT}</span>
         <output aria-live="polite" className="text-3xl font-bold tracking-tight tabular-nums">
           {format.money(totals.net)}
         </output>

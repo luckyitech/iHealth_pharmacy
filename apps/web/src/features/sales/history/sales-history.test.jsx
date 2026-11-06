@@ -128,6 +128,11 @@ describe('Sales history', () => {
     expect(within(dialog).getByText('Expired when sold')).toBeInTheDocument();
     expect(within(dialog).getByText('AB12')).toBeInTheDocument();
     expect(within(dialog).getByText('Old data to check')).toBeInTheDocument();
+    // The names staff know from the legacy screens, with both prices.
+    expect(within(dialog).getByRole('columnheader', { name: 'S.Price (Inc)' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('columnheader', { name: 'S Price' })).toBeInTheDocument();
+    expect(within(dialog).getByText('580.00', { exact: false })).toBeInTheDocument();
+    expect(within(dialog).getByText('Net Amount')).toBeInTheDocument();
   });
 
   it('says so when a bill cannot be opened, with the reference for support', async () => {

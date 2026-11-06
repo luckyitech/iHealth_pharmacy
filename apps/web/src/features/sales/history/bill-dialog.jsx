@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { FLAG_LABELS, METHOD_LABELS } from './bill-labels.js';
 import { BillStatus } from './bill-status.jsx';
 import { openReceipt, useBill } from './sales-api.js';
+import { SALES_LABELS } from '../labels.js';
 
 /**
  * @param {{ label: string, children: React.ReactNode }} props
@@ -112,13 +113,22 @@ export function BillDialog({ id, onClose }) {
                   <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">Item</th>
-                      <th className="px-3 py-2 font-medium">Batch</th>
+                      <th className="px-3 py-2 font-medium">{SALES_LABELS.BATCH_NO}</th>
                       <th className="px-3 py-2 font-medium">Expiry</th>
-                      <th className="px-3 py-2 text-right font-medium">Qty</th>
-                      <th className="px-3 py-2 text-right font-medium">Price</th>
-                      <th className="px-3 py-2 text-right font-medium">Disc.</th>
-                      <th className="px-3 py-2 text-right font-medium">VAT</th>
-                      <th className="px-3 py-2 text-right font-medium">Amount</th>
+                      <th className="px-3 py-2 text-right font-medium">{SALES_LABELS.QTY}</th>
+                      <th className="px-3 py-2 text-right font-medium">
+                        {SALES_LABELS.PRICE_WITH_VAT}
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium">
+                        {SALES_LABELS.PRICE_BEFORE_VAT}
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium">
+                        {SALES_LABELS.SALE_DISCOUNT}
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium">{SALES_LABELS.TAX}</th>
+                      <th className="px-3 py-2 text-right font-medium">
+                        {SALES_LABELS.TOTAL_AMOUNT}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -145,6 +155,9 @@ export function BillDialog({ id, onClose }) {
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{line.quantity}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {line.labelPrice === null ? '—' : format.money(line.labelPrice)}
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {format.money(line.unitPrice)}
                         </td>
@@ -204,10 +217,10 @@ export function BillDialog({ id, onClose }) {
                 </h3>
                 <dl className="grid gap-1 text-sm">
                   {[
-                    ['Total', data.totals.gross],
-                    ['Discount', data.totals.discount],
-                    ['VAT', data.totals.vat],
-                    ['Rounded off', data.totals.roundedOff],
+                    [SALES_LABELS.TOTAL_AMOUNT, data.totals.gross],
+                    [SALES_LABELS.TOTAL_DISCOUNT, data.totals.discount],
+                    [SALES_LABELS.VAT, data.totals.vat],
+                    [SALES_LABELS.ROUND_OFF, data.totals.roundedOff],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-3">
                       <dt className="text-muted-foreground">{label}</dt>
@@ -215,15 +228,15 @@ export function BillDialog({ id, onClose }) {
                     </div>
                   ))}
                   <div className="flex justify-between gap-3 border-t pt-1 font-semibold">
-                    <dt>Net</dt>
+                    <dt>{SALES_LABELS.NET_AMOUNT}</dt>
                     <dd className="tabular-nums">{format.money(data.totals.net)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">Paid</dt>
+                    <dt className="text-muted-foreground">{SALES_LABELS.AMOUNT_PAID}</dt>
                     <dd className="tabular-nums">{format.money(data.totals.paid)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">Balance</dt>
+                    <dt className="text-muted-foreground">{SALES_LABELS.BALANCE}</dt>
                     <dd className="tabular-nums">{format.money(data.totals.balance)}</dd>
                   </div>
                 </dl>

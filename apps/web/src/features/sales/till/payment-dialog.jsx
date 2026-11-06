@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { METHOD_LABELS } from '../history/bill-labels.js';
 import { newRow, previewPayment, problemKey, quickAmounts, TILL_METHODS } from './payment.js';
 import { KEY_LABELS } from './till-keys.js';
+import { SALES_LABELS } from '../labels.js';
 
 /** Alt and a number add (or go to) each way of paying, in the order of TILL_METHODS. */
 const METHOD_KEYS = Object.freeze(TILL_METHODS.map((_, index) => `Digit${index + 1}`));
@@ -371,7 +372,7 @@ function PaymentForm({ formRef, net, rules, pending, serverErrors, onBack, onSub
   return (
     <form ref={formRef} className="grid gap-4" onSubmit={submit} noValidate>
       <div className="flex items-baseline justify-between rounded-lg bg-muted px-4 py-3">
-        <span className="text-sm">To pay</span>
+        <span className="text-sm">{SALES_LABELS.NET_AMOUNT}</span>
         <span className="text-3xl font-bold tabular-nums">{format.money(net)}</span>
       </div>
 

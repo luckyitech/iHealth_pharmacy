@@ -17,6 +17,7 @@ import { useResourceList } from '@/lib/resource-api';
 import { BillDialog } from './bill-dialog.jsx';
 import { BillStatus } from './bill-status.jsx';
 import { FLAG_LABELS, METHOD_LABELS, optionsOf, STATUS_LABELS } from './bill-labels.js';
+import { SALES_LABELS } from '../labels.js';
 import { BILLS, useCashiers } from './sales-api.js';
 
 /** URL parameter of the bill open in the dialog. */
@@ -90,7 +91,7 @@ export default function SalesHistoryPage() {
   const columns = [
     {
       id: 'code',
-      header: 'Bill',
+      header: SALES_LABELS.BILL_CODE,
       sortable: true,
       cell: (row) => (
         <span className="grid gap-0.5">
@@ -111,13 +112,13 @@ export default function SalesHistoryPage() {
     },
     {
       id: 'billDate',
-      header: 'Date',
+      header: SALES_LABELS.BILL_DATE,
       sortable: true,
       cell: (row) => format.dateTime(row.createdAt ?? row.billDate),
     },
     {
       id: 'customerName',
-      header: 'Customer',
+      header: SALES_LABELS.CUSTOMER_NAME,
       cell: (row) => (
         <span className="grid gap-0.5">
           <span>{row.customerName ?? '—'}</span>
@@ -127,7 +128,7 @@ export default function SalesHistoryPage() {
         </span>
       ),
     },
-    { id: 'cashierName', header: 'Cashier', cell: (row) => row.cashierName ?? '—' },
+    { id: 'cashierName', header: SALES_LABELS.SALES_PERSON, cell: (row) => row.cashierName ?? '—' },
     {
       id: 'paymentMethods',
       header: 'Paid by',
@@ -143,12 +144,16 @@ export default function SalesHistoryPage() {
     },
     {
       id: 'totalPaid',
-      header: 'Total paid',
+      header: SALES_LABELS.TOTAL_PAID,
       sortable: true,
       className: 'text-right tabular-nums',
       cell: (row) => format.money(row.totalPaid),
     },
-    { id: 'status', header: 'Status', cell: (row) => <BillStatus status={row.status} /> },
+    {
+      id: 'status',
+      header: SALES_LABELS.PAYMENT_STATUS,
+      cell: (row) => <BillStatus status={row.status} />,
+    },
   ];
 
   return (
