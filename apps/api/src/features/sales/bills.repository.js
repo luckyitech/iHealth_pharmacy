@@ -320,7 +320,7 @@ export function createBillsRepository(prisma) {
       const lines = await prisma.$queryRaw`
         SELECT i.SALES_ITEMS_ID AS id, i.ITEM_ID AS itemId, it.ITEM_NM AS itemName, it.ITEM_CD AS itemCode,
           COALESCE(i.BATCH_NO, st.BATCH_NO) AS batchNo, CAST(st.EXPIRY_DT AS CHAR) AS expiryDate,
-          i.SALE_QTY AS quantity, i.UNIT_SALE_PRICE AS unitPrice, i.MRP AS labelPrice,
+          i.SALE_QTY AS quantity, i.UNIT_SALE_PRICE AS unitPrice, COALESCE(i.SP_VAT, i.MRP) AS labelPrice,
           i.DISCOUNT_PERCENTAGE AS discountPercent, i.VAT AS vatPercent, i.SALE_AMOUNT AS amount,
           tc.CATEGORY_CODE AS taxCode
         FROM sales_items i

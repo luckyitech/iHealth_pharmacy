@@ -4,6 +4,7 @@ import { Minus, Percent, Plus, ScanBarcode, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFormat } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { SALES_LABELS } from '../labels.js';
 
 /**
  * @typedef {import('./till-state.js').TillLine} TillLine
@@ -48,16 +49,16 @@ export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount }) {
               Item
             </th>
             <th scope="col" className="px-3 py-2.5 text-right font-medium">
-              Qty
+              {SALES_LABELS.QTY}
             </th>
             <th scope="col" className="hidden px-3 py-2.5 text-right font-medium md:table-cell">
-              Price
+              {SALES_LABELS.PRICE_WITH_VAT}
             </th>
             <th scope="col" className="hidden px-3 py-2.5 text-right font-medium md:table-cell">
-              Disc %
+              {SALES_LABELS.SALE_DISCOUNT}
             </th>
             <th scope="col" className="px-3 py-2.5 text-right font-medium">
-              Amount
+              {SALES_LABELS.TOTAL_AMOUNT}
             </th>
             <th scope="col" className="w-10 px-2 py-2.5">
               <span className="sr-only">Remove</span>

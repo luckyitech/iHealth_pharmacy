@@ -42,6 +42,7 @@ import {
 import { problemKey } from './payment.js';
 import { KEY_LABELS, TILL_KEYS } from './till-keys.js';
 import { customerForApi, linesForApi, newSale, tillReducer, ZERO_TOTALS } from './till-state.js';
+import { SALES_LABELS } from '../labels.js';
 
 /** Held sales listed beside the till; the rest are in the Held sales window. */
 const HELD_SHOWN = 4;
@@ -444,7 +445,8 @@ export default function SalesScreenPage() {
       <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-6px_20px_rgb(0_0_0/0.08)] sm:px-6 lg:hidden">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground">
-            {state.lines.length} {state.lines.length === 1 ? 'line' : 'lines'} · to pay
+            {SALES_LABELS.NET_AMOUNT} · {state.lines.length}{' '}
+            {state.lines.length === 1 ? 'item' : 'items'}
           </p>
           <p className="text-2xl font-bold tabular-nums">{format.money(totals.net)}</p>
         </div>
