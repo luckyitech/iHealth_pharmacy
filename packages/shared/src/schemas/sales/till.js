@@ -115,6 +115,8 @@ export const tillSettingsSchema = z.object({
   cancelReasons: z.array(z.string()),
   /** The kinds of medicine the till marks, as the pharmacy names them. */
   medicineTypes: z.array(medicineTypeSchema),
+  /** Whether a controlled drug needs the register's details before it can be paid. */
+  controlledDrugRules: z.boolean(),
   /** Largest prescription photo the server keeps, in kilobytes. */
   prescriptionPhotoMaxKb: z.number().int(),
 });

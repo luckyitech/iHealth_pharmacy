@@ -12,6 +12,7 @@ import { MEDICINE_KINDS, PAYMENT_METHODS } from '@ihealth/shared/schemas';
 
 import { forbidden, validationFailed } from '../../lib/errors.js';
 import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-codes.js';
+import { createPharmacySettings } from '../masters/pharmacy-settings.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
 import { approvalsNeeded, createApprovalService, linesHash } from './approvals.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
@@ -278,6 +279,7 @@ async function assertChequeAcceptable(tx, payments, { permissionIds, today, maxA
  */
 export function createSaleService({ prisma, config }) {
   const approvals = createApprovalService({ prisma, config });
+  const pharmacySettings = createPharmacySettings(prisma, config);
   /**
    * @param {string} requestKey
    * @returns {Promise<number | null>} The bill already saved for this request.
@@ -393,7 +395,9 @@ export function createSaleService({ prisma, config }) {
                 /** @type {Record<string, any>} */ (batches.get(line.stockId)).scheduleCode,
               ) === MEDICINE_KINDS.CONTROLLED,
           );
-          if (controlled.length)
+          // A pharmacy that turned the rules off sells controlled drugs as the legacy app did.
+          const { controlledDrugRules } = await pharmacySettings.sales(pharmacyId);
+          if (controlled.length && controlledDrugRules)
             assertControlledDetails(
               { name: customerName, phone: customerPhone },
               input.prescription,
@@ -513,7 +517,7 @@ export function createSaleService({ prisma, config }) {
                 PATIENT_NAME, PATIENT_PHONE, PATIENT_ID_NUMBER, DOCTOR_ID, PRESCRIBED_ON, EMPLOYEE_ID)
               VALUES (${pharmacyId}, ${bill.billId}, ${Number(batch.itemId)}, ${line.stockId},
                 ${line.quantity}, ${customerName}, ${customerPhone},
-                ${input.prescription?.patientIdNumber?.toUpperCase()}, ${prescription.doctorId},
+                ${input.prescription?.patientIdNumber?.toUpperCase() ?? null}, ${prescription.doctorId},
                 ${prescription.prescribedOn}, ${employeeId})`;
           }
 

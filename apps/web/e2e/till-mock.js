@@ -157,7 +157,7 @@ const DOCTORS = Object.freeze([
 /**
  * State both tills share, like the server's database.
  *
- * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null, lastSale: Record<string, any> | null, doctors: { id: number, name: string, licenseNumber: string | null, hospitalId: number | null, hospitalName: string | null }[], lastLabels: Record<string, any> | null }}
+ * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null, lastSale: Record<string, any> | null, doctors: { id: number, name: string, licenseNumber: string | null, hospitalId: number | null, hospitalName: string | null }[], lastLabels: Record<string, any> | null, controlledDrugRules: boolean }}
  */
 export const createTillServer = () => ({
   held: new Map(),
@@ -167,6 +167,8 @@ export const createTillServer = () => ({
   /** @type {Record<string, any> | null} The last sale completed, as the till sent it. */ lastSale:
     null,
   doctors: [...DOCTORS],
+  /** Whether the pharmacy requires the register's details for controlled drugs. */
+  controlledDrugRules: true,
   /** @type {Record<string, any> | null} The last labels printed, as the till sent them. */ lastLabels:
     null,
 });
@@ -243,6 +245,7 @@ export async function mockTillApi(page, server) {
             { kind: 'antibiotic', code: 'H1', name: 'Antibiotic' },
           ],
           prescriptionPhotoMaxKb: 500,
+          controlledDrugRules: server.controlledDrugRules,
         },
       });
     if (key === 'GET sales/doctors') {

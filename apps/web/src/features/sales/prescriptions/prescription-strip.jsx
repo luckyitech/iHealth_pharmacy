@@ -25,6 +25,8 @@ import { useDoctorSearch, useHospitalSearch } from './prescriptions-api.js';
  * @param {object} props
  * @param {number} props.itemCount Lines that need a prescription.
  * @param {number} props.controlledCount Lines of controlled drugs.
+ * @param {boolean} props.registerRequired The pharmacy requires the register's details (the
+ *   controlled-drug rules are on); off, they are asked for like a prescription, not required.
  * @param {import('./prescription.js').TillPrescription} props.value
  * @param {(value: import('./prescription.js').TillPrescription) => void} props.onChange
  * @param {import('../till/till-state.js').TillCustomer | null} props.customer
@@ -37,6 +39,7 @@ import { useDoctorSearch, useHospitalSearch } from './prescriptions-api.js';
 export function PrescriptionStrip({
   itemCount,
   controlledCount,
+  registerRequired,
   value,
   onChange,
   customer,
@@ -46,6 +49,7 @@ export function PrescriptionStrip({
   doctorRef,
 }) {
   const controlled = controlledCount > 0;
+  const required = controlled && registerRequired;
   const [newDoctor, setNewDoctor] = useState(/** @type {string | null} */ (null));
   const [reading, setReading] = useState(false);
   const today = wallClockNow(useAppInfo().data?.region.timeZone).slice(0, 10);
@@ -71,21 +75,26 @@ export function PrescriptionStrip({
       aria-labelledby="prescription-heading"
       className={cn(
         'grid gap-3 rounded-lg border p-4',
-        controlled ? 'border-destructive/50 bg-destructive/5' : 'border-primary/40 bg-primary/5',
+        required ? 'border-destructive/50 bg-destructive/5' : 'border-primary/40 bg-primary/5',
       )}
     >
       <div>
         <h2 id="prescription-heading" className="flex items-center gap-2 text-sm font-semibold">
           {controlled ? (
-            <ShieldAlert aria-hidden="true" className="size-4 text-destructive" />
+            <ShieldAlert
+              aria-hidden="true"
+              className={cn('size-4', required ? 'text-destructive' : 'text-primary')}
+            />
           ) : (
             <FileText aria-hidden="true" className="size-4 text-primary" />
           )}
           {controlled ? 'Controlled drug' : 'Prescription'}
           <span className="font-normal text-muted-foreground">
-            {controlled
+            {required
               ? 'required for the register'
-              : `recommended · ${itemCount} ${itemCount === 1 ? 'item needs' : 'items need'} one`}
+              : controlled
+                ? 'recommended for the register'
+                : `recommended · ${itemCount} ${itemCount === 1 ? 'item needs' : 'items need'} one`}
           </span>
         </h2>
       </div>
@@ -93,7 +102,7 @@ export function PrescriptionStrip({
       <div className="grid gap-3 sm:grid-cols-2">
         {controlled && (
           <>
-            <FormField label="Patient's name" required error={errors.customerName}>
+            <FormField label="Patient's name" required={required} error={errors.customerName}>
               {(control) => (
                 <CustomerTypeahead
                   control={control}
@@ -104,7 +113,7 @@ export function PrescriptionStrip({
                 />
               )}
             </FormField>
-            <FormField label="Phone" required error={errors.customerPhone}>
+            <FormField label="Phone" required={required} error={errors.customerPhone}>
               {(control) => (
                 <Input
                   {...control}
@@ -118,7 +127,7 @@ export function PrescriptionStrip({
             </FormField>
             <FormField
               label="ID or passport number"
-              required
+              required={required}
               error={errors.patientIdNumber}
               className="sm:col-span-2 sm:max-w-[calc(50%-0.375rem)]"
             >
@@ -135,7 +144,7 @@ export function PrescriptionStrip({
         <LookupPicker
           label="Doctor"
           placeholder="Name or licence number"
-          required={controlled}
+          required={required}
           error={errors.doctorId}
           inputRef={doctorRef}
           value={value.doctor}
@@ -165,7 +174,7 @@ export function PrescriptionStrip({
           empty="No hospital found"
           error={errors.hospitalId}
         />
-        <FormField label="Prescription date" required={controlled} error={errors.prescribedOn}>
+        <FormField label="Prescription date" required={required} error={errors.prescribedOn}>
           {(control) => (
             <Input
               {...control}

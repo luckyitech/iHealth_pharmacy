@@ -23,6 +23,7 @@ import { errorMessage } from '@/lib/api-error';
 import { notify } from '@/lib/notify';
 
 import { formValuesFor } from '../master-columns.jsx';
+import { SalesSettingsCard } from './sales-settings-card.jsx';
 
 const RESOURCE = 'masters/pharmacy-profile';
 const PROFILE_KEY = ['resource', RESOURCE];
@@ -162,6 +163,8 @@ export default function PharmacyProfilePage() {
           )}
         </fieldset>
       </form>
+
+      <SalesSettingsCard canWrite={canWrite} />
     </div>
   );
 }

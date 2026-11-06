@@ -115,6 +115,9 @@ const envSchema = z.object({
   MEDICINE_NAME_CONTROLLED: z.string().trim().min(1).default('Controlled'),
   MEDICINE_CODE_ANTIBIOTIC: z.string().trim().min(1).default('H1'),
   MEDICINE_NAME_ANTIBIOTIC: z.string().trim().min(1).default('Antibiotic'),
+  // Whether controlled drugs need the register's details, until a pharmacy chooses on the Pharmacy
+  // profile screen.
+  SALES_CONTROLLED_DRUG_RULES: booleanString.default(true),
   // Printed on every dosing sticker when the legacy label setting has no closing line.
   LABEL_WARNING: z.string().trim().default('Keep out of reach and sight of children'),
   // Largest prescription photo kept with a bill, in kilobytes (the till makes photos smaller first).
@@ -148,7 +151,7 @@ const BYTES_PER_KB = 1024;
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, controlledDrugRules: boolean, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
  * @property {{ warning: string }} labels
  * @property {{ types: ReadonlyArray<Readonly<{ kind: 'prescription' | 'controlled' | 'antibiotic', code: string, name: string }>>, photoMaxBytes: number }} medicine
@@ -228,6 +231,7 @@ export function loadConfig(env) {
       roundingStep: values.SALES_ROUNDING_STEP,
       selfDiscountLimit: values.SALES_SELF_DISCOUNT_LIMIT,
       defaultProviderId: values.SALES_DEFAULT_PROVIDER_ID,
+      controlledDrugRules: values.SALES_CONTROLLED_DRUG_RULES,
       maxHeld: values.SALES_MAX_HELD,
       searchLimit: values.SALES_SEARCH_LIMIT,
       quickCashNotes: values.SALES_QUICK_CASH_NOTES,
