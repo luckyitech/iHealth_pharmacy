@@ -68,6 +68,7 @@ const DETAIL = {
     },
   ],
   payments: [{ method: 'mpesa', amount: '1160.00', reference: 'AB12' }],
+  approvals: [],
   audit: {
     createdBy: 'Carl Cashier',
     createdAt: '2026-02-01 09:15:00',

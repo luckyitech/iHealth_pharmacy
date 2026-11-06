@@ -1,16 +1,24 @@
-import { Printer, TriangleAlert } from 'lucide-react';
+import { POLICIES } from '@ihealth/shared/permissions';
+import { BILL_STATUSES } from '@ihealth/shared/schemas';
+import { Ban, Printer, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { PageState } from '@/components/feedback/page-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { useFormat } from '@/lib/format';
+import { useAppInfo } from '@/app/use-app-info';
+import { useCurrentUser } from '@/features/auth/use-auth';
+import { usePermissions } from '@/features/auth/use-permissions';
+import { minutesBetween, useFormat, wallClockNow } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 
 import { FLAG_LABELS, METHOD_LABELS } from './bill-labels.js';
 import { BillStatus } from './bill-status.jsx';
+import { APPROVAL_KIND_LABELS, APPROVAL_REASON_TITLES } from '../approvals/approval-labels.js';
+import { useTillSettings } from '../till/till-api.js';
+import { CancelBillDialog } from './cancel-bill-dialog.jsx';
 import { openReceipt, useBill } from './sales-api.js';
 import { SALES_LABELS } from '../labels.js';
 
@@ -38,7 +46,23 @@ export function BillDialog({ id, onClose }) {
   const bill = useBill(id);
   const format = useFormat();
   const [printing, setPrinting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const data = bill.data;
+  const { hasAny } = usePermissions();
+  const canSell = hasAny(POLICIES.sales.sell);
+  const me = useCurrentUser().data;
+  const settings = useTillSettings(canSell);
+  const timeZone = useAppInfo().data?.region.timeZone;
+
+  // Only bills of today can be cancelled; the server checks every rule again.
+  const now = wallClockNow(timeZone);
+  const age = data ? (minutesBetween(now, data.createdAt) ?? 0) : 0;
+  const aloneMinutes = settings.data?.cancelAloneMinutes ?? 0;
+  const canCancel =
+    canSell &&
+    Boolean(data) &&
+    data?.status !== BILL_STATUSES.CANCELLED &&
+    data?.billDate === now.slice(0, 10);
 
   useEffect(() => {
     if (bill.error) notify.failure('Could not open the bill', bill.error, { id: `bill-${id}` });
@@ -243,6 +267,46 @@ export function BillDialog({ id, onClose }) {
               </section>
             </div>
 
+            {data.approvals.length > 0 && (
+              <section aria-labelledby="bill-approvals" className="grid gap-2">
+                <h3 id="bill-approvals" className="text-sm font-semibold">
+                  Approvals and changes
+                </h3>
+                <ul className="divide-y rounded-md border text-sm">
+                  {data.approvals.map((approval) => (
+                    <li key={approval.id} className="grid grid-cols-[auto_1fr] gap-3 px-3 py-2">
+                      <span className="text-muted-foreground tabular-nums">
+                        {format.time(approval.at)}
+                      </span>
+                      <span>
+                        <span className="font-medium">
+                          {APPROVAL_KIND_LABELS[approval.kind]}
+                          {approval.items.length > 0 &&
+                            `: ${approval.items
+                              .map(
+                                (item) =>
+                                  `${item.reasons.map((reason) => APPROVAL_REASON_TITLES[reason]).join(', ')} on ${item.itemName ?? 'an item'}`,
+                              )
+                              .join('; ')}`}
+                        </span>{' '}
+                        asked by {approval.requestedBy ?? 'unknown'}
+                        {approval.approvedBy
+                          ? `, approved by ${approval.approvedBy}`
+                          : ', within the time allowed alone'}
+                        . Reason: {approval.reason}.
+                        {Number(approval.givenAway) > 0 && approval.kind !== 'cancel' && (
+                          <span className="text-muted-foreground">
+                            {' '}
+                            Given away {format.money(approval.givenAway)}.
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <section
               aria-labelledby="bill-audit"
               className="grid gap-1 text-xs text-muted-foreground"
@@ -260,7 +324,16 @@ export function BillDialog({ id, onClose }) {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t pt-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+          {canCancel && (
+            <Button
+              variant="outline"
+              className="text-destructive sm:mr-auto"
+              onClick={() => setCancelling(true)}
+            >
+              <Ban aria-hidden="true" /> Cancel bill
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
@@ -270,6 +343,19 @@ export function BillDialog({ id, onClose }) {
           </Button>
         </div>
       </DialogContent>
+      {data && canCancel && (
+        <CancelBillDialog
+          bill={data}
+          open={cancelling}
+          onOpenChange={setCancelling}
+          rules={{
+            alone: me?.employeeId === data.cashierId && age <= aloneMinutes,
+            ageMinutes: Math.max(age, 0),
+            aloneMinutes,
+            quickReasons: settings.data?.cancelReasons ?? [],
+          }}
+        />
+      )}
     </Dialog>
   );
 }

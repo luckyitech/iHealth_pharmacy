@@ -1,5 +1,5 @@
 import { POLICIES } from '@ihealth/shared/permissions';
-import { History, ScanBarcode } from 'lucide-react';
+import { History, ScanBarcode, ShieldCheck } from 'lucide-react';
 
 /**
  * @typedef {import('@/app/navigation').NavSubItem} NavSubItem
@@ -26,5 +26,13 @@ export const SALES_SECTIONS = Object.freeze([
     group: 'Sales',
     icon: History,
     permissions: POLICIES.sales.read,
+  },
+  {
+    id: 'sales-approvals',
+    label: 'Approvals',
+    path: '/sales/approvals',
+    group: 'Sales',
+    icon: ShieldCheck,
+    permissions: POLICIES.sales.approve,
   },
 ]);

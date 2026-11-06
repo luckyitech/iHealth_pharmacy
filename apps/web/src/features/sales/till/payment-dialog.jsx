@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import { useAppInfo } from '@/app/use-app-info';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { SHEET_ON_PHONE } from '@/components/ui/dialog-variants';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
 import { Label } from '@/components/ui/label';
@@ -97,7 +98,7 @@ export function PaymentDialog({
       <DialogContent
         title="Take payment"
         description={summary}
-        className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto max-sm:top-auto max-sm:bottom-0 max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none"
+        className={cn('max-w-2xl', SHEET_ON_PHONE)}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           /** @type {HTMLInputElement | null | undefined} */ (

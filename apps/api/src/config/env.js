@@ -91,6 +91,16 @@ const envSchema = z.object({
         .map((reason) => reason.trim())
         .filter(Boolean),
     ),
+  // Quick reasons offered when cancelling a bill (comma-separated).
+  SALES_CANCEL_REASONS: z
+    .string()
+    .default('Wrong item,Customer changed mind,Payment failed')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((reason) => reason.trim())
+        .filter(Boolean),
+    ),
   // Bank notes offered as quick amounts in the payment window, smallest first.
   SALES_QUICK_CASH_NOTES: z
     .string()
@@ -124,7 +134,7 @@ const envSchema = z.object({
  * @property {{ host: string, port: number, secure: boolean, user?: string, pass?: string, from: string }} mail
  * @property {number | undefined} pharmacyId
  * @property {string} documentCodePrefix
- * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[] }} sales
+ * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
@@ -190,6 +200,7 @@ export function loadConfig(env) {
       approvalLockMinutes: values.SALES_APPROVAL_LOCK_MINUTES,
       approvalValidMinutes: values.SALES_APPROVAL_VALID_MINUTES,
       approvalReasons: values.SALES_APPROVAL_REASONS,
+      cancelReasons: values.SALES_CANCEL_REASONS,
     }),
     region: Object.freeze({
       locale: values.APP_LOCALE,

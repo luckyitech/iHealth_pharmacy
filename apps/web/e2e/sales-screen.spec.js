@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-import { createTillServer, mockTillApi, SYRUP_BARCODE, USED_MPESA_CODE } from './till-mock.js';
+import {
+  APPROVER,
+  createTillServer,
+  mockTillApi,
+  SYRUP_BARCODE,
+  USED_MPESA_CODE,
+} from './till-mock.js';
 
 /** @type {ReturnType<typeof createTillServer>} */
 let server;
@@ -128,6 +134,39 @@ test('splits a bill between card, cheque and cash, with change only from cash', 
   const done = page.getByRole('dialog', { name: 'Sale complete' });
   await expect(done.getByText('Change Ksh 2.00')).toBeVisible();
   await expect(done.getByText(/Card/)).toBeVisible();
+});
+
+test('a discount above the limit needs a second person, never the cashier', async ({ page }) => {
+  await page.goto('/sales/new');
+  await search(page).fill('2*testa');
+  await expect(page.getByRole('option').first()).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('F4');
+  const discount = page.getByRole('textbox', { name: 'Discount (%)' });
+  await discount.fill('30');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/Discount above the limit · needs approval/).first()).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.keyboard.press('F9');
+  const approval = page.getByRole('dialog', { name: 'Approval needed' });
+  await approval.getByRole('button', { name: 'Regular customer' }).click();
+  await approval.getByLabel(/Approver's username/).fill('smoke.cashier');
+  await approval.getByLabel(/Approver's PIN/).fill('0000');
+  await approval.getByRole('button', { name: /Approve and pay/ }).click();
+  await expect(
+    approval.getByText("You can't approve your own sale. Ask someone else."),
+  ).toBeVisible();
+  await expect(page.getByText('Not approved')).toBeVisible();
+
+  await approval.getByLabel(/Approver's username/).fill(APPROVER.username);
+  await approval.getByLabel(/Approver's PIN/).fill(APPROVER.pin);
+  await approval.getByRole('button', { name: /Approve and pay/ }).click();
+  const pay = page.getByRole('dialog', { name: 'Take payment' });
+  await expect(pay).toBeVisible();
+  await expect(page.getByText('Approved by Pat Pharmacist')).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Sale complete' })).toBeVisible();
 });
 
 test('asks before clearing the sale with Escape', async ({ page }) => {

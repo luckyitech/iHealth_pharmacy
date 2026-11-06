@@ -4,7 +4,21 @@ import { Minus, Percent, Plus, ScanBarcode, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFormat } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { APPROVAL_REASON_FLAGS } from '../approvals/approval-labels.js';
 import { SALES_LABELS } from '../labels.js';
+
+/** The flags once a second person has approved. */
+const APPROVED_FLAGS = Object.freeze(
+  Object.fromEntries(
+    Object.keys(APPROVAL_REASON_FLAGS).map((reason) => [
+      reason,
+      APPROVAL_REASON_FLAGS[/** @type {keyof typeof APPROVAL_REASON_FLAGS} */ (reason)].replace(
+        'needs approval',
+        'approved',
+      ),
+    ]),
+  ),
+);
 
 /**
  * @typedef {import('./till-state.js').TillLine} TillLine
@@ -21,9 +35,11 @@ import { SALES_LABELS } from '../labels.js';
  * @param {number} props.selected
  * @param {React.Dispatch<import('./till-state.js').TillAction>} props.dispatch
  * @param {(index: number) => void} props.onDiscount
+ * @param {(index: number) => void} props.onPrice
+ * @param {boolean} props.approved A second person has approved the lines as they are.
  * @returns {React.JSX.Element}
  */
-export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount }) {
+export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount, onPrice, approved }) {
   const format = useFormat();
 
   if (!lines.length) {
@@ -101,6 +117,17 @@ export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount }) {
                       <span className="font-medium text-destructive"> · expired, remove it</span>
                     )}
                   </span>
+                  {(quote?.needsApproval ?? []).map((reason) => (
+                    <span
+                      key={reason}
+                      className={cn(
+                        'mt-1 mr-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
+                        approved ? 'bg-success/15 text-success' : 'bg-warning/20 text-foreground',
+                      )}
+                    >
+                      ⚑ {approved ? APPROVED_FLAGS[reason] : APPROVAL_REASON_FLAGS[reason]}
+                    </span>
+                  ))}
                 </td>
                 <td className="px-1 py-2.5 text-right sm:px-3">
                   <span className="inline-flex items-center overflow-hidden rounded-md border bg-background">
@@ -136,7 +163,23 @@ export function SaleLines({ lines, quoteOf, selected, dispatch, onDiscount }) {
                   </span>
                 </td>
                 <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">
-                  {quote ? format.money(quote.labelPrice) : '…'}
+                  <button
+                    type="button"
+                    className="rounded px-1 tabular-nums hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    aria-label={`Change the price of ${name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      dispatch({ type: 'select', index });
+                      onPrice(index);
+                    }}
+                  >
+                    {quote && quote.labelPrice !== quote.batchLabelPrice && (
+                      <span className="mr-1 text-muted-foreground line-through">
+                        {format.money(quote.batchLabelPrice)}
+                      </span>
+                    )}
+                    {quote ? format.money(quote.labelPrice) : '…'}
+                  </button>
                 </td>
                 <td className="hidden px-3 py-2.5 text-right md:table-cell">
                   <Button

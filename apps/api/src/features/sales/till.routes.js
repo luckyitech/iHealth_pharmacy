@@ -55,6 +55,7 @@ export function createTillRoutes({ prisma, audit, config }) {
           chequeMaxAgeMonths: config.sales.chequeMaxAgeMonths,
           cancelAloneMinutes: config.sales.cancelAloneMinutes,
           approvalReasons: config.sales.approvalReasons,
+          cancelReasons: config.sales.cancelReasons,
           canAcceptCheques: hasAnyPermission(
             getAuth(res).permissionIds,
             POLICIES.sales.acceptCheque,

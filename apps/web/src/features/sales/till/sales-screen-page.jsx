@@ -19,11 +19,14 @@ import { useFormat } from '@/lib/format';
 import { notify } from '@/lib/notify';
 
 import { openReceipt } from '../history/sales-api.js';
+import { approvalErrorsOf } from '../approvals/approval-entry.js';
+import { ApprovalDialog } from './approval-dialog.jsx';
 import { CustomerDialog } from './customer-dialog.jsx';
 import { DiscountDialog } from './discount-dialog.jsx';
 import { HeldSaleRow, HeldSalesDialog } from './held-sales-dialog.jsx';
 import { ItemSearch } from './item-search.jsx';
 import { PaymentDialog } from './payment-dialog.jsx';
+import { PriceDialog } from './price-dialog.jsx';
 import { SaleDoneDialog } from './sale-done-dialog.jsx';
 import { SaleLines } from './sale-lines.jsx';
 import { SaleTotals } from './sale-totals.jsx';
@@ -36,6 +39,7 @@ import {
   useHoldSale,
   useQuote,
   useRecallSale,
+  useApproveSale,
   useBanks,
   useTillSettings,
 } from './till-api.js';
@@ -47,7 +51,7 @@ import { SALES_LABELS } from '../labels.js';
 /** Held sales listed beside the till; the rest are in the Held sales window. */
 const HELD_SHOWN = 4;
 
-/** @typedef {'pay' | 'customer' | 'discount' | 'held' | null} OpenDialog */
+/** @typedef {'pay' | 'customer' | 'discount' | 'price' | 'approval' | 'held' | null} OpenDialog */
 
 /**
  * Which payment field a server problem belongs to, keyed like the payment window's problems.
@@ -92,6 +96,11 @@ export default function SalesScreenPage() {
     /** @type {import('./till-api.js').CompletedSale | null} */ (null),
   );
   const [paymentErrors, setPaymentErrors] = useState({});
+  /** A second person's approval, for the lines exactly as they were approved. */
+  const [approval, setApproval] = useState(
+    /** @type {{ token: string, key: string } | null} */ (null),
+  );
+  const [approvalErrors, setApprovalErrors] = useState({});
   const searchRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const { ask, dialog: confirmDialog } = useConfirm();
 
@@ -104,6 +113,7 @@ export default function SalesScreenPage() {
   const hold = useHoldSale();
   const recall = useRecallSale();
   const discard = useDiscardHeldSale();
+  const approve = useApproveSale();
 
   useEffect(() => {
     if (quote.error)
@@ -126,6 +136,10 @@ export default function SalesScreenPage() {
   else if (quote.error) blocked = 'The prices could not be worked out. Check the lines.';
   else if (current) blocked = lineProblem(current);
 
+  const linesKey = JSON.stringify(lines);
+  const approvedToken = approval?.key === linesKey ? approval.token : null;
+  const toApprove = (current?.lines ?? []).filter((line) => line.needsApproval.length);
+
   const customerName = state.customer?.name ?? 'Walk-in';
   const selectedLine = state.lines[state.selected];
   const quoteOf = (/** @type {number} */ index) =>
@@ -146,13 +160,47 @@ export default function SalesScreenPage() {
         return;
       }
     }
-    const problem = lineProblem(/** @type {import("./till-api.js").SaleQuote} */ (priced));
+    const sale = /** @type {import("./till-api.js").SaleQuote} */ (priced);
+    const problem = lineProblem(sale);
     if (problem) {
       notify.info(problem, { id: 'till-blocked' });
       return;
     }
+    // What a cashier may not do alone is approved first; then the payment window opens.
+    if (sale.lines.some((line) => line.needsApproval.length) && !approvedToken) {
+      setApprovalErrors({});
+      setDialog('approval');
+      return;
+    }
     setPaymentErrors({});
     setDialog('pay');
+  };
+
+  /**
+   * @param {import('../approvals/approval-fields.jsx').ApprovalEntry} entry
+   * @returns {void}
+   */
+  const submitApproval = (entry) => {
+    approve.mutate(
+      { lines, reason: entry.reason.trim(), approver: entry.approver.trim(), pin: entry.pin },
+      {
+        onSuccess: (granted) => {
+          setApproval({ token: granted.token, key: linesKey });
+          notify.success(`Approved by ${granted.approvedBy}`);
+          setPaymentErrors({});
+          setDialog('pay');
+        },
+        onError: (error) => {
+          setApprovalErrors(approvalErrorsOf(error));
+          const details = isApiError(error) ? (error.details ?? []) : [];
+          notify.failure('Not approved', error, {
+            description: details.length
+              ? details.map((detail) => detail.message).join('. ')
+              : undefined,
+          });
+        },
+      },
+    );
   };
 
   /**
@@ -161,11 +209,18 @@ export default function SalesScreenPage() {
    */
   const submitPayment = (payments) => {
     complete.mutate(
-      { requestKey: state.requestKey, lines, ...customerForApi(state.customer), payments },
+      {
+        requestKey: state.requestKey,
+        lines,
+        ...customerForApi(state.customer),
+        payments,
+        ...(approvedToken ? { approvalToken: approvedToken } : {}),
+      },
       {
         onSuccess: (sale) => {
           setDialog(null);
           setDone(sale);
+          setApproval(null);
           dispatch({ type: 'clear' });
         },
         onError: (error) => {
@@ -277,6 +332,7 @@ export default function SalesScreenPage() {
       [TILL_KEYS.SEARCH]: focusSearch,
       [TILL_KEYS.CUSTOMER]: () => setDialog('customer'),
       [TILL_KEYS.DISCOUNT]: () => selectedLine && setDialog('discount'),
+      [TILL_KEYS.PRICE]: () => selectedLine && setDialog('price'),
       [TILL_KEYS.PAY]: () => void pay(),
     };
     if (event.key === TILL_KEYS.HOLD) {
@@ -368,6 +424,8 @@ export default function SalesScreenPage() {
           selected={state.selected}
           dispatch={dispatch}
           onDiscount={() => setDialog('discount')}
+          onPrice={() => setDialog('price')}
+          approved={Boolean(approvedToken)}
         />
         {state.lines.length > 0 && (
           <p className="hidden flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground sm:flex">
@@ -380,6 +438,9 @@ export default function SalesScreenPage() {
             </span>
             <span>
               <Kbd decorative>{KEY_LABELS.DISCOUNT}</Kbd> discount
+            </span>
+            <span>
+              <Kbd decorative>{KEY_LABELS.PRICE}</Kbd> price
             </span>
             <span>
               <Kbd decorative>Del</Kbd> remove
@@ -396,6 +457,8 @@ export default function SalesScreenPage() {
           updating={updating}
           blocked={blocked}
           onPay={() => void pay()}
+          toApprove={toApprove.length}
+          approved={Boolean(approvedToken)}
         />
         <section aria-label="Held sales" className="rounded-lg border bg-card p-4">
           <h2 className="mb-1 text-sm font-semibold">Held sales</h2>
@@ -425,6 +488,7 @@ export default function SalesScreenPage() {
               [KEY_LABELS.SEARCH, 'Find an item'],
               [KEY_LABELS.CUSTOMER, 'Customer'],
               [KEY_LABELS.DISCOUNT, 'Discount on the selected line'],
+              [KEY_LABELS.PRICE, 'Change the price (needs approval)'],
               [KEY_LABELS.HOLD, 'Hold this sale'],
               [KEY_LABELS.HELD, 'Held sales'],
               [KEY_LABELS.PAY, 'Pay'],
@@ -456,7 +520,7 @@ export default function SalesScreenPage() {
           disabled={Boolean(blocked)}
           onClick={() => void pay()}
         >
-          Pay
+          {toApprove.length && !approvedToken ? 'Get approval' : 'Pay'}
         </Button>
       </div>
 
@@ -479,6 +543,32 @@ export default function SalesScreenPage() {
         open={dialog === 'customer'}
         onOpenChange={(open) => setDialog(open ? 'customer' : null)}
         onChoose={(customer) => dispatch({ type: 'setCustomer', customer })}
+      />
+      <ApprovalDialog
+        open={dialog === 'approval'}
+        onOpenChange={(open) => setDialog(open ? 'approval' : null)}
+        lines={toApprove}
+        discountLimit={settings.data?.selfDiscountLimit ?? 0}
+        quickReasons={settings.data?.approvalReasons ?? []}
+        pending={approve.isPending}
+        serverErrors={approvalErrors}
+        onSubmit={submitApproval}
+      />
+      <PriceDialog
+        line={
+          dialog === 'price' && selectedLine
+            ? {
+                name: quoteOf(state.selected)?.itemName ?? selectedLine.itemName ?? 'this line',
+                shelfPrice: quoteOf(state.selected)?.batchLabelPrice ?? '0',
+                price: quoteOf(state.selected)?.labelPrice ?? '',
+              }
+            : null
+        }
+        onClose={() => setDialog(null)}
+        onSave={(labelPrice) => {
+          dispatch({ type: 'setPrice', index: state.selected, labelPrice });
+          setDialog(null);
+        }}
       />
       <DiscountDialog
         line={

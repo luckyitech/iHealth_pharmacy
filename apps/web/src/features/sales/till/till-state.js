@@ -8,6 +8,7 @@ import { MAX_LINE_QUANTITY } from '@ihealth/shared/schemas';
  * @property {string | null} itemName Shown until the server's quote names it.
  * @property {string | null} batchNo
  * @property {string | null} expiryDate
+ * @property {string} [labelPrice] A price other than the batch's (needs approval).
  */
 
 /**
@@ -30,6 +31,7 @@ import { MAX_LINE_QUANTITY } from '@ihealth/shared/schemas';
  *   | { type: 'setQuantity', index: number, quantity: number }
  *   | { type: 'step', index: number, delta: number }
  *   | { type: 'setDiscount', index: number, discountPercent: number }
+ *   | { type: 'setPrice', index: number, labelPrice: string | undefined }
  *   | { type: 'remove', index: number }
  *   | { type: 'select', index: number }
  *   | { type: 'setCustomer', customer: TillCustomer | null }
@@ -117,6 +119,13 @@ export function tillReducer(state, action) {
         ...line,
         discountPercent: action.discountPercent,
       }));
+    case 'setPrice':
+      return updateLine(action.index, (line) => {
+        const next = { ...line };
+        if (action.labelPrice === undefined) delete next.labelPrice;
+        else next.labelPrice = action.labelPrice;
+        return next;
+      });
     case 'remove': {
       if (!state.lines[action.index]) return state;
       const lines = state.lines.filter((_, at) => at !== action.index);
@@ -159,13 +168,14 @@ export function parseEntry(text) {
 
 /**
  * @param {TillState} state
- * @returns {{ stockId: number, quantity: number, discountPercent: number }[]} The lines as the API takes them.
+ * @returns {{ stockId: number, quantity: number, discountPercent: number, labelPrice?: string }[]} The lines as the API takes them.
  */
 export const linesForApi = (state) =>
-  state.lines.map(({ stockId, quantity, discountPercent }) => ({
+  state.lines.map(({ stockId, quantity, discountPercent, labelPrice }) => ({
     stockId,
     quantity,
     discountPercent,
+    ...(labelPrice === undefined ? {} : { labelPrice }),
   }));
 
 /**
