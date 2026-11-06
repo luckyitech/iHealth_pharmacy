@@ -62,14 +62,12 @@ export default function ChangePasswordPage() {
           name="currentPassword"
           label={required ? 'Temporary password' : 'Current password'}
           type="password"
-          autoComplete="current-password"
         />
         <TextField
           form={form}
           name="newPassword"
           label="New password"
           type="password"
-          autoComplete="new-password"
           hint={`At least ${MIN_NEW_PASSWORD_LENGTH} characters, not your username or email.`}
         />
         <TextField
@@ -77,7 +75,6 @@ export default function ChangePasswordPage() {
           name="confirmPassword"
           label="Confirm new password"
           type="password"
-          autoComplete="new-password"
         />
         <Button type="submit" disabled={change.isPending}>
           {change.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}

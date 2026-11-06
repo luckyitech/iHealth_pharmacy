@@ -86,7 +86,6 @@ export function ApproverFields({ value, onChange, errors }) {
         </Label>
         <Input
           id={`${id}-user`}
-          autoComplete="off"
           spellCheck={false}
           aria-required
           aria-invalid={errors.approver ? true : undefined}
@@ -104,7 +103,6 @@ export function ApproverFields({ value, onChange, errors }) {
           id={`${id}-pin`}
           type="password"
           inputMode="numeric"
-          autoComplete="off"
           aria-required
           aria-invalid={errors.pin ? true : undefined}
           aria-describedby={errors.pin ? `${id}-pin-error` : undefined}

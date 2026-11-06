@@ -1,6 +1,9 @@
+import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 
 /**
+ * A text box. Browsers and password managers are kept out of it (see `noAutofill`).
+ *
  * @param {React.ComponentProps<'input'>} props
  * @returns {React.JSX.Element}
  */
@@ -14,6 +17,7 @@ export function Input({ className, type = 'text', ...props }) {
         className,
       )}
       {...props}
+      {...noAutofill(type)}
     />
   );
 }

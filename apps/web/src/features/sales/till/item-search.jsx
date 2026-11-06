@@ -6,6 +6,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useFormat } from '@/lib/format';
 import { notify } from '@/lib/notify';
+import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 
 import { batchSearchKey, fetchBatches, useBatchSearch } from './till-api.js';
@@ -156,6 +157,7 @@ export function ItemSearch({ onAdd, onIdleKey, inputRef }) {
           <ScanBarcode aria-hidden="true" className="size-5 text-muted-foreground" />
         )}
         <input
+          {...noAutofill('text')}
           ref={inputRef}
           role="combobox"
           aria-label="Find an item"
@@ -163,7 +165,6 @@ export function ItemSearch({ onAdd, onIdleKey, inputRef }) {
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={shown && active >= 0 ? `${listId}-${active}` : undefined}
-          autoComplete="off"
           spellCheck={false}
           placeholder="Scan a barcode or type a name"
           className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"

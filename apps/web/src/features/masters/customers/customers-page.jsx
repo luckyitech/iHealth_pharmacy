@@ -35,10 +35,10 @@ function CustomerFields({ form }) {
       <FormSection title="Customer">
         <SelectField form={form} name="kind" label="Type" options={KIND_OPTIONS} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField form={form} name="firstName" label="First name" autoComplete="given-name" />
-          <TextField form={form} name="lastName" label="Last name" autoComplete="family-name" />
-          <TextField form={form} name="phone" label="Phone" type="tel" autoComplete="tel" />
-          <TextField form={form} name="email" label="Email" type="email" autoComplete="email" />
+          <TextField form={form} name="firstName" label="First name" />
+          <TextField form={form} name="lastName" label="Last name" />
+          <TextField form={form} name="phone" label="Phone" type="tel" />
+          <TextField form={form} name="email" label="Email" type="email" />
           <SelectField
             form={form}
             name="gender"

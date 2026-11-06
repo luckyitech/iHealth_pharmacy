@@ -101,7 +101,6 @@ export function CustomerNameField({ form, name, label, onPick, hint, className }
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={shown && customers[active] ? `${listId}-${active}` : undefined}
-            autoComplete="off"
             spellCheck={false}
             placeholder="Type a name or phone"
             onChange={(event) => {

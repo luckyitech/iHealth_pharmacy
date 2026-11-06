@@ -82,7 +82,6 @@ export default function LoginPage() {
           <Input
             id="identifier"
             aria-required={REQUIRED.has('identifier') || undefined}
-            autoComplete="username"
             autoCapitalize="none"
             spellCheck={false}
             aria-invalid={errors.identifier || credentialsRejected ? true : undefined}
@@ -108,7 +107,6 @@ export default function LoginPage() {
               id="password"
               aria-required={REQUIRED.has('password') || undefined}
               type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
               className="pr-11"
               aria-invalid={errors.password || credentialsRejected ? true : undefined}
               aria-describedby={

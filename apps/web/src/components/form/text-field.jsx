@@ -11,22 +11,12 @@ import { FormField } from './form-field.jsx';
  * @param {string} props.name
  * @param {string} props.label
  * @param {string} [props.type]
- * @param {string} [props.autoComplete]
  * @param {string} [props.inputMode]
  * @param {React.ReactNode} [props.hint]
  * @param {string} [props.className]
  * @returns {React.JSX.Element}
  */
-export function TextField({
-  form,
-  name,
-  label,
-  type = 'text',
-  autoComplete = 'off',
-  inputMode,
-  hint,
-  className,
-}) {
+export function TextField({ form, name, label, type = 'text', inputMode, hint, className }) {
   const error = /** @type {{ message?: string } | undefined} */ (form.formState.errors[name])
     ?.message;
   return (
@@ -42,7 +32,6 @@ export function TextField({
         <Input
           {...control}
           type={type}
-          autoComplete={autoComplete}
           inputMode={/** @type {any} */ (inputMode)}
           {...form.register(name)}
         />

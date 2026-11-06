@@ -68,7 +68,6 @@ export default function ForgotPasswordPage() {
             <Input
               id="identifier"
               aria-required={REQUIRED.has('identifier') || undefined}
-              autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
               aria-invalid={errors.identifier ? true : undefined}

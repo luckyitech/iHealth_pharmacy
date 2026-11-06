@@ -48,14 +48,9 @@ function EmployeeFields({ form, item }) {
             options={TITLE_OPTIONS}
             emptyLabel="Choose"
           />
-          <TextField form={form} name="firstName" label="First name" autoComplete="given-name" />
-          <TextField
-            form={form}
-            name="middleName"
-            label="Middle name"
-            autoComplete="additional-name"
-          />
-          <TextField form={form} name="lastName" label="Last name" autoComplete="family-name" />
+          <TextField form={form} name="firstName" label="First name" />
+          <TextField form={form} name="middleName" label="Middle name" />
+          <TextField form={form} name="lastName" label="Last name" />
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <SelectField

@@ -1,3 +1,4 @@
+import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 
 /**
@@ -13,6 +14,7 @@ export function Textarea({ className, ...props }) {
         className,
       )}
       {...props}
+      {...noAutofill(undefined)}
     />
   );
 }

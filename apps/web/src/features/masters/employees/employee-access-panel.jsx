@@ -186,14 +186,13 @@ function SignInSection({ employeeId, access, editable }) {
       >
         <form noValidate onSubmit={onCreate} className="grid gap-4">
           <fieldset disabled={!editable || saveLogin.isPending} className="grid gap-4">
-            <TextField form={createForm} name="username" label="Username" autoComplete="off" />
+            <TextField form={createForm} name="username" label="Username" />
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
                 form={createForm}
                 name="password"
                 label="First password"
                 type="password"
-                autoComplete="new-password"
                 hint={PASSWORD_HINT}
               />
               <TextField
@@ -201,7 +200,6 @@ function SignInSection({ employeeId, access, editable }) {
                 name="confirmPassword"
                 label="Confirm password"
                 type="password"
-                autoComplete="new-password"
               />
             </div>
             <CheckboxField
@@ -253,7 +251,6 @@ function SignInSection({ employeeId, access, editable }) {
             form={renameForm}
             name="username"
             label="Username"
-            autoComplete="off"
             className="min-w-56 flex-1"
           />
           <Button type="submit" variant="outline">
@@ -363,7 +360,6 @@ function PasswordSection({ employeeId, editable }) {
               name="password"
               label="New password"
               type="password"
-              autoComplete="new-password"
               hint={PASSWORD_HINT}
             />
             <TextField
@@ -371,7 +367,6 @@ function PasswordSection({ employeeId, editable }) {
               name="confirmPassword"
               label="Confirm password"
               type="password"
-              autoComplete="new-password"
             />
           </div>
           <CheckboxField
