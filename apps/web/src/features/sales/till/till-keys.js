@@ -4,6 +4,7 @@
 export const TILL_KEYS = Object.freeze({
   SEARCH: 'F1',
   CUSTOMER: 'F2',
+  PRESCRIPTION: 'F3',
   DISCOUNT: 'F4',
   PRICE: 'F7',
   HOLD: 'F8',

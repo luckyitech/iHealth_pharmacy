@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { moneySchema } from '../../money/index.js';
+import { medicineKindSchema } from './prescriptions.js';
 
 /** Most lines one sale can have. */
 export const MAX_SALE_LINES = 200;
@@ -80,6 +81,8 @@ export const saleQuoteLineSchema = z.object({
   needsApproval: z.array(z.enum(Object.values(APPROVAL_REASONS))),
   /** The batch's own price, when the line's price was changed. */
   batchLabelPrice: z.string(),
+  /** Prescription-only, controlled or antibiotic; null for everything else. */
+  medicineKind: medicineKindSchema,
 });
 
 export const saleQuoteSchema = z.object({

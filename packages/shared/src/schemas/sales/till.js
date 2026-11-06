@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { optionalText } from '../common.js';
+import { medicineKindSchema, medicineTypeSchema } from './prescriptions.js';
 import { saleQuoteBodySchema } from './quote.js';
 import { saleCustomerShape } from './sale.js';
 
@@ -36,6 +37,8 @@ export const sellableBatchSchema = z.object({
   /** Price per unit, VAT included. */
   labelPrice: z.string(),
   vatPercent: z.number(),
+  /** Prescription-only, controlled or antibiotic; null for everything else. */
+  medicineKind: medicineKindSchema,
 });
 
 export const batchSearchSchema = z.object({
@@ -110,6 +113,10 @@ export const tillSettingsSchema = z.object({
   approvalReasons: z.array(z.string()),
   /** Quick reasons offered when cancelling a bill. */
   cancelReasons: z.array(z.string()),
+  /** The kinds of medicine the till marks, as the pharmacy names them. */
+  medicineTypes: z.array(medicineTypeSchema),
+  /** Largest prescription photo the server keeps, in kilobytes. */
+  prescriptionPhotoMaxKb: z.number().int(),
 });
 
 /** A bank a cheque can be drawn on. */

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { compareMoney, nonNegativeMoneySchema } from '../../money/index.js';
 import { dateOnlySchema, optionalText } from '../common.js';
 import { billDetailSchema, PAYMENT_METHODS } from './bills.js';
+import { salePrescriptionSchema } from './prescriptions.js';
 import { saleQuoteBodySchema } from './quote.js';
 
 /** Ways to pay at the till. Credit sales come with the Finance phase; credit notes with returns. */
@@ -92,6 +93,8 @@ export const saleBodySchema = saleQuoteBodySchema.extend({
   remarks: optionalText(LENGTH.remarks),
   /** From POST /sales/approvals, when a line needs a second person's approval. */
   approvalToken: z.uuid().optional(),
+  /** The prescription the sale was made against, when there is one. */
+  prescription: salePrescriptionSchema.optional(),
 });
 
 /** A completed sale: the saved bill, and the change to give back. */

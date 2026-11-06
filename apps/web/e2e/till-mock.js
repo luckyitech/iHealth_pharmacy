@@ -32,75 +32,126 @@ const APPROVAL_TOKEN = '11111111-2222-4333-8444-555555555555';
 /** An M-Pesa code the mock says is already on another bill. */
 export const USED_MPESA_CODE = 'QK00USED00';
 
-const BATCHES = Object.freeze([
+const BATCHES = Object.freeze(
+  [
+    {
+      stockId: 1,
+      itemId: 10,
+      itemName: 'Testamol 500mg tabs',
+      itemCode: 'TST500',
+      genericName: 'Testamolum',
+      batchNo: 'TM-EARLY',
+      barcode: null,
+      expiryDate: '2030-01-31',
+      expired: false,
+      available: 40,
+      labelPrice: '116.00',
+      vatPercent: 16,
+    },
+    {
+      stockId: 2,
+      itemId: 10,
+      itemName: 'Testamol 500mg tabs',
+      itemCode: 'TST500',
+      genericName: 'Testamolum',
+      batchNo: 'TM-LATE',
+      barcode: null,
+      expiryDate: '2031-06-30',
+      expired: false,
+      available: 100,
+      labelPrice: '116.00',
+      vatPercent: 16,
+    },
+    {
+      stockId: 3,
+      itemId: 10,
+      itemName: 'Testamol 500mg tabs',
+      itemCode: 'TST500',
+      genericName: 'Testamolum',
+      batchNo: 'TM-OLD',
+      barcode: null,
+      expiryDate: '2020-01-31',
+      expired: true,
+      available: 5,
+      labelPrice: '116.00',
+      vatPercent: 16,
+    },
+    {
+      stockId: 4,
+      itemId: 20,
+      itemName: 'Demo cough syrup 100ml',
+      itemCode: 'DCS100',
+      genericName: null,
+      batchNo: 'DC-77',
+      barcode: SYRUP_BARCODE,
+      expiryDate: '2029-12-31',
+      expired: false,
+      available: 12,
+      labelPrice: '450.00',
+      vatPercent: 0,
+    },
+    {
+      stockId: 5,
+      itemId: 30,
+      itemName: 'Hypotest 10mg tabs',
+      itemCode: 'HYP10',
+      genericName: null,
+      batchNo: 'HT-3307',
+      barcode: null,
+      expiryDate: '2028-01-31',
+      expired: false,
+      available: 60,
+      labelPrice: '640.00',
+      vatPercent: 0,
+      medicineKind: 'prescription',
+    },
+    {
+      stockId: 6,
+      itemId: 40,
+      itemName: 'Amoxidemo 250mg caps',
+      itemCode: 'AMX250',
+      genericName: null,
+      batchNo: 'AX-0912',
+      barcode: null,
+      expiryDate: '2027-08-31',
+      expired: false,
+      available: 30,
+      labelPrice: '380.00',
+      vatPercent: 0,
+      medicineKind: 'antibiotic',
+    },
+  ].map((batch) => ({ medicineKind: null, ...batch })),
+);
+
+/** Made-up doctors and hospitals. */
+const HOSPITALS = Object.freeze([
+  { id: 3, name: 'Sample Medical Centre' },
+  { id: 4, name: 'Example Community Clinic' },
+]);
+const DOCTORS = Object.freeze([
   {
-    stockId: 1,
-    itemId: 10,
-    itemName: 'Testamol 500mg tabs',
-    itemCode: 'TST500',
-    genericName: 'Testamolum',
-    batchNo: 'TM-EARLY',
-    barcode: null,
-    expiryDate: '2030-01-31',
-    expired: false,
-    available: 40,
-    labelPrice: '116.00',
-    vatPercent: 16,
+    id: 7,
+    name: 'Amani Demo',
+    licenseNumber: 'TEST-0001',
+    hospitalId: 3,
+    hospitalName: 'Sample Medical Centre',
   },
-  {
-    stockId: 2,
-    itemId: 10,
-    itemName: 'Testamol 500mg tabs',
-    itemCode: 'TST500',
-    genericName: 'Testamolum',
-    batchNo: 'TM-LATE',
-    barcode: null,
-    expiryDate: '2031-06-30',
-    expired: false,
-    available: 100,
-    labelPrice: '116.00',
-    vatPercent: 16,
-  },
-  {
-    stockId: 3,
-    itemId: 10,
-    itemName: 'Testamol 500mg tabs',
-    itemCode: 'TST500',
-    genericName: 'Testamolum',
-    batchNo: 'TM-OLD',
-    barcode: null,
-    expiryDate: '2020-01-31',
-    expired: true,
-    available: 5,
-    labelPrice: '116.00',
-    vatPercent: 16,
-  },
-  {
-    stockId: 4,
-    itemId: 20,
-    itemName: 'Demo cough syrup 100ml',
-    itemCode: 'DCS100',
-    genericName: null,
-    batchNo: 'DC-77',
-    barcode: SYRUP_BARCODE,
-    expiryDate: '2029-12-31',
-    expired: false,
-    available: 12,
-    labelPrice: '450.00',
-    vatPercent: 0,
-  },
+  { id: 8, name: 'Bora Example', licenseNumber: 'TEST-0002', hospitalId: null, hospitalName: null },
 ]);
 
 /**
  * State both tills share, like the server's database.
  *
- * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null }}
+ * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null, lastSale: Record<string, any> | null, doctors: { id: number, name: string, licenseNumber: string | null, hospitalId: number | null, hospitalName: string | null }[] }}
  */
 export const createTillServer = () => ({
   held: new Map(),
   nextHeld: 1,
   nextBill: 1,
   /** @type {string | null} */ approved: null,
+  /** @type {Record<string, any> | null} The last sale completed, as the till sent it. */ lastSale:
+    null,
+  doctors: [...DOCTORS],
 });
 
 /**
@@ -169,8 +220,44 @@ export async function mockTillApi(page, server) {
           cancelAloneMinutes: 10,
           approvalReasons: ['Regular customer', 'Price match'],
           cancelReasons: ['Wrong item'],
+          medicineTypes: [
+            { kind: 'prescription', code: 'H', name: 'Prescription only' },
+            { kind: 'controlled', code: 'X', name: 'Controlled' },
+            { kind: 'antibiotic', code: 'H1', name: 'Antibiotic' },
+          ],
+          prescriptionPhotoMaxKb: 500,
         },
       });
+    if (key === 'GET sales/doctors') {
+      const words = (url.searchParams.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      return json({
+        data: server.doctors.filter((doctor) =>
+          words.every((word) =>
+            String(doctor.name)
+              .toLowerCase()
+              .split(' ')
+              .some((part) => part.startsWith(word)),
+          ),
+        ),
+      });
+    }
+    if (key === 'POST sales/doctors') {
+      const body = request.postDataJSON();
+      const hospital = HOSPITALS.find((h) => h.id === body.hospitalId);
+      const doctor = {
+        id: 100 + server.doctors.length,
+        name: `${body.firstName} ${body.lastName}`,
+        licenseNumber: body.licenseNumber || null,
+        hospitalId: hospital?.id ?? null,
+        hospitalName: hospital?.name ?? null,
+      };
+      server.doctors.push(doctor);
+      return json({ data: doctor }, 201);
+    }
+    if (key === 'GET sales/hospitals') {
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      return json({ data: HOSPITALS.filter((h) => h.name.toLowerCase().includes(q)) });
+    }
     if (key === 'GET sales/banks')
       return json({
         data: [
@@ -224,6 +311,7 @@ export async function mockTillApi(page, server) {
               warnings: line.quantity > batch.available ? ['insufficientStock'] : [],
               needsApproval: (line.discountPercent ?? 0) > 25 ? ['discountAboveLimit'] : [],
               batchLabelPrice: batch.labelPrice,
+              medicineKind: batch.medicineKind,
             };
           }),
           totals: priced,
@@ -316,6 +404,7 @@ export async function mockTillApi(page, server) {
           400,
         );
       }
+      server.lastSale = body;
       const priced = price(body.lines);
       const cash = body.payments.find((/** @type {any} */ p) => p.method === 'cash');
       const others = body.payments.filter((/** @type {any} */ p) => p.method !== 'cash');

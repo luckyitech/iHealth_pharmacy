@@ -46,6 +46,9 @@ import { problemKey } from './payment.js';
 import { TILL_KEYS } from './till-keys.js';
 import { customerForApi, linesForApi, newSale, tillReducer, ZERO_TOTALS } from './till-state.js';
 import { SALES_LABELS } from '../labels.js';
+import { NEEDS_PRESCRIPTION } from '../prescriptions/medicine.js';
+import { NO_PRESCRIPTION, prescriptionForApi } from '../prescriptions/prescription.js';
+import { PrescriptionStrip } from '../prescriptions/prescription-strip.jsx';
 
 /** Held sales listed beside the till; the rest are in the Held sales window. */
 const HELD_SHOWN = 4;
@@ -100,7 +103,11 @@ export default function SalesScreenPage() {
     /** @type {{ token: string, key: string } | null} */ (null),
   );
   const [approvalErrors, setApprovalErrors] = useState({});
+  const [prescription, setPrescription] = useState(
+    /** @type {import('../prescriptions/prescription.js').TillPrescription} */ (NO_PRESCRIPTION),
+  );
   const searchRef = useRef(/** @type {HTMLInputElement | null} */ (null));
+  const doctorRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const { ask, dialog: confirmDialog } = useConfirm();
 
   const settings = useTillSettings();
@@ -138,6 +145,18 @@ export default function SalesScreenPage() {
   const linesKey = JSON.stringify(lines);
   const approvedToken = approval?.key === linesKey ? approval.token : null;
   const toApprove = (current?.lines ?? []).filter((line) => line.needsApproval.length);
+  const medicineTypes = settings.data?.medicineTypes ?? [];
+  const toPrescribe = lines.length
+    ? (quote.data?.lines ?? []).filter(
+        (line) => line.medicineKind && NEEDS_PRESCRIPTION.has(line.medicineKind),
+      )
+    : [];
+
+  /** Empties the till for the next sale, its prescription included. */
+  const clearSale = () => {
+    dispatch({ type: 'clear' });
+    setPrescription(NO_PRESCRIPTION);
+  };
 
   const customerName = state.customer?.name ?? 'Walk-in';
   const selectedLine = state.lines[state.selected];
@@ -214,13 +233,14 @@ export default function SalesScreenPage() {
         ...customerForApi(state.customer),
         payments,
         ...(approvedToken ? { approvalToken: approvedToken } : {}),
+        ...(toPrescribe.length ? { prescription: prescriptionForApi(prescription) } : {}),
       },
       {
         onSuccess: (sale) => {
           setDialog(null);
           setDone(sale);
           setApproval(null);
-          dispatch({ type: 'clear' });
+          clearSale();
         },
         onError: (error) => {
           const details = isApiError(error) ? (error.details ?? []) : [];
@@ -247,7 +267,7 @@ export default function SalesScreenPage() {
     if (!lines.length) return true;
     try {
       const saved = await hold.mutateAsync({ lines, ...customerForApi(state.customer) });
-      dispatch({ type: 'clear' });
+      clearSale();
       notify.success(`Sale held for ${saved.customerName ?? 'Walk-in'}`, {
         description: 'Recall it from Held sales, at any till.',
       });
@@ -308,7 +328,7 @@ export default function SalesScreenPage() {
       confirmLabel: 'Clear sale',
       destructive: true,
       onConfirm: async () => {
-        dispatch({ type: 'clear' });
+        clearSale();
         focusSearch();
       },
     });
@@ -330,6 +350,7 @@ export default function SalesScreenPage() {
     const handlers = {
       [TILL_KEYS.SEARCH]: focusSearch,
       [TILL_KEYS.CUSTOMER]: () => setDialog('customer'),
+      [TILL_KEYS.PRESCRIPTION]: () => doctorRef.current?.focus(),
       [TILL_KEYS.DISCOUNT]: () => selectedLine && setDialog('discount'),
       [TILL_KEYS.PRICE]: () => selectedLine && setDialog('price'),
       [TILL_KEYS.PAY]: () => void pay(),
@@ -404,6 +425,7 @@ export default function SalesScreenPage() {
 
         <ItemSearch
           inputRef={searchRef}
+          medicineTypes={medicineTypes}
           onIdleKey={onIdleKey}
           onAdd={(batch, quantity) => dispatch({ type: 'add', batch, quantity })}
         />
@@ -416,7 +438,17 @@ export default function SalesScreenPage() {
           onDiscount={() => setDialog('discount')}
           onPrice={() => setDialog('price')}
           approved={Boolean(approvedToken)}
+          medicineTypes={medicineTypes}
         />
+        {toPrescribe.length > 0 && (
+          <PrescriptionStrip
+            itemCount={toPrescribe.length}
+            value={prescription}
+            onChange={setPrescription}
+            photoMaxKb={settings.data?.prescriptionPhotoMaxKb ?? 0}
+            doctorRef={doctorRef}
+          />
+        )}
       </section>
 
       <aside aria-label="Payment" className="hidden content-start gap-4 lg:grid">

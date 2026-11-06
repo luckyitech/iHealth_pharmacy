@@ -304,7 +304,9 @@ export function createBillsRepository(prisma) {
         SELECT ${SUMMARY_COLUMNS},
           s.TOTAL_AMOUNT AS totalAmount, s.OVERALL_DISCOUNT AS discountAmount, s.VAT_AMT AS vatAmount,
           s.ROUNDED_OFF AS roundedOff, s.REMARKS AS remarks, CAST(s.PRESCIPTION_DATE AS CHAR) AS prescriptionDate,
-          TRIM(CONCAT_WS(' ', p.FIRST_NM, p.LAST_NM)) AS prescriberName, h.NAME AS hospitalName,
+          s.PROVIDER_ID AS providerId, TRIM(CONCAT_WS(' ', p.FIRST_NM, p.LAST_NM)) AS prescriberName,
+          h.NAME AS hospitalName,
+          EXISTS (SELECT 1 FROM ih_prescription_photo pp WHERE pp.BILL_ID = s.BILL_ID) AS hasPhoto,
           TRIM(CONCAT_WS(' ', cu.FIRST_NM, cu.LAST_NM)) AS createdBy,
           TRIM(CONCAT_WS(' ', uu.FIRST_NM, uu.LAST_NM)) AS updatedBy,
           CAST(s.LAST_UPDATE_TS AS CHAR) AS updatedAt
@@ -352,15 +354,19 @@ export function createBillsRepository(prisma) {
 
 /**
  * @param {{ bill: Record<string, any>, lines: Record<string, any>[] }} found
+ * @param {{ placeholderDoctorId?: number }} [options] The doctor saved on bills without one; shown as none.
  * @returns {Omit<import('zod').infer<typeof import('@ihealth/shared/schemas').billDetailSchema>, 'approvals'>} The bill; its approvals are read separately.
  */
-export function toBillDetail({ bill, lines }) {
+export function toBillDetail({ bill, lines }, { placeholderDoctorId } = {}) {
   const summary = toBillSummary(bill);
+  const placeholder =
+    placeholderDoctorId !== undefined && Number(bill.providerId) === placeholderDoctorId;
   return {
     ...summary,
-    prescriberName: String(bill.prescriberName ?? '').trim() || null,
+    prescriberName: placeholder ? null : String(bill.prescriberName ?? '').trim() || null,
     hospitalName: String(bill.hospitalName ?? '').trim() || null,
     prescriptionDate: legacyDate(bill.prescriptionDate),
+    hasPrescriptionPhoto: Number(bill.hasPhoto ?? 0) === 1,
     remarks: String(bill.remarks ?? '').trim() || null,
     totals: {
       gross: money(bill.totalAmount),

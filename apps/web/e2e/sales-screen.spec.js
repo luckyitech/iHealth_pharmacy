@@ -231,3 +231,68 @@ test('finds a registered customer as the name is typed', async ({ page }) => {
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('button', { name: /Customer\s*Jane Testcase/ })).toBeVisible();
 });
+
+test('takes the prescription of a prescription-only medicine, a new doctor included', async ({
+  page,
+}) => {
+  await page.goto('/sales/new');
+  await expect(search(page)).toBeFocused();
+  await search(page).fill('hypo');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await expect(page.getByRole('option').getByTitle('Prescription only')).toHaveText(/Rx/);
+  await page.keyboard.press('Enter');
+  await search(page).fill('amox');
+  await expect(page.getByRole('option', { name: /Amoxidemo/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+
+  const strip = page.getByRole('region', { name: /Prescription/ });
+  await expect(strip).toContainText('2 items need one');
+  await page.keyboard.press('F3');
+  const doctor = strip.getByRole('combobox', { name: 'Doctor' });
+  await expect(doctor).toBeFocused();
+  await doctor.pressSequentially('am');
+  await expect(page.getByRole('option', { name: /Amani Demo/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(doctor).toHaveValue('Amani Demo');
+  await expect(strip.getByRole('combobox', { name: 'Hospital' })).toHaveValue(
+    'Sample Medical Centre',
+  );
+  await strip.getByLabel('Prescription date').fill('2026-11-05');
+  await strip.getByLabel('Photo').setInputFiles({
+    name: 'prescription.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  });
+  await expect(strip.getByRole('img', { name: 'The prescription' })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('prescription-strip.png') });
+
+  // A doctor not on the list is added without leaving the sale.
+  await strip.getByRole('button', { name: 'Clear doctor' }).click();
+  await doctor.pressSequentially('Chausiku Sample');
+  await page.getByRole('button', { name: /Add “Chausiku Sample” as a new doctor/ }).click();
+  const added = page.getByRole('dialog', { name: 'Add a doctor' });
+  await expect(added.getByLabel(/First name/)).toHaveValue('Chausiku');
+  await expect(added.getByLabel(/Last name/)).toHaveValue('Sample');
+  await added.getByRole('button', { name: 'Add doctor' }).click();
+  await expect(added).toBeHidden();
+  await expect(doctor).toHaveValue('Chausiku Sample');
+
+  await page.keyboard.press('F9');
+  const payment = page.getByRole('dialog', { name: 'Take payment' });
+  await expect(payment.getByRole('textbox', { name: 'Cash received' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  const done = page.getByRole('dialog', { name: 'Sale complete' });
+  await expect(done).toBeVisible();
+  expect(server.lastSale?.prescription).toMatchObject({
+    doctorId: 102,
+    hospitalId: 3,
+    prescribedOn: '2026-11-05',
+    photo: expect.stringMatching(/^data:image\/jpeg;base64,/),
+  });
+  await page.keyboard.press('Enter');
+  await expect(done).toBeHidden();
+  await expect(page.getByRole('region', { name: /Prescription/ })).toHaveCount(0);
+});

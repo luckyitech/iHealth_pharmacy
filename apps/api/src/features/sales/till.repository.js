@@ -5,6 +5,7 @@ import { Prisma } from '#db';
 
 import { escapeLike } from '../../lib/sql-like.js';
 import { batchExpiry } from './batches.repository.js';
+import { medicineKindOf } from './medicine-types.js';
 
 /** Legacy flag of an active customer. */
 const ACTIVE = 'Y';
@@ -17,13 +18,14 @@ const SELLABLE_COLUMNS = Prisma.sql`
   st.STOCK_ID AS stockId, st.ITEM_ID AS itemId, it.ITEM_NM AS itemName, it.ITEM_CD AS itemCode,
   gn.GENERIC_NAME AS genericName, st.BATCH_NO AS batchNo, st.BARCODE AS barcode,
   CAST(st.EXPIRY_DT AS CHAR) AS expiryDate, st.QUANTITY AS available, st.UNIT_SALE_RATE AS labelPrice,
-  COALESCE(tc.CATEGORY_VALUE, st.VAT, 0) AS vatPercent`;
+  COALESCE(tc.CATEGORY_VALUE, st.VAT, 0) AS vatPercent, sc.SCHEDULE_CATEGORY_CODE AS scheduleCode`;
 
 const SELLABLE_FROM = Prisma.sql`
   FROM stock st
     JOIN items it ON it.ITEM_ID = st.ITEM_ID
     LEFT JOIN items_generic_names gn ON gn.ITEM_GENERIC_NAME_ID = it.ITEM_GENERIC_NAME_ID
-    LEFT JOIN taxcategory tc ON tc.TAXCATEGORY_ID = st.TAX_CATEGORY_ID`;
+    LEFT JOIN taxcategory tc ON tc.TAXCATEGORY_ID = st.TAX_CATEGORY_ID
+    LEFT JOIN schedule_category_code sc ON sc.SCHEDULE_CATEGORY_CODE_ID = it.SCHEDULE_CATEGORY_CODE_ID`;
 
 /**
  * @param {unknown} value
@@ -33,10 +35,10 @@ const textOrNull = (value) => String(value ?? '').trim() || null;
 
 /**
  * @param {Record<string, any>} row
- * @param {string} today `YYYY-MM-DD`
+ * @param {{ today: string, medicineTypes: readonly import('./medicine-types.js').MedicineType[] }} context `today` is `YYYY-MM-DD`.
  * @returns {import('zod').infer<typeof import('@ihealth/shared/schemas').sellableBatchSchema>}
  */
-function toSellableBatch(row, today) {
+function toSellableBatch(row, { today, medicineTypes }) {
   const expiryDate = batchExpiry(row.expiryDate);
   return {
     stockId: Number(row.stockId),
@@ -51,6 +53,7 @@ function toSellableBatch(row, today) {
     available: Number(row.available ?? 0),
     labelPrice: moneyToString(roundMoney(Number(row.labelPrice ?? 0))),
     vatPercent: Number(row.vatPercent ?? 0),
+    medicineKind: medicineKindOf(medicineTypes, row.scheduleCode),
   };
 }
 
@@ -86,10 +89,11 @@ export function createTillRepository(prisma) {
      * batch of that item, so the first to expire can be taken.
      *
      * @param {string} q
-     * @param {{ pharmacyId: number, today: string, limit: number }} options
+     * @param {{ pharmacyId: number, today: string, limit: number, medicineTypes: readonly import('./medicine-types.js').MedicineType[] }} options
      * @returns {Promise<{ batches: ReturnType<typeof toSellableBatch>[], scanned: boolean }>}
      */
-    async searchBatches(q, { pharmacyId, today, limit }) {
+    async searchBatches(q, { pharmacyId, today, limit, medicineTypes }) {
+      const context = { today, medicineTypes };
       const inStock = Prisma.sql`st.PHARMACY_ID = ${pharmacyId} AND st.QUANTITY > 0`;
       const order = Prisma.sql`ORDER BY it.ITEM_NM, st.ITEM_ID, st.EXPIRY_DT, st.STOCK_ID LIMIT ${limit}`;
 
@@ -101,7 +105,7 @@ export function createTillRepository(prisma) {
         ${order}`;
       if (scannedRows.length) {
         return {
-          batches: firstToExpireFirst(scannedRows.map((row) => toSellableBatch(row, today))),
+          batches: firstToExpireFirst(scannedRows.map((row) => toSellableBatch(row, context))),
           scanned: true,
         };
       }
@@ -116,7 +120,7 @@ export function createTillRepository(prisma) {
           OR gn.GENERIC_NAME LIKE ${starts} OR st.BATCH_NO LIKE ${starts})
         ${order}`;
       return {
-        batches: firstToExpireFirst(rows.map((row) => toSellableBatch(row, today))),
+        batches: firstToExpireFirst(rows.map((row) => toSellableBatch(row, context))),
         scanned: false,
       };
     },

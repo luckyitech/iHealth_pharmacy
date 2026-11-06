@@ -107,6 +107,16 @@ const envSchema = z.object({
     .default('50,100,200,500,1000')
     .transform((value) => value.split(',').map((note) => Number(note.trim())))
     .pipe(z.array(z.number().positive()).min(1)),
+  // Legacy schedule codes (schedule_category_code) the till treats as each kind of medicine, and
+  // the names it shows for them.
+  MEDICINE_CODE_PRESCRIPTION: z.string().trim().min(1).default('H'),
+  MEDICINE_NAME_PRESCRIPTION: z.string().trim().min(1).default('Prescription only'),
+  MEDICINE_CODE_CONTROLLED: z.string().trim().min(1).default('X'),
+  MEDICINE_NAME_CONTROLLED: z.string().trim().min(1).default('Controlled'),
+  MEDICINE_CODE_ANTIBIOTIC: z.string().trim().min(1).default('H1'),
+  MEDICINE_NAME_ANTIBIOTIC: z.string().trim().min(1).default('Antibiotic'),
+  // Largest prescription photo kept with a bill, in kilobytes (the till makes photos smaller first).
+  PRESCRIPTION_PHOTO_MAX_KB: z.coerce.number().int().min(50).max(700).default(500),
   // Most batches one till search returns.
   SALES_SEARCH_LIMIT: z.coerce.number().int().min(5).max(100).default(30),
   // Regional settings. The legacy database has no table for them, so they are deployment configuration.
@@ -119,6 +129,8 @@ const envSchema = z.object({
     .regex(/^[+-]\d{2}:\d{2}$/, 'must look like +03:00')
     .default('+03:00'),
 });
+
+const BYTES_PER_KB = 1024;
 
 /**
  * @typedef {object} Config
@@ -136,6 +148,7 @@ const envSchema = z.object({
  * @property {string} documentCodePrefix
  * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
+ * @property {{ types: ReadonlyArray<Readonly<{ kind: 'prescription' | 'controlled' | 'antibiotic', code: string, name: string }>>, photoMaxBytes: number }} medicine
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
 
@@ -186,6 +199,26 @@ export function loadConfig(env) {
     receipt: Object.freeze({
       returnNote: values.RECEIPT_RETURN_NOTE.trim() || null,
       exemptTaxCodes: values.RECEIPT_EXEMPT_TAX_CODES,
+    }),
+    medicine: Object.freeze({
+      types: Object.freeze([
+        Object.freeze({
+          kind: /** @type {const} */ ('prescription'),
+          code: values.MEDICINE_CODE_PRESCRIPTION,
+          name: values.MEDICINE_NAME_PRESCRIPTION,
+        }),
+        Object.freeze({
+          kind: /** @type {const} */ ('controlled'),
+          code: values.MEDICINE_CODE_CONTROLLED,
+          name: values.MEDICINE_NAME_CONTROLLED,
+        }),
+        Object.freeze({
+          kind: /** @type {const} */ ('antibiotic'),
+          code: values.MEDICINE_CODE_ANTIBIOTIC,
+          name: values.MEDICINE_NAME_ANTIBIOTIC,
+        }),
+      ]),
+      photoMaxBytes: values.PRESCRIPTION_PHOTO_MAX_KB * BYTES_PER_KB,
     }),
     sales: Object.freeze({
       roundingStep: values.SALES_ROUNDING_STEP,

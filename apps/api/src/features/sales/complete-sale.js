@@ -24,6 +24,7 @@ const ACTIVE = 'Y';
 const RAW_QUERY_FAILED = 'P2010';
 /** MySQL's duplicate-key error number. */
 const DUPLICATE_KEY = 1062;
+const BYTES_PER_KB = 1024;
 
 /**
  * @typedef {{ method: string, amount: string, reference?: string, bankId?: number, chequeDate?: string }} SalePayment
@@ -57,7 +58,61 @@ function monthsBefore(date, months) {
  * @property {SalePayment[]} payments
  * @property {string | null} [remarks]
  * @property {string} [approvalToken]
+ * @property {{ doctorId?: number, hospitalId?: number, prescribedOn?: string, photo?: string }} [prescription]
  */
+
+/** A data URL: `data:<type>;base64,<data>`. */
+const DATA_URL = /^data:([^;]+);base64,(.*)$/;
+
+/**
+ * Checks the prescription a sale names: an active doctor and hospital, a date not in the future,
+ * and a photo small enough to keep. A hospital not given is the doctor's own.
+ *
+ * @param {any} tx
+ * @param {SaleInput['prescription']} prescription
+ * @param {{ today: string, photoMaxBytes: number }} rules
+ * @returns {Promise<{ doctorId: number | null, hospitalId: number | null, prescribedOn: string | null, photo: { mimeType: string, bytes: Buffer } | null }>}
+ */
+async function checkPrescription(tx, prescription, { today, photoMaxBytes }) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  const path = 'body.prescription';
+  const doctor = prescription?.doctorId
+    ? await tx.provider.findUnique({
+        where: { providerId: prescription.doctorId },
+        select: { activeS: true, hospitalId: true },
+      })
+    : null;
+  if (prescription?.doctorId && doctor?.activeS !== ACTIVE)
+    details.push({ path: `${path}.doctorId`, message: 'Choose a doctor from the list' });
+  if (prescription?.hospitalId) {
+    const hospital = await tx.hospital.findUnique({
+      where: { hospitalId: prescription.hospitalId },
+      select: { activeS: true },
+    });
+    if (hospital?.activeS !== ACTIVE)
+      details.push({ path: `${path}.hospitalId`, message: 'Choose a hospital from the list' });
+  }
+  if (prescription?.prescribedOn && prescription.prescribedOn > today)
+    details.push({
+      path: `${path}.prescribedOn`,
+      message: 'The prescription date cannot be in the future',
+    });
+  const [, mimeType, data] = DATA_URL.exec(prescription?.photo ?? '') ?? [];
+  const bytes = data ? Buffer.from(data, 'base64') : null;
+  if (bytes && bytes.length > photoMaxBytes)
+    details.push({
+      path: `${path}.photo`,
+      message: `The photo is too large; keep it under ${Math.floor(photoMaxBytes / BYTES_PER_KB)} KB`,
+    });
+  if (details.length) throw validationFailed(details);
+  return {
+    doctorId: prescription?.doctorId ?? null,
+    hospitalId: prescription?.hospitalId ?? doctor?.hospitalId ?? null,
+    prescribedOn: prescription?.prescribedOn ?? null,
+    photo: bytes ? { mimeType, bytes } : null,
+  };
+}
 
 /**
  * Refuses lines that cannot be sold as asked: a batch that is gone or expired, more units than it
@@ -276,6 +331,11 @@ export function createSaleService({ prisma, config }) {
             }
           }
 
+          const prescription = await checkPrescription(tx, input.prescription, {
+            today,
+            photoMaxBytes: config.medicine.photoMaxBytes,
+          });
+
           const customer = input.customerId
             ? await tx.customer.findUnique({
                 where: { customerId: input.customerId },
@@ -309,7 +369,11 @@ export function createSaleService({ prisma, config }) {
                 input.customerName ||
                 null,
               customerPhoneNo: customer?.phoneNbr?.trim() || input.customerPhone || null,
-              providerId: config.sales.defaultProviderId ?? null,
+              // The legacy reports join every bill to a doctor, so a bill without one gets the
+              // placeholder the legacy app used.
+              providerId: prescription.doctorId ?? config.sales.defaultProviderId ?? null,
+              hospitalId: prescription.hospitalId,
+              presciptionDate: toLegacyDate(prescription.prescribedOn),
               totalProducts: input.lines.length,
               totalQty: priced.quantity,
               // The legacy app saved the sum of the lines' percentages here; reports still read it.
@@ -392,6 +456,13 @@ export function createSaleService({ prisma, config }) {
               INSERT INTO ih_sale_payment_detail (BILL_ID, CARD_APPROVAL_CODE, CHEQUE_BANK_ID)
               VALUES (${bill.billId}, ${card?.payment.reference ?? null},
                 ${cheque?.payment.bankId ?? null})`;
+          }
+
+          if (prescription.photo) {
+            await tx.$executeRaw`
+              INSERT INTO ih_prescription_photo (BILL_ID, MIME_TYPE, IMAGE, CREATED_BY)
+              VALUES (${bill.billId}, ${prescription.photo.mimeType}, ${prescription.photo.bytes},
+                ${employeeId})`;
           }
 
           await tx.$executeRaw`

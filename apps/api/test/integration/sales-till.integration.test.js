@@ -248,6 +248,8 @@ describe('the till', () => {
       cancelAloneMinutes: 10,
       approvalReasons: ['Regular customer', 'Price match', 'Near expiry', 'Staff purchase'],
       cancelReasons: ['Wrong item', 'Customer changed mind', 'Payment failed'],
+      medicineTypes: expect.any(Array),
+      prescriptionPhotoMaxKb: 500,
     });
     const banks = await cashier.agent.get('/api/v1/sales/banks');
     expect(banks.body.data.map((/** @type {any} */ bank) => bank.name)).toContain('KCB Bank');

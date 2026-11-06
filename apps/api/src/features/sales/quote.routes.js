@@ -14,6 +14,7 @@ import { validationFailed } from '../../lib/errors.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { approvalsNeeded } from './approvals.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
+import { medicineKindOf } from './medicine-types.js';
 
 /**
  * @param {unknown} value
@@ -123,6 +124,7 @@ export function createSaleQuoteRoutes({ prisma, config }) {
                 amount,
                 warnings: /** @type {any} */ (warnings),
                 needsApproval: /** @type {any} */ (approvals[index].reasons),
+                medicineKind: medicineKindOf(config.medicine.types, batch.scheduleCode),
               };
             }),
             totals: {
