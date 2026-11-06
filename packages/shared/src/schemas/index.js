@@ -9,3 +9,4 @@ export * from './sales/till.js';
 export * from './sales/approvals.js';
 export * from './sales/prescriptions.js';
 export * from './sales/controlled-register.js';
+export * from './sales/labels.js';

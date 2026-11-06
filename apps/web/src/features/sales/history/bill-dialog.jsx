@@ -1,6 +1,6 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import { BILL_STATUSES } from '@ihealth/shared/schemas';
-import { Ban, Printer, TriangleAlert } from 'lucide-react';
+import { Ban, Printer, Tag, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { PageState } from '@/components/feedback/page-state';
@@ -21,6 +21,7 @@ import { useTillSettings } from '../till/till-api.js';
 import { CancelBillDialog } from './cancel-bill-dialog.jsx';
 import { openReceipt, useBill } from './sales-api.js';
 import { SALES_LABELS } from '../labels.js';
+import { LabelsDialog } from '../labels/labels-dialog.jsx';
 import { openPrescriptionPhoto } from '../prescriptions/prescriptions-api.js';
 
 /** Shown for a bill sold without a doctor (the legacy placeholder doctor included). */
@@ -54,6 +55,7 @@ export function BillDialog({ id, onClose }) {
   const data = bill.data;
   const { hasAny } = usePermissions();
   const canSell = hasAny(POLICIES.sales.sell);
+  const [labelling, setLabelling] = useState(false);
   const me = useCurrentUser().data;
   const settings = useTillSettings(canSell);
   const timeZone = useAppInfo().data?.region.timeZone;
@@ -360,12 +362,21 @@ export function BillDialog({ id, onClose }) {
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
+          {data && canSell && data.status !== BILL_STATUSES.CANCELLED && (
+            <Button variant="outline" onClick={() => setLabelling(true)}>
+              <Tag aria-hidden="true" /> Labels
+            </Button>
+          )}
           <Button onClick={reprint} disabled={!data || printing}>
             <Printer aria-hidden="true" />
             {printing ? 'Preparing…' : 'Reprint receipt'}
           </Button>
         </div>
       </DialogContent>
+      <LabelsDialog
+        billId={labelling && data ? data.id : null}
+        onClose={() => setLabelling(false)}
+      />
       {data && canCancel && (
         <CancelBillDialog
           bill={data}

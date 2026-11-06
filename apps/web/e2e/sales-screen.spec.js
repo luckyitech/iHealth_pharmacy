@@ -339,3 +339,46 @@ test('sells a controlled drug only with the details the register needs', async (
     prescription: { doctorId: 8, prescribedOn: '2026-11-02', patientIdNumber: 'TEST1234' },
   });
 });
+
+test('prints the dosing labels after the sale, building the dose from codes', async ({ page }) => {
+  await page.goto('/sales/new');
+  await expect(search(page)).toBeFocused();
+  await search(page).fill('15*amox');
+  await expect(page.getByRole('option', { name: /Amoxidemo/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await search(page).fill('testa');
+  await expect(page.getByRole('option', { name: /Testamol/ }).first()).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('F9');
+  await expect(page.getByRole('dialog', { name: 'Take payment' })).toBeVisible();
+  await page.keyboard.press('Enter');
+  const done = page.getByRole('dialog', { name: 'Sale complete' });
+  await expect(done).toBeVisible();
+
+  await page.keyboard.press('l');
+  const labels = page.getByRole('dialog', { name: 'Print labels' });
+  const dose = labels.getByRole('textbox', { name: 'Dose for Amoxidemo 250mg caps' });
+  await expect(dose).toBeVisible();
+  const codes = labels.getByRole('combobox', { name: /Add a code to the dose for Amoxidemo/ });
+  await codes.fill('1c');
+  await page.keyboard.press('Enter');
+  await codes.fill('tds');
+  await page.keyboard.press('Enter');
+  await expect(dose).toHaveValue('Take one capsule 3 times a day');
+  await dose.pressSequentially(' for 5 days.');
+  await page.screenshot({ path: test.info().outputPath('labels.png') });
+
+  const [popup] = await Promise.all([
+    page.waitForEvent('popup'),
+    labels.getByRole('button', { name: 'Print 1 label' }).click(),
+  ]);
+  await popup.close();
+  await expect(labels).toBeHidden();
+  expect(server.lastLabels).toEqual({
+    labels: [
+      { lineId: 1, text: 'Take one capsule 3 times a day for 5 days.', copies: 1 },
+      { lineId: 2, text: '', copies: 0 },
+    ],
+  });
+  await expect(done).toBeVisible();
+});
