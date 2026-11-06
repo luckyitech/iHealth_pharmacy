@@ -70,12 +70,13 @@ const quoteOf = ({ quantity, discountPercent = 0 }, medicineKind = null) => {
 };
 
 /**
- * @param {{ customers?: { id: number, name: string, phone: string | null }[], medicineKind?: string | null }} [options]
+ * @param {{ customers?: { id: number, name: string, phone: string | null }[], medicineKind?: string | null, controlledDrugRules?: boolean }} [options]
  * @returns {{ quotes: { lines: { discountPercent: number }[] }[], api: ReturnType<typeof stubApi> }}
  */
 function renderPage({
   customers = [{ id: 5, name: 'Test Customer', phone: '0700000005' }],
   medicineKind = null,
+  controlledDrugRules = true,
 } = {}) {
   /** @type {{ lines: { discountPercent: number }[] }[]} */
   const quotes = [];
@@ -98,6 +99,7 @@ function renderPage({
             { kind: 'antibiotic', code: 'H1', name: 'Antibiotic' },
           ],
           prescriptionPhotoMaxKb: 500,
+          controlledDrugRules,
         },
       }),
     'GET sales/banks': () => jsonResponse(200, { data: [{ id: 1, name: 'Test Bank' }] }),
@@ -239,6 +241,15 @@ describe('the sales screen', () => {
     await userEvent.type(within(strip).getByLabelText(/Prescription date/), '2026-11-01');
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeEnabled());
     expect(screen.getByRole('button', { name: /Customer\s*Jane Testcase/ })).toBeInTheDocument();
+  });
+
+  it('takes payment for a controlled drug without the details when the pharmacy turned the rules off', async () => {
+    renderPage({ medicineKind: 'controlled', controlledDrugRules: false });
+    await addTestamol();
+    const strip = await screen.findByRole('region', { name: /Controlled drug/ });
+    expect(strip).toHaveTextContent('recommended for the register');
+    expect(within(strip).getByRole('combobox', { name: /Patient's name/ })).not.toBeRequired();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Pay/ })[0]).toBeEnabled());
   });
 
   it('asks a second person to approve a discount above the limit, then takes the payment', async () => {

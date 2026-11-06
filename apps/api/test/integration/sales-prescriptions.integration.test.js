@@ -10,6 +10,7 @@ import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createSalesBillRoutes } from '../../src/features/sales/bills.routes.js';
 import { createMedicineTypeRoutes } from '../../src/features/masters/medicine-types.js';
+import { createSalesSettingsRoutes } from '../../src/features/masters/sales-settings.routes.js';
 import { createPrescriberRoutes } from '../../src/features/sales/prescribers.js';
 import { createSaleQuoteRoutes } from '../../src/features/sales/quote.routes.js';
 import { createTillRoutes } from '../../src/features/sales/till.routes.js';
@@ -77,7 +78,7 @@ beforeAll(async () => {
           ...createPrescriberRoutes(deps),
         ],
       },
-      masters: { routes: createMedicineTypeRoutes(deps) },
+      masters: { routes: [...createMedicineTypeRoutes(deps), ...createSalesSettingsRoutes(deps)] },
     }),
     guards: auth.guards,
   });
@@ -369,5 +370,86 @@ describe('setting the medicine type of many items', () => {
       .set('x-csrf-token', login.body.data.csrfToken)
       .send({ itemIds: [1], scheduleCodeId: null });
     expect(response.status).toBe(403);
+  });
+});
+
+describe('a pharmacy that turns the controlled-drug rules off', () => {
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let admin;
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let cashier;
+
+  /**
+   * @param {string} identifier
+   * @param {string} password
+   */
+  const signIn = async (identifier, password) => {
+    const agent = request.agent(app);
+    const response = await agent.post('/api/v1/auth/login').send({ identifier, password });
+    return { agent, csrf: response.body.data.csrfToken };
+  };
+  /** @param {boolean} controlledDrugRules */
+  const setRules = (controlledDrugRules) =>
+    admin.agent
+      .put('/api/v1/masters/sales-settings')
+      .set('x-csrf-token', admin.csrf)
+      .send({ controlledDrugRules });
+
+  beforeAll(async () => {
+    admin = await signIn('test.admin', 'Test-Admin-Pass-1');
+    cashier = await signIn('test.cashier', 'Test-Cashier-Pass-1');
+  });
+
+  it('starts with the rules on, and only the people who keep master data can change it', async () => {
+    expect((await admin.agent.get('/api/v1/masters/sales-settings')).body.data).toEqual({
+      controlledDrugRules: true,
+    });
+    const denied = await cashier.agent
+      .put('/api/v1/masters/sales-settings')
+      .set('x-csrf-token', cashier.csrf)
+      .send({ controlledDrugRules: false });
+    expect(denied.status).toBe(403);
+  });
+
+  it('sells a controlled drug without the details, keeping what was entered for the register', async () => {
+    const off = await setRules(false);
+    expect(off.body.data).toEqual({ controlledDrugRules: false });
+    const till = await cashier.agent.get(`${API}/till-settings`);
+    expect(till.body.data.controlledDrugRules).toBe(false);
+
+    const sale = await cashier.agent
+      .post(`${API}/bills`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({
+        requestKey: randomUUID(),
+        customerName: 'John Sample',
+        lines: [{ stockId: ids['CAL-1'], quantity: 1 }],
+        payments: [{ method: 'cash', amount: '100' }],
+      });
+    expect(sale.status).toBe(201);
+    const [entry] = await db.select`
+      SELECT PATIENT_NAME AS name, PATIENT_PHONE AS phone, PATIENT_ID_NUMBER AS idNumber, DOCTOR_ID AS doctor
+      FROM ih_controlled_dispense WHERE BILL_ID = ${sale.body.data.id}`;
+    expect(entry).toEqual({ name: 'John Sample', phone: null, idNumber: null, doctor: null });
+
+    const [audited] = await db.select`
+      SELECT DETAILS AS details FROM ih_audit_log WHERE ACTION = 'masters/sales-settings.update'`;
+    expect(audited.details).toMatchObject({
+      before: { controlledDrugRules: true },
+      after: { controlledDrugRules: false },
+    });
+  });
+
+  it('requires the details again once the rules are back on', async () => {
+    await setRules(true);
+    const sale = await cashier.agent
+      .post(`${API}/bills`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({
+        requestKey: randomUUID(),
+        lines: [{ stockId: ids['CAL-1'], quantity: 1 }],
+        payments: [{ method: 'cash', amount: '100' }],
+      });
+    expect(sale.status).toBe(400);
   });
 });

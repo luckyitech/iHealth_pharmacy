@@ -18,6 +18,7 @@ import { defineRoute } from '../../http/define-route.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { getAuth } from '../auth/auth.guards.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
+import { createPharmacySettings } from '../masters/pharmacy-settings.js';
 import { todayIn } from './batches.repository.js';
 import { createHeldSales } from './held-sales.js';
 import { createTillRepository } from './till.repository.js';
@@ -37,6 +38,7 @@ const BYTES_PER_KB = 1024;
 export function createTillRoutes({ prisma, audit, config }) {
   const till = createTillRepository(prisma);
   const held = createHeldSales({ prisma, config });
+  const pharmacySettings = createPharmacySettings(prisma, config);
 
   return [
     defineRoute({
@@ -48,8 +50,9 @@ export function createTillRoutes({ prisma, audit, config }) {
       responses: {
         200: { description: 'Till settings', schema: dataResponseSchema(tillSettingsSchema) },
       },
-      handler: ({ res }) => ({
+      handler: async ({ res }) => ({
         data: {
+          ...(await pharmacySettings.sales(await currentPharmacyId(prisma, config))),
           selfDiscountLimit: config.sales.selfDiscountLimit,
           maxHeld: config.sales.maxHeld,
           quickCashNotes: config.sales.quickCashNotes,

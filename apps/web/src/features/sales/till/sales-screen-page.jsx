@@ -187,7 +187,9 @@ export default function SalesScreenPage() {
   const controlledCount = toPrescribe.filter(
     (line) => line.medicineKind === MEDICINE_KINDS.CONTROLLED,
   ).length;
-  const missing = controlledCount ? missingForRegister(prescription, state.customer) : [];
+  const registerRequired = settings.data?.controlledDrugRules ?? true;
+  const missing =
+    controlledCount && registerRequired ? missingForRegister(prescription, state.customer) : [];
   if (!blocked && missing.length) blocked = registerProblem(missing);
 
   /** Empties the till for the next sale, its prescription included. */
@@ -220,7 +222,8 @@ export default function SalesScreenPage() {
     const needsRegister = sale.lines.some(
       (line) => line.medicineKind === MEDICINE_KINDS.CONTROLLED,
     );
-    const unfilled = needsRegister ? missingForRegister(prescription, state.customer) : [];
+    const unfilled =
+      needsRegister && registerRequired ? missingForRegister(prescription, state.customer) : [];
     const problem = lineProblem(sale) ?? (unfilled.length ? registerProblem(unfilled) : null);
     if (problem) {
       notify.info(problem, { id: 'till-blocked' });
@@ -493,6 +496,7 @@ export default function SalesScreenPage() {
           <PrescriptionStrip
             itemCount={toPrescribe.length}
             controlledCount={controlledCount}
+            registerRequired={registerRequired}
             value={prescription}
             onChange={setPrescription}
             customer={state.customer}
