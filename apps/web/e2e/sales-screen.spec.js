@@ -207,3 +207,27 @@ test('holds a sale at one till and recalls it at another, only once', async ({ b
   await expect(page.getByText(/no longer on hold/)).toBeVisible();
   await otherTill.close();
 });
+
+test('finds a registered customer as the name is typed', async ({ page }) => {
+  await page.goto('/sales/new');
+  await expect(search(page)).toBeFocused();
+  await page.keyboard.press('F2');
+  const dialog = page.getByRole('dialog', { name: 'Customer' });
+  const name = dialog.getByRole('combobox', { name: /Name/ });
+  await expect(name).toBeFocused();
+  await name.pressSequentially('jan');
+  const options = dialog.getByRole('option');
+  await expect(options).toHaveCount(2);
+  await page.keyboard.press('ArrowDown');
+  await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await page.screenshot({ path: test.info().outputPath('customer-typeahead.png') });
+
+  await page.keyboard.press('Escape');
+  await expect(options).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await name.pressSequentially('e t');
+  await expect(options).toHaveCount(1);
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name: /Customer\s*Jane Testcase/ })).toBeVisible();
+});

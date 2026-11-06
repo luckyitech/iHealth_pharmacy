@@ -67,7 +67,11 @@ const quoteOf = ({ quantity, discountPercent = 0 }) => {
   };
 };
 
-function renderPage() {
+/**
+ * @param {{ customers?: { id: number, name: string, phone: string | null }[] }} [options]
+ * @returns {{ quotes: { lines: { discountPercent: number }[] }[], api: ReturnType<typeof stubApi> }}
+ */
+function renderPage({ customers = [{ id: 5, name: 'Test Customer', phone: '0700000005' }] } = {}) {
   /** @type {{ lines: { discountPercent: number }[] }[]} */
   const quotes = [];
   const api = stubApi({
@@ -88,8 +92,7 @@ function renderPage() {
     'GET sales/banks': () => jsonResponse(200, { data: [{ id: 1, name: 'Test Bank' }] }),
     'GET sales/held': () => jsonResponse(200, { data: [] }),
     'GET sales/batches': () => jsonResponse(200, { data: { batches: [BATCH], scanned: false } }),
-    'GET sales/customers': () =>
-      jsonResponse(200, { data: [{ id: 5, name: 'Test Customer', phone: '0700000005' }] }),
+    'GET sales/customers': () => jsonResponse(200, { data: customers }),
     'POST sales/approvals': () =>
       jsonResponse(201, {
         data: {
@@ -107,7 +110,7 @@ function renderPage() {
   });
   vi.stubGlobal('fetch', api.fetch);
   renderRoutes([{ path: '/sales/new', element: <SalesScreenPage /> }], '/sales/new');
-  return { quotes };
+  return { quotes, api };
 }
 
 /**
@@ -134,16 +137,32 @@ describe('the sales screen', () => {
     );
   });
 
-  it('puts a registered customer on the sale with F2', async () => {
+  it('offers registered customers as the name is typed, and picks one with Enter', async () => {
     renderPage();
     await screen.findByText('No items yet');
     await userEvent.keyboard('{F2}');
-    await userEvent.type(
-      await screen.findByRole('searchbox', { name: /Search customers/ }),
-      'test',
+    const name = await screen.findByRole('combobox', { name: /Name/ });
+    await userEvent.type(name, 'te');
+    expect(await screen.findByRole('option', { name: /Test Customer/ })).toHaveTextContent(
+      'Customer no. 5',
     );
-    await userEvent.click(await screen.findByRole('button', { name: /Test Customer/ }));
+    await userEvent.keyboard('{Enter}');
     expect(screen.getByRole('button', { name: /Customer\s*Test Customer/ })).toBeInTheDocument();
+  });
+
+  it('keeps a typed name when no one matches, and Escape closes only the list', async () => {
+    const { api } = renderPage({ customers: [] });
+    const searches = () => api.calls.filter((call) => call.url.includes('sales/customers'));
+    await screen.findByText('No items yet');
+    await userEvent.keyboard('{F2}');
+    await userEvent.type(await screen.findByRole('combobox', { name: /Name/ }), 'Nobody Known');
+    expect(await screen.findByText('No customer found')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByText('No customer found')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Customer' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Use this name' }));
+    expect(screen.getByRole('button', { name: /Customer\s*Nobody Known/ })).toBeInTheDocument();
+    expect(new URL(searches().at(-1)?.url ?? '').searchParams.get('q')).toBe('Nobody Known');
   });
 
   it('asks a second person to approve a discount above the limit, then takes the payment', async () => {

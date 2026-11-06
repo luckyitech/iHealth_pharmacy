@@ -8,6 +8,17 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 /**
+ * Escape on a box whose suggestions are open closes the suggestions, not the window.
+ *
+ * @param {KeyboardEvent} event
+ * @returns {boolean}
+ */
+const closesSuggestions = (event) =>
+  event.target instanceof HTMLElement &&
+  event.target.getAttribute('role') === 'combobox' &&
+  event.target.getAttribute('aria-expanded') === 'true';
+
+/**
  * Centred modal on a solid surface. Focus is trapped while open; Escape closes it.
  *
  * @param {React.ComponentProps<typeof DialogPrimitive.Content> & { title: string, description?: React.ReactNode, hideClose?: boolean }} props
@@ -19,6 +30,7 @@ export function DialogContent({
   title,
   description,
   hideClose = false,
+  onEscapeKeyDown,
   ...props
 }) {
   return (
@@ -29,6 +41,10 @@ export function DialogContent({
           'fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-card p-6 shadow-lg data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0',
           className,
         )}
+        onEscapeKeyDown={(event) => {
+          if (closesSuggestions(event)) event.preventDefault();
+          else onEscapeKeyDown?.(event);
+        }}
         {...props}
       >
         <div className="grid gap-1.5 pr-6">

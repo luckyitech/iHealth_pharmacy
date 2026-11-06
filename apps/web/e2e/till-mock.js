@@ -19,6 +19,13 @@ export const TILL_USER = Object.freeze({
 /** Barcode of the made-up syrup. */
 export const SYRUP_BARCODE = '6009900000017';
 /** The made-up second person who may approve. */
+/** Made-up registered customers. */
+const CUSTOMERS = Object.freeze([
+  { id: 104, name: 'Jane Testcase', phone: '0700000104' },
+  { id: 221, name: 'Janet Example', phone: '0700000221' },
+  { id: 342, name: 'John Sample', phone: '0700000342' },
+]);
+
 export const APPROVER = Object.freeze({ username: 'pat.pharmacist', pin: '4321' });
 const APPROVAL_TOKEN = '11111111-2222-4333-8444-555555555555';
 
@@ -171,6 +178,19 @@ export async function mockTillApi(page, server) {
           { id: 2, name: 'Sample Bank' },
         ],
       });
+    if (key === 'GET sales/customers') {
+      const words = (url.searchParams.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      return json({
+        data: CUSTOMERS.filter((customer) =>
+          words.every((word) =>
+            customer.name
+              .toLowerCase()
+              .split(' ')
+              .some((part) => part.startsWith(word)),
+          ),
+        ),
+      });
+    }
     if (key === 'GET sales/batches') {
       const q = (url.searchParams.get('q') ?? '').toLowerCase();
       const scanned = BATCHES.filter((b) => b.barcode === q);

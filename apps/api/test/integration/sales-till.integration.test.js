@@ -149,6 +149,11 @@ describe('the till', () => {
     ]);
     const byPhone = await cashier.agent.get('/api/v1/sales/customers').query({ q: '0700 000 002' });
     expect(byPhone.body.data.map((/** @type {any} */ c) => c.name)).toEqual(['Sample Shopper']);
+    const byWords = await cashier.agent.get('/api/v1/sales/customers').query({ q: 'sam sho' });
+    expect(byWords.body.data.map((/** @type {any} */ c) => c.name)).toEqual(['Sample Shopper']);
+    // Words match the start of a name, not its middle.
+    const inside = await cashier.agent.get('/api/v1/sales/customers').query({ q: 'xample' });
+    expect(inside.body.data).toEqual([]);
     const tooShort = await cashier.agent.get('/api/v1/sales/customers').query({ q: 'e' });
     expect(tooShort.status).toBe(400);
   });

@@ -10,6 +10,8 @@ import { batchExpiry } from './batches.repository.js';
 const ACTIVE = 'Y';
 /** Most customers one till search lists. */
 const CUSTOMER_SEARCH_LIMIT = 10;
+/** A search of only digits (and spaces or dashes) is also looked for in phone numbers. */
+const PHONE_DIGITS = /^\d+$/;
 
 const SELLABLE_COLUMNS = Prisma.sql`
   st.STOCK_ID AS stockId, st.ITEM_ID AS itemId, it.ITEM_NM AS itemName, it.ITEM_CD AS itemCode,
@@ -132,21 +134,26 @@ export function createTillRepository(prisma) {
     },
 
     /**
-     * Active customers whose name or phone matches, for the till's customer picker.
+     * Active customers whose name or phone matches, for the customer type-ahead: every word typed
+     * starts the first or last name ("jan tes" finds Jane Testcase), or the digits are in the phone.
+     * Names that start with what was typed come first.
      *
      * @param {string} q
      * @returns {Promise<{ id: number, name: string, phone: string | null }[]>}
      */
     async searchCustomers(q) {
+      const words = q.split(/\s+/).filter(Boolean);
       // Phone numbers are stored without spaces or dashes.
       const digits = q.replace(/[\s-]/g, '');
+      const byName = words.map((word) => ({
+        OR: [{ firstNm: { startsWith: word } }, { lastNm: { startsWith: word } }],
+      }));
       const rows = await prisma.customer.findMany({
         where: {
           activeS: ACTIVE,
           OR: [
-            { firstNm: { contains: q } },
-            { lastNm: { contains: q } },
-            ...(digits ? [{ phoneNbr: { contains: digits } }] : []),
+            { AND: byName },
+            ...(PHONE_DIGITS.test(digits) ? [{ phoneNbr: { contains: digits } }] : []),
           ],
         },
         select: { customerId: true, firstNm: true, lastNm: true, phoneNbr: true },
