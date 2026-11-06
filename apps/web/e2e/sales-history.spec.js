@@ -13,6 +13,7 @@ const SUMMARY = Object.freeze({
   lineCount: 1,
   netAmount: '1160.00',
   paidAmount: '1160.00',
+  totalPaid: '1160.00',
   balance: '0.00',
   status: 'paid',
   paymentMethods: ['mpesa'],

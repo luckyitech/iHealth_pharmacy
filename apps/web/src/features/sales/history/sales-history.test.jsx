@@ -27,6 +27,7 @@ const SUMMARY = {
   lineCount: 1,
   netAmount: '1160.00',
   paidAmount: '1160.00',
+  totalPaid: '1160.00',
   balance: '0.00',
   status: 'paid',
   paymentMethods: ['mpesa'],
@@ -109,6 +110,9 @@ describe('Sales history', () => {
     expect(await screen.findByText('TSB0102260001')).toBeInTheDocument();
     expect(screen.getByText('Short M-Pesa code')).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'M-Pesa' })).toBeInTheDocument();
+    // What was paid, where the legacy "Net" column was.
+    expect(screen.getByRole('columnheader', { name: /Total paid/ })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Net/ })).not.toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'cancelled');
     expect(

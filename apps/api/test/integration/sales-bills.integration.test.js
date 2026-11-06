@@ -136,6 +136,7 @@ describe('sales history', () => {
       status: 'paid',
       paymentMethods: ['mpesa'],
       netAmount: '1160.00',
+      totalPaid: '1160.00',
       cashierName: 'Carl Cashier',
       lineCount: 1,
       flags: ['shortMpesaCode'],
@@ -145,6 +146,8 @@ describe('sales history', () => {
       status: 'pending',
       paymentMethods: ['credit'],
       flags: ['noItems'],
+      // A credit sale is owed, not paid.
+      totalPaid: '0.00',
     });
   });
 
@@ -159,6 +162,8 @@ describe('sales history', () => {
     expect(await codes('q=%25')).toEqual([]);
     expect(await codes('from=2026-02-02')).toEqual(['TSB0202260001']);
     expect(await codes('to=2026-02-01&sort=code')).toEqual(['TSB0102260001', 'TSB0102260002']);
+    expect((await codes('sort=-totalPaid'))[0]).toBe('TSB0102260001');
+    expect((await codes('sort=totalPaid')).at(-1)).toBe('TSB0102260001');
     expect(await codes('cashierId=1')).toEqual(['TSB0202260001']);
     expect(await codes('paymentMethod=mpesa')).toEqual(['TSB0102260001']);
     expect(await codes('status=cancelled')).toEqual(['TSB0102260002']);

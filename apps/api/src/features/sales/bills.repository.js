@@ -1,6 +1,13 @@
 /* eslint-disable jsdoc/reject-any-type -- rows come from raw SQL over legacy tables */
 import { BILL_FLAGS, BILL_STATUSES, PAYMENT_METHODS } from '@ihealth/shared/schemas';
-import { compareMoney, moneyToString, roundMoney, subtractMoney } from '@ihealth/shared/money';
+import {
+  addMoney,
+  compareMoney,
+  moneyToString,
+  roundMoney,
+  subtractMoney,
+  toMoney,
+} from '@ihealth/shared/money';
 
 import { Prisma } from '#db';
 
@@ -36,6 +43,12 @@ const PAID_METHODS = /** @type {readonly string[]} */ ([
 ]);
 Object.freeze(PAID_METHODS);
 
+/** The sum of the paid-at-the-counter amount columns, for sorting by what was paid. */
+const TOTAL_PAID_SQL = PAID_METHODS.map(
+  (method) =>
+    `COALESCE(s.${PAYMENT_COLUMNS[/** @type {keyof typeof PAYMENT_COLUMNS} */ (method)].amount}, 0)`,
+).join(' + ');
+
 /** Length of a full M-Pesa transaction code. */
 const MPESA_CODE_LENGTH = 10;
 /** Card numbers are shown by their last digits only. */
@@ -55,10 +68,14 @@ const shownReference = (method, reference) =>
 const SORT_SQL = Object.freeze({
   billDate: { asc: 's.BILL_DATE ASC, s.BILL_ID ASC', desc: 's.BILL_DATE DESC, s.BILL_ID DESC' },
   netAmount: { asc: 's.NET_AMOUNT ASC, s.BILL_ID ASC', desc: 's.NET_AMOUNT DESC, s.BILL_ID DESC' },
+  totalPaid: {
+    asc: `${TOTAL_PAID_SQL} ASC, s.BILL_ID ASC`,
+    desc: `${TOTAL_PAID_SQL} DESC, s.BILL_ID DESC`,
+  },
   code: { asc: 's.BILL_CODE ASC', desc: 's.BILL_CODE DESC' },
 });
 
-export const BILL_SORTABLE = /** @type {const} */ (['billDate', 'netAmount', 'code']);
+export const BILL_SORTABLE = /** @type {const} */ (['billDate', 'netAmount', 'totalPaid', 'code']);
 
 const paymentSelect = Prisma.raw(
   Object.values(PAYMENT_COLUMNS)
@@ -143,6 +160,16 @@ function paymentsOf(row) {
 const textOrNull = (value) => String(value ?? '').trim() || null;
 
 /**
+ * @param {ReturnType<typeof paymentsOf>} payments
+ * @returns {import('@ihealth/shared/money').MoneyValue} What was paid at the counter (credit is owed, not paid).
+ */
+function paidTotal(payments) {
+  return payments
+    .filter((payment) => PAID_METHODS.includes(payment.method))
+    .reduce((total, payment) => addMoney(total, payment.amount), toMoney(0));
+}
+
+/**
  * @param {Record<string, any>} row
  * @param {ReturnType<typeof paymentsOf>} payments
  * @returns {string[]}
@@ -152,9 +179,7 @@ function flagsOf(row, payments) {
   const flags = [];
   if (Number(row.lineCount) === 0) flags.push(BILL_FLAGS.NO_ITEMS);
   if (toStatus(row.paymentStatus) === BILL_STATUSES.PAID) {
-    const paid = payments
-      .filter((payment) => PAID_METHODS.includes(payment.method))
-      .reduce((total, payment) => total + Number(payment.amount), 0);
+    const paid = paidTotal(payments);
     // A shilling either way is rounding, not a mismatch.
     if (compareMoney(subtractMoney(paid, money(row.netAmount)).abs(), 1) > 0)
       flags.push(BILL_FLAGS.PAYMENTS_MISMATCH);
@@ -183,6 +208,7 @@ export function toBillSummary(row) {
     lineCount: Number(row.lineCount),
     netAmount: money(row.netAmount),
     paidAmount: money(row.paidAmount),
+    totalPaid: moneyToString(paidTotal(payments)),
     balance: money(row.balanceAmount),
     status: /** @type {any} */ (toStatus(row.paymentStatus)),
     paymentMethods: /** @type {any} */ (payments.map((payment) => payment.method)),
