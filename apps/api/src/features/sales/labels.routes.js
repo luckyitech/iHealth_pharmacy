@@ -6,10 +6,8 @@ import {
   billLabelsSchema,
   dataResponseSchema,
   idParamsSchema,
-  labelCodeSchema,
   printLabelsBodySchema,
 } from '@ihealth/shared/schemas';
-import { z } from 'zod';
 
 import { defineRoute } from '../../http/define-route.js';
 import { notFound, validationFailed } from '../../lib/errors.js';
@@ -33,8 +31,8 @@ const ACTIVE = 'Y';
 const textOrNull = (value) => String(value ?? '').trim() || null;
 
 /**
- * Dosing stickers for a bill's medicines: the legacy app's label codes to build the dose from, the
- * lines with what to print, printing (which keeps what was printed) and reprinting the same.
+ * Dosing stickers for a bill's medicines: the lines with what to print, printing (which keeps what
+ * was printed) and reprinting the same.
  *
  * @param {{ prisma: import('#db').PrismaClient, audit: import('../audit/audit-log.js').AuditLog, config: Readonly<import('../../config/env.js').Config> }} deps
  * @returns The routes.
@@ -164,28 +162,6 @@ export function createLabelRoutes({ prisma, audit, config }) {
     });
 
   return [
-    defineRoute({
-      method: 'get',
-      path: '/sales/label-codes',
-      summary: 'The label codes a dose is built from, e.g. 1t = "Take one tablet"',
-      tags: TAGS,
-      permissions: POLICIES.sales.sell,
-      responses: {
-        200: { description: 'Label codes', schema: dataResponseSchema(z.array(labelCodeSchema)) },
-      },
-      handler: async () => {
-        /** @type {Record<string, any>[]} */
-        const rows = await prisma.$queryRaw`
-          SELECT FORMULATION_NAME AS code, INSTRUCTIONS AS text FROM formulation_instructions
-          WHERE ACTIVE_S = ${ACTIVE} AND ITEM_ID IS NULL ORDER BY FORMULATION_INSTRUCTION_ID`;
-        return {
-          data: rows
-            .map((row) => ({ code: textOrNull(row.code) ?? '', text: textOrNull(row.text) ?? '' }))
-            .filter((row) => row.code && row.text),
-        };
-      },
-    }),
-
     defineRoute({
       method: 'get',
       path: `${BILLS}/:id/labels`,

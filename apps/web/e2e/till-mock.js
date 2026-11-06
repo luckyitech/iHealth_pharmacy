@@ -386,16 +386,6 @@ export async function mockTillApi(page, server) {
         201,
       );
     }
-    if (key === 'GET sales/label-codes')
-      return json({
-        data: [
-          { code: '1c', text: 'Take one capsule' },
-          { code: 'tds', text: '3 times a day' },
-          { code: '1t', text: 'Take one tablet' },
-          { code: 'hs', text: 'at bedtime' },
-          { code: 'a.m., am, AM', text: 'in the morning' },
-        ],
-      });
     const labelsOf = /^(GET|POST) sales\/bills\/(\d+)\/labels$/.exec(key);
     if (labelsOf?.[1] === 'GET') {
       const sale = server.lastSale;

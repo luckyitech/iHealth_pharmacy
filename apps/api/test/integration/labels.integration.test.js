@@ -65,12 +65,10 @@ beforeAll(async () => {
     VALUES (${ids.AMX250}, 1, 50, 'AX-1', '2027-08-31', 380, 200), (${ids.TST500}, 1, 50, 'TS-1', '2030-01-31', 116, 80)`;
   for (const row of await db.select`SELECT STOCK_ID AS id, BATCH_NO AS batch FROM stock`)
     ids[row.batch] = row.id;
-  // Made-up label codes, and an instruction the legacy app kept for one item.
+  // An instruction the legacy app kept for one item.
   await db.prisma.$executeRaw`
     INSERT INTO formulation_instructions (FORMULATION_NAME, INSTRUCTIONS, ITEM_ID, ACTIVE_S)
-    VALUES ('1c', 'Take one capsule', NULL, 'Y'), ('tds', '3 times a day', NULL, 'Y'),
-           ('old', 'No longer used', NULL, 'N'),
-           ('AMX', 'Take one capsule 3 times a day for 5 days', ${ids.AMX250}, 'Y')`;
+    VALUES ('AMX', 'Take one capsule 3 times a day for 5 days', ${ids.AMX250}, 'Y')`;
 });
 
 afterAll(async () => {
@@ -103,14 +101,6 @@ describe('dosing labels', () => {
       });
     expect(sale.status).toBe(201);
     bill = sale.body.data;
-  });
-
-  it('offers the active label codes', async () => {
-    const response = await cashier.agent.get('/api/v1/sales/label-codes');
-    expect(response.body.data).toEqual([
-      { code: '1c', text: 'Take one capsule' },
-      { code: 'tds', text: '3 times a day' },
-    ]);
   });
 
   it("lists the bill's lines with the item's usual instruction", async () => {

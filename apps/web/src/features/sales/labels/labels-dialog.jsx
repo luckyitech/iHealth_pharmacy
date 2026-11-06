@@ -13,8 +13,7 @@ import { cn } from '@/lib/utils';
 
 import { MedicineTag } from '../prescriptions/medicine-tag.jsx';
 import { useTillSettings } from '../till/till-api.js';
-import { CodeAdder } from './code-adder.jsx';
-import { printLabels, reprintLabels, useBillLabels, useLabelCodes } from './labels-api.js';
+import { printLabels, reprintLabels, useBillLabels } from './labels-api.js';
 
 /**
  * @typedef {{ lineId: number, text: string, copies: number }} LabelDraft
@@ -31,15 +30,21 @@ function draftOf(line) {
 }
 
 /**
- * @param {string} dose
- * @param {string} words
- * @returns {string} The dose with a code's words added at the end.
+ * A dose typed where there was none asks for a sticker; a dose erased asks for none. A count the
+ * pharmacist already set is left alone while they type.
+ *
+ * @param {LabelDraft} draft
+ * @param {string} text The dose as now typed.
+ * @returns {number} How many stickers to print.
  */
-const withWords = (dose, words) => [dose.trim(), words.trim()].filter(Boolean).join(' ');
+function copiesAfterTyping(draft, text) {
+  if (!text.trim()) return 0;
+  return draft.copies === 0 && !draft.text.trim() ? 1 : draft.copies;
+}
 
 /**
  * Dosing stickers for a bill: one row per line, the dose prefilled from the last print or the
- * item's usual instruction, built up with the legacy label codes, and how many stickers to print.
+ * item's usual instruction, and how many stickers to print.
  *
  * @param {object} props
  * @param {number | null} props.billId Null while closed.
@@ -68,7 +73,6 @@ export function LabelsDialog({ billId, onClose }) {
 function LabelsEditor({ billId, onDone }) {
   const format = useFormat();
   const labels = useBillLabels(billId);
-  const codes = useLabelCodes();
   const settings = useTillSettings();
   const [drafts, setDrafts] = useState(/** @type {Map<number, LabelDraft> | null} */ (null));
   const [printing, setPrinting] = useState(false);
@@ -76,9 +80,6 @@ function LabelsEditor({ billId, onDone }) {
   useEffect(() => {
     if (labels.error) notify.failure('Could not load the bill for its labels', labels.error);
   }, [labels.error]);
-  useEffect(() => {
-    if (codes.error) notify.failure('Could not load the label codes', codes.error, { id: 'codes' });
-  }, [codes.error]);
 
   if (labels.isPending) return <PageState state="loading" />;
   if (!labels.data) return <PageState state="error" error={labels.error} />;
@@ -171,15 +172,10 @@ function LabelsEditor({ billId, onDone }) {
                   placeholder="e.g. Take one tablet 3 times a day after meals"
                   className="min-h-14"
                   value={item.text}
-                  onChange={(event) => change(line.lineId, { text: event.target.value })}
-                />
-                <CodeAdder
-                  codes={codes.data ?? []}
-                  label={`Add a code to the dose for ${name}`}
-                  onAdd={(words) =>
+                  onChange={(event) =>
                     change(line.lineId, {
-                      text: withWords(item.text, words),
-                      copies: item.copies || 1,
+                      text: event.target.value,
+                      copies: copiesAfterTyping(item, event.target.value),
                     })
                   }
                 />

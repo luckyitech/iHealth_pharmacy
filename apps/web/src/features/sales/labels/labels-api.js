@@ -3,23 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 
 /**
- * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').labelCodeSchema>} LabelCode
  * @typedef {import('zod').infer<typeof import('@ihealth/shared/schemas').billLabelsSchema>} BillLabels
  * @typedef {{ lineId: number, text: string, copies: number }} LabelInput
  */
-
-/** The codes change only when the legacy list is edited. */
-const CODES_STALE_MS = 60 * 60 * 1000;
-
-/** @returns {import('@tanstack/react-query').UseQueryResult<LabelCode[]>} */
-export function useLabelCodes() {
-  return useQuery({
-    queryKey: ['sales', 'label-codes'],
-    queryFn: async () =>
-      /** @type {{ data: LabelCode[] }} */ (await api.get('sales/label-codes').json()).data,
-    staleTime: CODES_STALE_MS,
-  });
-}
 
 /**
  * @param {number | null} billId

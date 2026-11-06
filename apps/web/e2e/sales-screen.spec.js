@@ -340,7 +340,7 @@ test('sells a controlled drug only with the details the register needs', async (
   });
 });
 
-test('prints the dosing labels after the sale, building the dose from codes', async ({ page }) => {
+test('prints the dosing labels after the sale, with the dose as typed', async ({ page }) => {
   await page.goto('/sales/new');
   await expect(search(page)).toBeFocused();
   await search(page).fill('15*amox');
@@ -359,13 +359,7 @@ test('prints the dosing labels after the sale, building the dose from codes', as
   const labels = page.getByRole('dialog', { name: 'Print labels' });
   const dose = labels.getByRole('textbox', { name: 'Dose for Amoxidemo 250mg caps' });
   await expect(dose).toBeVisible();
-  const codes = labels.getByRole('combobox', { name: /Add a code to the dose for Amoxidemo/ });
-  await codes.fill('1c');
-  await page.keyboard.press('Enter');
-  await codes.fill('tds');
-  await page.keyboard.press('Enter');
-  await expect(dose).toHaveValue('Take one capsule 3 times a day');
-  await dose.pressSequentially(' for 5 days.');
+  await dose.fill('Take one capsule 3 times a day for 5 days.');
   await page.screenshot({ path: test.info().outputPath('labels.png') });
 
   const [popup] = await Promise.all([
