@@ -80,21 +80,21 @@ export function createBillHistory({ prisma, config }) {
         WHERE u.BILL_ID = ${billId}`;
 
       const subject = { subjectType: ACTIVITY_SUBJECTS.BILL, subjectId: billId };
-      const entries = [
-        toActivityEntry({
-          ...subject,
-          id: `sale-${bill.id}`,
-          action: ACTIVITY_ACTIONS.SALE_MADE,
-          at: bill.at,
-          byName: bill.byName,
-          details: { code: bill.code },
-        }),
+      const sale = toActivityEntry({
+        ...subject,
+        id: `sale-${bill.id}`,
+        action: ACTIVITY_ACTIONS.SALE_MADE,
+        at: bill.at,
+        byName: bill.byName,
+        details: { code: bill.code },
+      });
+      const later = [
         ...rows.map((row) => toActivityEntry({ ...subject, ...row })),
         ...(await activity.of(ACTIVITY_SUBJECTS.BILL, billId, config.historyLimit)),
-      ];
-      return entries
-        .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
-        .slice(0, config.historyLimit);
+      ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+      // The sale comes first: its legacy time has whole seconds only, so it can read a moment
+      // after the photo saved with it.
+      return [sale, ...later].slice(0, config.historyLimit);
     },
   };
 }
