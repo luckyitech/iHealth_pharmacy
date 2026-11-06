@@ -81,7 +81,7 @@ const app = createApp({
       routes: [
         ...createPharmacyProfileRoutes({ prisma, audit, config }),
         ...createItemLookupRoutes({ prisma, audit }),
-        ...createMedicineTypeRoutes({ prisma, audit }),
+        ...createMedicineTypeRoutes({ prisma, audit, config }),
         ...createSalesSettingsRoutes({ prisma, audit, config }),
         ...createItemRoutes({ prisma, audit, config }),
         ...createManufacturerRoutes({ prisma, audit }),

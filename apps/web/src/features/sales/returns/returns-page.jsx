@@ -229,7 +229,14 @@ function CreditNotesTab() {
       id: 'issuedOn',
       header: 'Issued',
       sortable: true,
-      cell: (row) => (row.issuedOn ? format.date(row.issuedOn) : '—'),
+      cell: (row) => (
+        <>
+          {row.issuedOn ? format.date(row.issuedOn) : '—'}
+          {row.issuedBy && (
+            <span className="block text-xs text-muted-foreground">by {row.issuedBy}</span>
+          )}
+        </>
+      ),
     },
     { id: 'code', header: 'Number', sortable: true, cell: (row) => row.code },
     {
@@ -346,6 +353,13 @@ function CreditNoteDialog({ note, onClose }) {
         }
         className="max-w-xl"
       >
+        {note && (
+          <p className="text-sm text-muted-foreground">
+            Issued by {note.issuedBy ?? 'unknown'}
+            {note.issuedAt && ` on ${format.dateTime(note.issuedAt)}`}
+            {note.approvedBy && `, approved by ${note.approvedBy}`}.
+          </p>
+        )}
         {uses.isPending ? (
           <PageState state="loading" />
         ) : (uses.data ?? []).length === 0 ? (

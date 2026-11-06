@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
+import { HistoryList } from '@/features/activity/history-list';
 import { useFormat, wallClockNow } from '@/lib/format';
 import { notify } from '@/lib/notify';
 
@@ -230,6 +231,13 @@ export default function ControlledRegisterPage() {
           )}
         </>
       ) : null}
+      <div className="max-h-80 overflow-y-auto rounded-md border p-4">
+        <HistoryList
+          path="sales/controlled-register/history"
+          title="Who read or printed the register"
+          empty="Nobody has read or printed it in the new system yet."
+        />
+      </div>
     </div>
   );
 }

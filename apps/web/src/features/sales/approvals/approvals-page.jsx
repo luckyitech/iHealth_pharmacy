@@ -51,7 +51,7 @@ export default function ApprovalsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>
           <p className="text-sm text-muted-foreground">
             What a second person approved: big discounts, changed prices, sales below cost, and
-            cancelled bills.
+            cancelled bills. "Not used" means it was approved but the sale was never completed.
           </p>
         </div>
         <div className="grid gap-1.5">
@@ -94,7 +94,15 @@ export default function ApprovalsPage() {
               {rows.map((approval) => (
                 <tr key={approval.id}>
                   <td className="px-3 py-2 tabular-nums">{format.time(approval.at)}</td>
-                  <td className="px-3 py-2 tabular-nums">{approval.billCode ?? '—'}</td>
+                  <td className="px-3 py-2 tabular-nums">
+                    {approval.used ? (
+                      (approval.billCode ?? '—')
+                    ) : (
+                      <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                        Not used
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <span className="block font-medium">{APPROVAL_KIND_LABELS[approval.kind]}</span>
                     {approval.items.length > 0 && (

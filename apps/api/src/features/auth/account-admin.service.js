@@ -4,6 +4,8 @@ import { randomBytes } from 'node:crypto';
 import { ERROR_CODES } from '@ihealth/shared/errors';
 
 import { AppError, notFound } from '../../lib/errors.js';
+import { ACTIVITY_SUBJECTS } from '@ihealth/shared/schemas';
+
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { accountThrottleKey, REVOKE_REASONS } from './auth.constants.js';
 import { assertNotPersonal } from './auth.service.js';
@@ -11,6 +13,9 @@ import { hashPassword, legacyFingerprint } from './password-hasher.js';
 
 /** Bytes of the random value put in the legacy password column of a sign-in created here. */
 const LEGACY_PLACEHOLDER_BYTES = 32;
+
+const ACCOUNT_ACTION_PREFIX = 'employees.access.';
+const ACTIVITY_ACCESS_PREFIX = 'access.';
 
 /** Audit actions of account administration. */
 export const ACCOUNT_AUDIT_ACTIONS = Object.freeze({
@@ -47,6 +52,7 @@ export const ACCOUNT_AUDIT_ACTIONS = Object.freeze({
  * @param {import('./login-throttle.js').LoginThrottle} deps.loginThrottle
  * @param {import('./login-throttle.js').LoginThrottle} deps.pinThrottle The approval PIN check's lockout.
  * @param {import('../audit/audit-log.js').AuditLog} deps.audit
+ * @param {import('../activity/activity-log.js').ActivityLog} deps.activity The employee's history, shown on their access tab.
  * @param {() => Date} [deps.now]
  * @returns The service.
  */
@@ -56,6 +62,7 @@ export function createAccountAdminService({
   loginThrottle,
   pinThrottle,
   audit,
+  activity,
   now = () => new Date(),
 }) {
   /**
@@ -125,8 +132,8 @@ export function createAccountAdminService({
    * @param {Record<string, unknown>} [details]
    * @returns {Promise<void>}
    */
-  const record = (actor, action, employeeId, details) =>
-    audit.record({
+  const record = async (actor, action, employeeId, details) => {
+    await audit.record({
       action,
       outcome: AUDIT_OUTCOMES.SUCCESS,
       employeeId: actor.employeeId,
@@ -135,6 +142,15 @@ export function createAccountAdminService({
       ipAddress: actor.ipAddress,
       details,
     });
+    // The same step on the employee's history, which keeps every change rather than the last.
+    await activity.record({
+      subjectType: ACTIVITY_SUBJECTS.EMPLOYEE,
+      subjectId: employeeId,
+      action: action.replace(ACCOUNT_ACTION_PREFIX, ACTIVITY_ACCESS_PREFIX),
+      employeeId: actor.employeeId,
+      details,
+    });
+  };
 
   return {
     /**
@@ -261,6 +277,18 @@ export function createAccountAdminService({
       // A new password also lifts a lockout caused by the old one.
       await loginThrottle.reset(accountThrottleKey(credentials.credentialsId));
       await record(actor, ACCOUNT_AUDIT_ACTIONS.PASSWORD_SET, employeeId, { mustChangePassword });
+    },
+
+    /**
+     * Every change to the employee's sign-in and access, oldest first.
+     *
+     * @param {number} employeeId
+     * @param {number} limit
+     * @returns {Promise<import('@ihealth/shared/schemas').ActivityEntry[]>}
+     */
+    async history(employeeId, limit) {
+      await employeeOrFail(employeeId);
+      return activity.of(ACTIVITY_SUBJECTS.EMPLOYEE, employeeId, limit);
     },
 
     /**

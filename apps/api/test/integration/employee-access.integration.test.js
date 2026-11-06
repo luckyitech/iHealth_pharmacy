@@ -254,6 +254,29 @@ describe('employee access', () => {
     expect(outcomes.map((row) => row.outcome)).toEqual(['failure', 'success']);
   });
 
+  it("keeps every change to an employee's access, with who and when, never a PIN", async () => {
+    const history = await admin.agent.get(
+      `/api/v1/masters/employees/${CASHIER.employeeId}/access/history`,
+    );
+    expect(history.status).toBe(200);
+    const actions = history.body.data.map((/** @type {any} */ entry) => entry.action);
+    expect(actions).toEqual([
+      'access.password_set',
+      'access.login_disabled',
+      'access.login_enabled',
+      'access.unlocked',
+      'access.role_set',
+      'access.permissions_set',
+      'access.two_factor_reset',
+      'access.approval_pin_set',
+      'access.approval_pin_changed',
+    ]);
+    expect(history.body.data[0].by).toBe('Ada Admin');
+    expect(history.body.data.at(-1).by).toBe('Carl Cashier');
+    expect(JSON.stringify(history.body)).not.toContain(SET_PIN);
+    expect(JSON.stringify(history.body)).not.toContain(OWN_PIN);
+  });
+
   it("refuses to change one's own sign-in, approval PIN, role or permissions", async () => {
     for (const [path, body] of /** @type {[string, Record<string, unknown>][]} */ ([
       ['/status', { enabled: false }],

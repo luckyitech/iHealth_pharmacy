@@ -1,6 +1,7 @@
 /* eslint-disable jsdoc/reject-any-type -- each route's body is typed by its Zod schema */
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
+  activityEntrySchema,
   dataResponseSchema,
   employeeAccessSchema,
   employeeApprovalPinBodySchema,
@@ -83,6 +84,21 @@ export function createEmployeeAccessRoutes({ prisma, accountAdmin, config }) {
       request: { params: idParamsSchema },
       responses: { 200: { description: 'Access', schema: accessResponse } },
       handler: async ({ input }) => ({ data: await accountAdmin.getAccess(input.params.id) }),
+    }),
+    defineRoute({
+      method: 'get',
+      path: `${PATH}/history`,
+      summary: "Every change to an employee's sign-in and access: what, who, when",
+      description: 'Oldest first. Never shows a password or PIN.',
+      tags: TAGS,
+      permissions: POLICIES.employeeAccess.read,
+      request: { params: idParamsSchema },
+      responses: {
+        200: { description: 'History', schema: dataResponseSchema(z.array(activityEntrySchema)) },
+      },
+      handler: async ({ input }) => ({
+        data: await accountAdmin.history(input.params.id, config.historyLimit),
+      }),
     }),
     write({
       method: 'put',

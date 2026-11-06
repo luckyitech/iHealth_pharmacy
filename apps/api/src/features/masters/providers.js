@@ -2,6 +2,8 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import { providerInputSchema, providerSchema } from '@ihealth/shared/schemas';
 
+import { fromDbTime } from '#db';
+
 import { createCrudRoutes } from '../../http/crud/create-crud-routes.js';
 import { ADDRESS_COLUMNS, columnMapping, LEGACY_STAMPS, text } from './legacy-mapping.js';
 
@@ -30,6 +32,45 @@ const COLUMNS = Object.freeze({
 async function withNames(items, prisma) {
   const hospitalIds = [...new Set(items.map((item) => item.hospitalId).filter(Boolean))];
   const typeIds = [...new Set(items.map((item) => item.providerTypeId).filter(Boolean))];
+  /** @type {{ providerId: number, creationUserId: string | null, creationTs: Date | null }[]} */
+  const stamps = items.length
+    ? await prisma.provider.findMany({
+        where: { providerId: { in: items.map((item) => item.id) } },
+        select: { providerId: true, creationUserId: true, creationTs: true },
+      })
+    : [];
+  // The new system writes the employee's id; older rows may hold a name, shown as written.
+  const employeeIds = [
+    ...new Set(
+      stamps
+        .map((row) => Number(row.creationUserId))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+  const employees = employeeIds.length
+    ? await prisma.employee.findMany({
+        where: { employeeId: { in: employeeIds } },
+        select: { employeeId: true, firstNm: true, lastNm: true },
+      })
+    : [];
+  const employeeNames = new Map(
+    employees.map((/** @type {any} */ row) => [
+      row.employeeId,
+      [row.firstNm, row.lastNm]
+        .map((part) => part?.trim())
+        .filter(Boolean)
+        .join(' ') || null,
+    ]),
+  );
+  const added = new Map(
+    stamps.map((row) => [
+      row.providerId,
+      {
+        addedBy: employeeNames.get(Number(row.creationUserId)) ?? text(row.creationUserId),
+        addedAt: row.creationTs ? fromDbTime(row.creationTs).toISOString() : null,
+      },
+    ]),
+  );
   const [hospitals, types] = await Promise.all([
     hospitalIds.length
       ? prisma.hospital.findMany({
@@ -55,6 +96,8 @@ async function withNames(items, prisma) {
     gender: item.gender?.toUpperCase() ?? null,
     hospitalName: hospitalNames.get(item.hospitalId) ?? null,
     providerTypeName: typeNames.get(item.providerTypeId) ?? null,
+    addedBy: added.get(item.id)?.addedBy ?? null,
+    addedAt: added.get(item.id)?.addedAt ?? null,
   }));
 }
 

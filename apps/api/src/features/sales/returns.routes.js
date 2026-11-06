@@ -1,5 +1,7 @@
 import { POLICIES } from '@ihealth/shared/permissions';
 import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_SUBJECTS,
   completedReturnSchema,
   dataResponseSchema,
   idParamsSchema,
@@ -14,6 +16,7 @@ import { defineRoute } from '../../http/define-route.js';
 import { notFound } from '../../lib/errors.js';
 import { AUDIT_OUTCOMES } from '../audit/audit-log.js';
 import { getAuth } from '../auth/auth.guards.js';
+import { createActivityLog } from '../activity/activity-log.js';
 import { currentPharmacyId } from '../masters/current-pharmacy.js';
 import { renderReturnReceipt } from './return-receipt-pdf.js';
 import { createReturnService } from './returns.js';
@@ -31,6 +34,7 @@ const RESOURCE = 'sales/returns';
  */
 export function createReturnRoutes({ prisma, audit, config }) {
   const returns = createReturnService({ prisma, config });
+  const activity = createActivityLog(prisma);
   const lists = createReturnsRepository(prisma);
   const money = new Intl.NumberFormat(config.region.locale, {
     minimumFractionDigits: 2,
@@ -166,6 +170,23 @@ export function createReturnRoutes({ prisma, audit, config }) {
           resourceType: RESOURCE,
           resourceId: detail.id,
           ipAddress: req.ip,
+        });
+        // On the returned bill's history, so the bill shows every paper it produced.
+        /** @type {unknown[]} */
+        const before = await prisma.$queryRaw`
+          SELECT 1 FROM ih_activity
+          WHERE SUBJECT_TYPE = ${ACTIVITY_SUBJECTS.BILL} AND SUBJECT_ID = ${String(detail.billId)}
+            AND ACTION = ${ACTIVITY_ACTIONS.RETURN_RECEIPT_PRINTED}
+            AND JSON_EXTRACT(DETAILS, '$.returnId') = ${detail.id} LIMIT 1`;
+        await activity.record({
+          subjectType: ACTIVITY_SUBJECTS.BILL,
+          subjectId: detail.billId,
+          action: before.length
+            ? ACTIVITY_ACTIONS.RETURN_RECEIPT_REPRINTED
+            : ACTIVITY_ACTIONS.RETURN_RECEIPT_PRINTED,
+          employeeId: getAuth(res).employeeId,
+          pharmacyId,
+          details: { returnId: detail.id, code: detail.code },
         });
         res.set({
           'Content-Type': 'application/pdf',

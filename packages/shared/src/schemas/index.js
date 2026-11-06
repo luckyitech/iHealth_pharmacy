@@ -12,3 +12,4 @@ export * from './sales/controlled-register.js';
 export * from './sales/labels.js';
 export * from './sales/returns.js';
 export * from './masters/sales-settings.js';
+export * from './activity.js';

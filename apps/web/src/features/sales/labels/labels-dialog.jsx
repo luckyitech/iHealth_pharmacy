@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SHEET_ON_PHONE } from '@/components/ui/dialog-variants';
 import { Textarea } from '@/components/ui/textarea';
+import { HistoryList } from '@/features/activity/history-list';
 import { useFormat } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,9 @@ import { cn } from '@/lib/utils';
 import { MedicineTag } from '../prescriptions/medicine-tag.jsx';
 import { useTillSettings } from '../till/till-api.js';
 import { printLabels, reprintLabels, useBillLabels } from './labels-api.js';
+
+/** The label prints and reprints on a bill's history. */
+const LABEL_ACTIONS = 'labels.';
 
 /**
  * @typedef {{ lineId: number, text: string, copies: number }} LabelDraft
@@ -216,6 +220,13 @@ function LabelsEditor({ billId, onDone }) {
           );
         })}
       </ul>
+      {labels.data.printedBefore && (
+        <HistoryList
+          path={`sales/bills/${labels.data.billId}/history`}
+          title="Printed before"
+          filter={(entry) => entry.action.startsWith(LABEL_ACTIONS)}
+        />
+      )}
       {/* The buttons stay in view while a long bill scrolls. */}
       <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col-reverse gap-2 border-t bg-card px-6 py-4 sm:flex-row sm:items-center sm:justify-end">
         {labels.data.printedBefore && (

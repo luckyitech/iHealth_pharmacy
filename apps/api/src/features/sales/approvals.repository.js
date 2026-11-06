@@ -25,7 +25,7 @@ const COLUMNS = Prisma.sql`
   a.APPROVAL_ID AS id, a.KIND AS kind, a.CREATED_AT AS at, a.BILL_ID AS billId, s.BILL_CODE AS billCode,
   TRIM(CONCAT_WS(' ', rq.FIRST_NM, rq.LAST_NM)) AS requestedBy,
   TRIM(CONCAT_WS(' ', ap.FIRST_NM, ap.LAST_NM)) AS approvedBy,
-  a.REASON AS reason, a.DETAILS AS details, a.GIVEN_AWAY AS givenAway
+  a.REASON AS reason, a.DETAILS AS details, a.GIVEN_AWAY AS givenAway, a.USED_AT AS usedAt
   FROM ih_sale_approval a
     LEFT JOIN sales s ON s.BILL_ID = a.BILL_ID
     LEFT JOIN employee rq ON rq.EMPLOYEE_ID = a.REQUESTED_BY
@@ -52,11 +52,13 @@ const toApproval = (row) => ({
     givenAway: String(item.givenAway ?? '0.00'),
   })),
   givenAway: Number(row.givenAway ?? 0).toFixed(2),
+  used: row.usedAt !== null && row.usedAt !== undefined,
 });
 
 /**
- * Approvals as Sales history and the daily report show them. Only approvals that were used: a sale
- * approved but never completed sold nothing.
+ * Approvals as Sales history and the daily report show them. A bill lists the approvals it used;
+ * the day's report also lists approvals given but never used (the sale was not completed), marked
+ * so, because someone still approved them.
  *
  * @param {import('#db').PrismaClient} prisma
  * @returns The repository.
@@ -84,7 +86,7 @@ export function createApprovalsRepository(prisma) {
       /** @type {Record<string, any>[]} */
       const rows = await prisma.$queryRaw`
         SELECT ${COLUMNS}
-        WHERE a.PHARMACY_ID = ${pharmacyId} AND a.USED_AT IS NOT NULL
+        WHERE a.PHARMACY_ID = ${pharmacyId}
           AND a.CREATED_AT >= ${date} AND a.CREATED_AT < DATE_ADD(${date}, INTERVAL 1 DAY)
         ORDER BY a.CREATED_AT DESC, a.APPROVAL_ID DESC`;
       return rows.map(toApproval);

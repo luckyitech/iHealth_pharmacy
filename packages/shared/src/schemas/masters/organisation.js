@@ -84,6 +84,9 @@ export const providerSchema = z.object({
   phone: storedText,
   email: storedText,
   ...storedAddressShape,
+  // Who added the record and when (e.g. a doctor added at the till), from the legacy columns.
+  addedBy: storedText.optional(),
+  addedAt: z.string().nullable().optional(),
 });
 
 // --- Terms and conditions --------------------------------------------------------------------

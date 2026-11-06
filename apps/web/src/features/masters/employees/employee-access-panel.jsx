@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { CheckboxField } from '@/components/ui/checkbox-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { HistoryList } from '@/features/activity/history-list';
 import { useCurrentUser } from '@/features/auth/use-auth';
 import { useConfirm } from '@/hooks/use-confirm';
 import { notify } from '@/lib/notify';
@@ -153,6 +154,16 @@ export function EmployeeAccessPanel({ item, canWrite }) {
           {data.twoFactorEnabled && <TwoFactorSection employeeId={item.id} editable={editable} />}
           <RoleSection employeeId={item.id} access={data} editable={editable} />
           <PermissionsSection employeeId={item.id} access={data} editable={editable} />
+          <FormSection
+            title="History"
+            description="Every change to this employee's sign-in and access: what, who and when. Passwords and PINs are never shown."
+          >
+            <HistoryList
+              path={`masters/employees/${item.id}/access/history`}
+              title="Changes"
+              empty="No changes made in the new system yet."
+            />
+          </FormSection>
         </div>
         {confirmation.dialog}
       </AskContext.Provider>

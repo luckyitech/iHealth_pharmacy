@@ -19,7 +19,8 @@ import { BillStatus } from './bill-status.jsx';
 import { APPROVAL_KIND_LABELS, APPROVAL_REASON_TITLES } from '../approvals/approval-labels.js';
 import { useTillSettings } from '../till/till-api.js';
 import { CancelBillDialog } from './cancel-bill-dialog.jsx';
-import { openReceipt, useBill } from './sales-api.js';
+import { BILLS, openReceipt, useBill } from './sales-api.js';
+import { HistoryList } from '../../activity/history-list.jsx';
 import { SALES_LABELS } from '../labels.js';
 import { LabelsDialog } from '../labels/labels-dialog.jsx';
 import { ReturnDialog } from '../returns/return-dialog.jsx';
@@ -339,7 +340,7 @@ export function BillDialog({ id, onClose }) {
               className="grid gap-1 text-xs text-muted-foreground"
             >
               <h3 id="bill-audit" className="sr-only">
-                History
+                Record
               </h3>
               <p>
                 Made by {data.audit.createdBy ?? 'unknown'} on{' '}
@@ -348,6 +349,8 @@ export function BillDialog({ id, onClose }) {
               </p>
               {data.remarks && <p>Remarks: {data.remarks}</p>}
             </section>
+
+            <HistoryList path={`${BILLS}/${data.id}/history`} />
           </div>
         )}
 

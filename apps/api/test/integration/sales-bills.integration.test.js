@@ -212,6 +212,10 @@ describe('sales history', () => {
     expect(receipt.status).toBe(200);
     expect(receipt.headers['content-type']).toBe('application/pdf');
     expect(receipt.body.subarray(0, 4).toString()).toBe('%PDF');
+    const history = await cashier.get(`${BILLS}/${ids.paid}/history`);
+    expect(history.body.data.map((/** @type {any} */ entry) => entry.action)).toContain(
+      'receipt.reprinted',
+    );
 
     const missing = await cashier.get(`${BILLS}/999999`);
     expect(missing.status).toBe(404);

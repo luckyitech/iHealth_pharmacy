@@ -5,6 +5,7 @@ import { AddressFields } from '@/components/form/address-fields';
 import { FormSection } from '@/components/form/form-section';
 import { SelectField } from '@/components/form/select-field';
 import { TextField } from '@/components/form/text-field';
+import { useFormat } from '@/lib/format';
 import { useProviderTypes } from '@/lib/lookups';
 import { useResourceOptions } from '@/lib/resource-api';
 
@@ -76,6 +77,25 @@ function ProviderFields({ form, item }) {
 }
 
 /**
+ * Who added the provider and when: a doctor added at the till shows the cashier.
+ *
+ * @param {{ row: { addedBy?: string | null, addedAt?: string | null } }} props
+ * @returns {React.JSX.Element}
+ */
+function AddedCell({ row }) {
+  const format = useFormat();
+  if (!row.addedBy && !row.addedAt) return <>—</>;
+  return (
+    <>
+      {row.addedBy ?? 'Unknown'}
+      {row.addedAt && (
+        <span className="block text-xs text-muted-foreground">{format.instant(row.addedAt)}</span>
+      )}
+    </>
+  );
+}
+
+/**
  * @param {{ firstName: string, middleName: string | null, lastName: string }} row
  * @returns {string}
  */
@@ -97,6 +117,7 @@ const CONFIG = {
     },
     { id: 'providerTypeName', header: 'Type', cell: (row) => row.providerTypeName ?? '—' },
     { id: 'hospitalName', header: 'Hospital', cell: (row) => row.hospitalName ?? '—' },
+    { id: 'addedBy', header: 'Added', cell: (row) => <AddedCell row={row} /> },
     { id: 'active', header: 'Status', cell: (row) => (row.active ? 'Active' : 'Inactive') },
   ],
   defaultSort: 'lastName',

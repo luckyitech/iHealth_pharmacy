@@ -2,6 +2,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { HistoryList } from '@/features/activity/history-list';
 import { useFormat } from '@/lib/format';
 
 /**
@@ -97,6 +98,16 @@ export function HeldSalesDialog({ open, onOpenChange, sales, loading, busy, onRe
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">No sales are on hold.</p>
+        )}
+        {/* Kept after a sale is recalled or deleted, so it is clear who did what. */}
+        {open && (
+          <div className="max-h-64 overflow-y-auto border-t pt-3">
+            <HistoryList
+              path="sales/held/history"
+              title="Today"
+              empty="Nothing was held, recalled or deleted today."
+            />
+          </div>
         )}
       </DialogContent>
     </Dialog>
