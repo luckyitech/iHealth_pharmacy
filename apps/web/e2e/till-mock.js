@@ -138,6 +138,18 @@ const BATCHES = Object.freeze(
   ].map((batch) => ({ medicineKind: null, ...batch })),
 );
 
+/** A made-up credit note the till can spend. */
+export const CREDIT_NOTE = Object.freeze({
+  id: 9,
+  code: 'DPCN0611260001',
+  customerName: 'Jane Testcase',
+  amount: '893.00',
+  balance: '893.00',
+  expiresOn: '2027-11-06',
+  originalBillCode: 'DPSB0211260012',
+  problem: null,
+});
+
 /** Made-up doctors and hospitals. */
 const HOSPITALS = Object.freeze([
   { id: 3, name: 'Sample Medical Centre' },
@@ -385,6 +397,15 @@ export async function mockTillApi(page, server) {
         },
         201,
       );
+    }
+    const noteOf = /^GET sales\/credit-notes\/(.+)$/.exec(key);
+    if (noteOf) {
+      if (decodeURIComponent(noteOf[1]) !== CREDIT_NOTE.code)
+        return json(
+          { error: { code: 'NOT_FOUND', message: 'No credit note has this number' } },
+          404,
+        );
+      return json({ data: CREDIT_NOTE });
     }
     const labelsOf = /^(GET|POST) sales\/bills\/(\d+)\/labels$/.exec(key);
     if (labelsOf?.[1] === 'GET') {

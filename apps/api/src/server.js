@@ -27,6 +27,7 @@ import { createSalesBillRoutes } from './features/sales/bills.routes.js';
 import { createControlledRegisterRoutes } from './features/sales/controlled-register.routes.js';
 import { createLabelRoutes } from './features/sales/labels.routes.js';
 import { createReturnRoutes } from './features/sales/returns.routes.js';
+import { createCreditNoteRoutes } from './features/sales/credit-notes.routes.js';
 import { createPrescriberRoutes } from './features/sales/prescribers.js';
 import { createSaleQuoteRoutes } from './features/sales/quote.routes.js';
 import { createTillRoutes } from './features/sales/till.routes.js';
@@ -103,6 +104,7 @@ const app = createApp({
         ...createControlledRegisterRoutes({ prisma, audit, config }),
         ...createLabelRoutes({ prisma, audit, config }),
         ...createReturnRoutes({ prisma, audit, config }),
+        ...createCreditNoteRoutes({ prisma, config }),
         ...createApprovalRoutes({ prisma, audit, config }),
       ],
     },

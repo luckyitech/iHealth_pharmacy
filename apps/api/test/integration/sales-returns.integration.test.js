@@ -8,6 +8,7 @@ import { loadConfig } from '../../src/config/env.js';
 import { createAuditLog } from '../../src/features/audit/audit-log.js';
 import { createAuthModule } from '../../src/features/auth/auth.module.js';
 import { createSalesBillRoutes } from '../../src/features/sales/bills.routes.js';
+import { createCreditNoteRoutes } from '../../src/features/sales/credit-notes.routes.js';
 import { createReturnRoutes } from '../../src/features/sales/returns.routes.js';
 import { collectRoutes } from '../../src/routes.js';
 import { buildTestApp, TEST_ENV } from '../helpers.js';
@@ -25,6 +26,9 @@ let db;
 let app;
 /** @type {Record<string, number>} */
 const ids = {};
+/** The credit note the full return gives, spent in the next part. */
+let noteCode = '';
+let noteAmount = '';
 
 beforeAll(async () => {
   db = await startTestDatabase();
@@ -50,7 +54,13 @@ beforeAll(async () => {
     redis: db.redis,
     routes: collectRoutes({
       auth,
-      sales: { routes: [...createSalesBillRoutes(deps), ...createReturnRoutes(deps)] },
+      sales: {
+        routes: [
+          ...createSalesBillRoutes(deps),
+          ...createReturnRoutes(deps),
+          ...createCreditNoteRoutes(deps),
+        ],
+      },
     }),
     guards: auth.guards,
   });
@@ -238,6 +248,9 @@ describe('sales returns', () => {
     });
     expect(response.body.data.creditNote.code).toMatch(/^DPCN\d{6}0002$/);
     expect(response.body.data.creditNote.expiresOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    ids.note = response.body.data.creditNote.id;
+    noteCode = response.body.data.creditNote.code;
+    noteAmount = expected;
 
     const after = (await cashier.agent.get(`${API}/bills/${bill.id}/returnable`)).body.data;
     expect(after.lines.every((/** @type {any} */ l) => l.returnable === 0)).toBe(true);
@@ -258,5 +271,120 @@ describe('sales returns', () => {
       const response = await cashier.agent.get(`${API}/bills/${row.id}/returnable`);
       expect(response.body.data.blocked).toMatch(code === 'OLD-1' ? /days old/ : /cancelled/);
     }
+  });
+});
+
+describe('paying with a credit note', () => {
+  /** @type {{ agent: import('supertest').Agent, csrf: string }} */
+  let cashier;
+
+  beforeAll(async () => {
+    const agent = request.agent(app);
+    const login = await agent
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'test.cashier', password: 'Test-Cashier-Pass-1' });
+    cashier = { agent, csrf: login.body.data.csrfToken };
+  });
+
+  /**
+   * @param {Record<string, unknown>[]} payments
+   * @param {number} [quantity]
+   * @returns {import('supertest').Test}
+   */
+  const sell = (payments, quantity = 2) =>
+    cashier.agent
+      .post(`${API}/bills`)
+      .set('x-csrf-token', cashier.csrf)
+      .send({
+        requestKey: randomUUID(),
+        lines: [{ stockId: ids['TM-NEWER'], quantity }],
+        payments,
+      });
+  /** @param {string} code */
+  const lookUp = async (code) => (await cashier.agent.get(`${API}/credit-notes/${code}`)).body.data;
+
+  it('pays part of a bill and keeps what is left on the same note', async () => {
+    expect(await lookUp(noteCode.toLowerCase())).toMatchObject({
+      code: noteCode,
+      balance: noteAmount,
+      customerName: 'Jane Testcase',
+      problem: null,
+    });
+    // 2 x 116 = 232: the note pays 100, cash the rest.
+    const sale = await sell([
+      { method: 'creditNote', reference: noteCode, amount: '100' },
+      { method: 'cash', amount: '200' },
+    ]);
+    expect(sale.status).toBe(201);
+    expect(sale.body.data.payments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: 'creditNote', amount: '100.00', reference: noteCode }),
+      ]),
+    );
+    const left = (Number(noteAmount) - 100).toFixed(2);
+    expect((await lookUp(noteCode)).balance).toBe(left);
+
+    const tooMuch = await sell(
+      [
+        { method: 'creditNote', reference: noteCode, amount: String(Number(left) + 1) },
+        { method: 'cash', amount: '500' },
+      ],
+      5,
+    );
+    expect(tooMuch.body.error.details).toEqual([
+      { path: 'body.payments.0.amount', message: `Only ${left} is left on this credit note` },
+    ]);
+  });
+
+  it('closes a note once it is used up', async () => {
+    const left = (await lookUp(noteCode)).balance;
+    const sale = await sell(
+      [
+        { method: 'creditNote', reference: noteCode, amount: left },
+        { method: 'cash', amount: '5000' },
+      ],
+      3,
+    );
+    expect(sale.status).toBe(201);
+    expect(await lookUp(noteCode)).toMatchObject({
+      balance: '0.00',
+      problem: 'This credit note has been used up',
+    });
+    const [legacy] =
+      await db.select`SELECT PAYMENT_STATUS AS status FROM credit_note WHERE credit_note_id = ${ids.note}`;
+    expect(legacy.status).toBe('Paid');
+    const again = await sell([
+      { method: 'creditNote', reference: noteCode, amount: '1' },
+      { method: 'cash', amount: '500' },
+    ]);
+    expect(again.body.error.details[0]).toMatchObject({ path: 'body.payments.0.reference' });
+  });
+
+  it('takes an open note from the legacy app at its whole amount, and refuses expired and supplier notes', async () => {
+    await db.prisma.$executeRaw`
+      INSERT INTO credit_note (credit_note_no, credit_date, amount, return_type, STATUS, PAYMENT_STATUS, ACTIVE_S, PHARMACY_ID)
+      VALUES ('DPCN0101250001', '2025-01-01', 150, 'Sales Returns', 'Approved', 'Pending', 'Y', 1),
+             ('DPCN0101250002', '2025-01-01', 150, 'Sales Returns', 'Approved', 'Pending', 'Y', 1),
+             ('DPCN0101250003', '2025-01-01', 150, 'Purchase', 'Approved', 'Pending', 'Y', 1)`;
+    expect(await lookUp('DPCN0101250001')).toMatchObject({
+      balance: '150.00',
+      expiresOn: null,
+      problem: null,
+    });
+    const [expiring] =
+      await db.select`SELECT credit_note_id AS id FROM credit_note WHERE credit_note_no = 'DPCN0101250002'`;
+    await db.prisma.$executeRaw`
+      INSERT INTO ih_credit_note (CREDIT_NOTE_ID, BALANCE, EXPIRES_ON) VALUES (${expiring.id}, 150, '2025-06-30')`;
+    expect((await lookUp('DPCN0101250002')).problem).toMatch(/expired/);
+    expect((await lookUp('DPCN0101250003')).problem).toMatch(/supplier/);
+    const missing = await cashier.agent.get(`${API}/credit-notes/NOPE`);
+    expect(missing.status).toBe(404);
+
+    const sale = await sell([
+      { method: 'creditNote', reference: 'DPCN0101250001', amount: '150' },
+      { method: 'cash', amount: '100' },
+    ]);
+    expect(sale.status).toBe(201);
+    expect((await lookUp('DPCN0101250001')).balance).toBe('0.00');
   });
 });

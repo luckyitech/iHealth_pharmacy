@@ -409,7 +409,7 @@ describe('more ways to pay: card, cheque and splits', () => {
     expect(over.body.error.details).toEqual([
       {
         path: 'body.payments.1.amount',
-        message: 'M-Pesa, card and cheque together cannot be more than the bill',
+        message: 'M-Pesa, card, cheque and credit note together cannot be more than the bill',
       },
     ]);
   });

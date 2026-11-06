@@ -107,3 +107,9 @@ export const completedReturnSchema = z.object({
   approvedBy: z.string(),
   creditNote: creditNoteSchema.nullable(),
 });
+
+/** A credit note looked up at the till: what is left on it, and why it cannot be used if not. */
+export const creditNoteLookupSchema = creditNoteSchema.extend({
+  /** Why it cannot pay for anything, when it cannot. */
+  problem: text,
+});
