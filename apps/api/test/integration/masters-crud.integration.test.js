@@ -48,7 +48,7 @@ beforeAll(async () => {
     redis: db.redis,
     routes: collectRoutes({
       auth,
-      lookups: { routes: createLookupRoutes({ prisma: db.prisma }) },
+      lookups: { routes: createLookupRoutes({ prisma: db.prisma, config }) },
       masters: {
         routes: [
           ...createManufacturerRoutes({ prisma: db.prisma, audit }),

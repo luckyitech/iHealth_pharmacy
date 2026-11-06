@@ -1,4 +1,4 @@
-import { LINE_WARNINGS } from '@ihealth/shared/schemas';
+import { LINE_WARNINGS, MEDICINE_KINDS } from '@ihealth/shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { PauseCircle, UserRound } from 'lucide-react';
 import {
@@ -47,8 +47,27 @@ import { TILL_KEYS } from './till-keys.js';
 import { customerForApi, linesForApi, newSale, tillReducer, ZERO_TOTALS } from './till-state.js';
 import { SALES_LABELS } from '../labels.js';
 import { NEEDS_PRESCRIPTION } from '../prescriptions/medicine.js';
-import { NO_PRESCRIPTION, prescriptionForApi } from '../prescriptions/prescription.js';
+import {
+  missingForRegister,
+  NO_PRESCRIPTION,
+  prescriptionForApi,
+  REGISTER_FIELDS,
+} from '../prescriptions/prescription.js';
 import { PrescriptionStrip } from '../prescriptions/prescription-strip.jsx';
+
+/** Server problems shown in the prescription strip, by their path. */
+const PRESCRIPTION_FIELD =
+  /^body\.(?:prescription\.)?(customerName|customerPhone|doctorId|hospitalId|prescribedOn|photo|patientIdNumber)$/;
+
+/**
+ * @param {import('../prescriptions/prescription.js').RegisterField[]} missing
+ * @returns {string} e.g. "Fill in the ID number and doctor for the controlled-drug register."
+ */
+const registerProblem = (missing) => {
+  const names = missing.map((field) => REGISTER_FIELDS[field]);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+  return `Fill in the ${list} for the controlled-drug register.`;
+};
 
 /** Held sales listed beside the till; the rest are in the Held sales window. */
 const HELD_SHOWN = 4;
@@ -103,9 +122,20 @@ export default function SalesScreenPage() {
     /** @type {{ token: string, key: string } | null} */ (null),
   );
   const [approvalErrors, setApprovalErrors] = useState({});
-  const [prescription, setPrescription] = useState(
+  const [prescription, setPrescriptionState] = useState(
     /** @type {import('../prescriptions/prescription.js').TillPrescription} */ (NO_PRESCRIPTION),
   );
+  const [prescriptionErrors, setPrescriptionErrors] = useState(
+    /** @type {Record<string, string>} */ ({}),
+  );
+  /**
+   * @param {import('../prescriptions/prescription.js').TillPrescription} next
+   * @returns {void}
+   */
+  const setPrescription = (next) => {
+    setPrescriptionState(next);
+    setPrescriptionErrors({});
+  };
   const searchRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const doctorRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const { ask, dialog: confirmDialog } = useConfirm();
@@ -151,6 +181,11 @@ export default function SalesScreenPage() {
         (line) => line.medicineKind && NEEDS_PRESCRIPTION.has(line.medicineKind),
       )
     : [];
+  const controlledCount = toPrescribe.filter(
+    (line) => line.medicineKind === MEDICINE_KINDS.CONTROLLED,
+  ).length;
+  const missing = controlledCount ? missingForRegister(prescription, state.customer) : [];
+  if (!blocked && missing.length) blocked = registerProblem(missing);
 
   /** Empties the till for the next sale, its prescription included. */
   const clearSale = () => {
@@ -179,7 +214,11 @@ export default function SalesScreenPage() {
       }
     }
     const sale = /** @type {import("./till-api.js").SaleQuote} */ (priced);
-    const problem = lineProblem(sale);
+    const needsRegister = sale.lines.some(
+      (line) => line.medicineKind === MEDICINE_KINDS.CONTROLLED,
+    );
+    const unfilled = needsRegister ? missingForRegister(prescription, state.customer) : [];
+    const problem = lineProblem(sale) ?? (unfilled.length ? registerProblem(unfilled) : null);
     if (problem) {
       notify.info(problem, { id: 'till-blocked' });
       return;
@@ -246,11 +285,18 @@ export default function SalesScreenPage() {
           const details = isApiError(error) ? (error.details ?? []) : [];
           /** @type {Record<string, string>} */
           const fields = {};
+          /** @type {Record<string, string>} */
+          const strip = {};
           for (const detail of details) {
             const field = paymentField(detail.path, payments);
             if (field) fields[field] = detail.message;
+            const stripField = PRESCRIPTION_FIELD.exec(detail.path)?.[1];
+            if (stripField) strip[stripField] = detail.message;
           }
           setPaymentErrors(fields);
+          setPrescriptionErrors(strip);
+          // The prescription is fixed on the till, so the payment window makes way for it.
+          if (Object.keys(strip).length) setDialog(null);
           // The toast says it too, problems on the lines included.
           notify.failure('Could not complete the sale', error, {
             description: details.length
@@ -443,8 +489,15 @@ export default function SalesScreenPage() {
         {toPrescribe.length > 0 && (
           <PrescriptionStrip
             itemCount={toPrescribe.length}
+            controlledCount={controlledCount}
             value={prescription}
             onChange={setPrescription}
+            customer={state.customer}
+            onCustomer={(customer) => {
+              dispatch({ type: 'setCustomer', customer });
+              setPrescriptionErrors({});
+            }}
+            errors={prescriptionErrors}
             photoMaxKb={settings.data?.prescriptionPhotoMaxKb ?? 0}
             doctorRef={doctorRef}
           />

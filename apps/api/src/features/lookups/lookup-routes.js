@@ -3,8 +3,9 @@ import { dataResponseSchema, idSchema } from '@ihealth/shared/schemas';
 import { z } from 'zod';
 
 import { defineRoute } from '../../http/define-route.js';
-import { isActive, text } from '../masters/legacy-mapping.js';
 import { taxCategoryLabel } from '../masters/items.js';
+import { isActive, text } from '../masters/legacy-mapping.js';
+import { medicineKindOf } from '../sales/medicine-types.js';
 
 const optionSchema = z.object({ id: z.number().int(), name: z.string() });
 const optionsResponse = dataResponseSchema(z.array(optionSchema));
@@ -36,10 +37,21 @@ function codeAndDescription(code, description) {
  * schedule and Latin codes, payment and return-credit types, employee types), from the legacy
  * lookup tables.
  *
- * @param {{ prisma: import('#db').PrismaClient }} deps
+ * @param {{ prisma: import('#db').PrismaClient, config: Readonly<import('../../config/env.js').Config> }} deps
  * @returns The lookup routes.
  */
-export function createLookupRoutes({ prisma }) {
+export function createLookupRoutes({ prisma, config }) {
+  /**
+   * @param {string | null} code
+   * @param {string | null} description
+   * @returns {string | null} e.g. "Controlled (X)", or the legacy code and description.
+   */
+  const scheduleName = (code, description) => {
+    const kind = medicineKindOf(config.medicine.types, code);
+    const type = config.medicine.types.find((entry) => entry.kind === kind);
+    return type ? `${type.name} (${text(code)})` : codeAndDescription(code, description);
+  };
+
   return [
     defineRoute({
       method: 'get',
@@ -120,6 +132,8 @@ export function createLookupRoutes({ prisma }) {
       method: 'get',
       path: '/lookups/schedule-codes',
       summary: 'Drug schedule categories',
+      description:
+        'A code the till treats as prescription-only, controlled or antibiotic carries the name the pharmacy gave it.',
       tags: ['Lookups'],
       permissions: LOOKUP_PERMISSIONS,
       responses: { 200: { description: 'Schedule codes', schema: optionsResponse } },
@@ -139,7 +153,7 @@ export function createLookupRoutes({ prisma }) {
               .filter((row) => isActive(row.activeS))
               .map((row) => ({
                 id: row.scheduleCategoryCodeId,
-                name: codeAndDescription(row.scheduleCategoryCode, row.scheduleCategoryDesc),
+                name: scheduleName(row.scheduleCategoryCode, row.scheduleCategoryDesc),
               })),
           ),
         };

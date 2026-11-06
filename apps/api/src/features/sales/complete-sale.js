@@ -8,13 +8,14 @@ import {
 } from '@ihealth/shared/money';
 import { hasAnyPermission, POLICIES } from '@ihealth/shared/permissions';
 import { priceBill } from '@ihealth/shared/pricing';
-import { PAYMENT_METHODS } from '@ihealth/shared/schemas';
+import { MEDICINE_KINDS, PAYMENT_METHODS } from '@ihealth/shared/schemas';
 
 import { forbidden, validationFailed } from '../../lib/errors.js';
 import { DOCUMENT_KINDS, nextDocumentCode } from '../document-codes/document-codes.js';
 import { toLegacyDate } from '../masters/legacy-mapping.js';
 import { approvalsNeeded, createApprovalService, linesHash } from './approvals.js';
 import { batchExpiry, loadBatches, todayIn } from './batches.repository.js';
+import { medicineKindOf } from './medicine-types.js';
 import { toDbTime } from '#db';
 
 /** Legacy bill status and flag values. */
@@ -58,8 +59,39 @@ function monthsBefore(date, months) {
  * @property {SalePayment[]} payments
  * @property {string | null} [remarks]
  * @property {string} [approvalToken]
- * @property {{ doctorId?: number, hospitalId?: number, prescribedOn?: string, photo?: string }} [prescription]
+ * @property {{ doctorId?: number, hospitalId?: number, prescribedOn?: string, photo?: string, patientIdNumber?: string }} [prescription]
  */
+
+/** Why a controlled drug cannot be sold yet, by the field that is missing. */
+const CONTROLLED_NEEDS = Object.freeze({
+  customerName: "Enter the patient's name: it goes in the controlled-drug register",
+  customerPhone: "Enter the patient's phone number: it goes in the controlled-drug register",
+  doctorId: 'Choose the doctor who prescribed the controlled drug',
+  prescribedOn: 'Enter the date on the prescription',
+  patientIdNumber: "Enter the patient's ID or passport number",
+});
+
+/**
+ * Refuses a sale of controlled drugs without what the register needs: the patient's name, phone
+ * and ID number, the doctor and the prescription date.
+ *
+ * @param {{ name: string | null, phone: string | null }} patient
+ * @param {SaleInput['prescription']} prescription
+ * @returns {void}
+ */
+function assertControlledDetails(patient, prescription) {
+  const missing = [
+    ...(patient.name ? [] : [['body.customerName', CONTROLLED_NEEDS.customerName]]),
+    ...(patient.phone ? [] : [['body.customerPhone', CONTROLLED_NEEDS.customerPhone]]),
+    ...['doctorId', 'prescribedOn', 'patientIdNumber']
+      .filter((field) => !prescription?.[/** @type {'doctorId'} */ (field)])
+      .map((field) => [
+        `body.prescription.${field}`,
+        CONTROLLED_NEEDS[/** @type {keyof typeof CONTROLLED_NEEDS} */ (field)],
+      ]),
+  ];
+  if (missing.length) throw validationFailed(missing.map(([path, message]) => ({ path, message })));
+}
 
 /** A data URL: `data:<type>;base64,<data>`. */
 const DATA_URL = /^data:([^;]+);base64,(.*)$/;
@@ -347,6 +379,26 @@ export function createSaleService({ prisma, config }) {
               { path: 'body.customerId', message: 'This customer no longer exists' },
             ]);
 
+          const customerName =
+            (customer
+              ? [customer.firstNm, customer.lastNm].filter(Boolean).join(' ').trim()
+              : null) ||
+            input.customerName ||
+            null;
+          const customerPhone = customer?.phoneNbr?.trim() || input.customerPhone || null;
+          const controlled = input.lines.filter(
+            (line) =>
+              medicineKindOf(
+                config.medicine.types,
+                /** @type {Record<string, any>} */ (batches.get(line.stockId)).scheduleCode,
+              ) === MEDICINE_KINDS.CONTROLLED,
+          );
+          if (controlled.length)
+            assertControlledDetails(
+              { name: customerName, phone: customerPhone },
+              input.prescription,
+            );
+
           const by = String(employeeId);
           const now = new Date();
           // Stamps hold the pharmacy's wall clock, as the legacy app writes them.
@@ -362,13 +414,8 @@ export function createSaleService({ prisma, config }) {
               billCode,
               billDate: toLegacyDate(today),
               customerId: customer?.customerId ?? null,
-              customerNm:
-                (customer
-                  ? [customer.firstNm, customer.lastNm].filter(Boolean).join(' ').trim()
-                  : null) ||
-                input.customerName ||
-                null,
-              customerPhoneNo: customer?.phoneNbr?.trim() || input.customerPhone || null,
+              customerNm: customerName,
+              customerPhoneNo: customerPhone,
               // The legacy reports join every bill to a doctor, so a bill without one gets the
               // placeholder the legacy app used.
               providerId: prescription.doctorId ?? config.sales.defaultProviderId ?? null,
@@ -456,6 +503,18 @@ export function createSaleService({ prisma, config }) {
               INSERT INTO ih_sale_payment_detail (BILL_ID, CARD_APPROVAL_CODE, CHEQUE_BANK_ID)
               VALUES (${bill.billId}, ${card?.payment.reference ?? null},
                 ${cheque?.payment.bankId ?? null})`;
+          }
+
+          // What the controlled-drug register needs, beside the bill and its stock movement.
+          for (const line of controlled) {
+            const batch = /** @type {Record<string, any>} */ (batches.get(line.stockId));
+            await tx.$executeRaw`
+              INSERT INTO ih_controlled_dispense (PHARMACY_ID, BILL_ID, ITEM_ID, STOCK_ID, QUANTITY,
+                PATIENT_NAME, PATIENT_PHONE, PATIENT_ID_NUMBER, DOCTOR_ID, PRESCRIBED_ON, EMPLOYEE_ID)
+              VALUES (${pharmacyId}, ${bill.billId}, ${Number(batch.itemId)}, ${line.stockId},
+                ${line.quantity}, ${customerName}, ${customerPhone},
+                ${input.prescription?.patientIdNumber?.toUpperCase()}, ${prescription.doctorId},
+                ${prescription.prescribedOn}, ${employeeId})`;
           }
 
           if (prescription.photo) {

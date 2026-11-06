@@ -296,3 +296,46 @@ test('takes the prescription of a prescription-only medicine, a new doctor inclu
   await expect(done).toBeHidden();
   await expect(page.getByRole('region', { name: /Prescription/ })).toHaveCount(0);
 });
+
+test('sells a controlled drug only with the details the register needs', async ({ page }) => {
+  await page.goto('/sales/new');
+  await expect(search(page)).toBeFocused();
+  await search(page).fill('3*calm');
+  await expect(page.getByRole('option', { name: /Calmadol/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+
+  const strip = page.getByRole('region', { name: /Controlled drug/ });
+  await expect(strip).toContainText('required for the register');
+  const pay = page.getByRole('button', { name: /^Pay/ }).first();
+  await expect(pay).toBeDisabled();
+  await page.keyboard.press('F9');
+  await expect(
+    page.locator('[data-sonner-toast]', {
+      hasText: /Fill in the patient's name, phone, ID number/,
+    }),
+  ).toBeVisible();
+
+  // The patient is found as the name is typed, and becomes the sale's customer.
+  await strip.getByRole('combobox', { name: /Patient's name/ }).pressSequentially('jane');
+  await expect(page.getByRole('option', { name: /Jane Testcase/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(strip.getByRole('textbox', { name: /Phone/ })).toHaveValue('0700000104');
+  await expect(page.getByRole('button', { name: /Customer\s*Jane Testcase/ })).toBeVisible();
+  await strip.getByRole('textbox', { name: /ID or passport/ }).fill('TEST1234');
+  await strip.getByRole('combobox', { name: /Doctor/ }).pressSequentially('bora');
+  await expect(page.getByRole('option', { name: /Bora Example/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await strip.getByLabel(/Prescription date/).fill('2026-11-02');
+  await page.screenshot({ path: test.info().outputPath('controlled-strip.png') });
+
+  await expect(pay).toBeEnabled();
+  await page.keyboard.press('F9');
+  await expect(page.getByRole('dialog', { name: 'Take payment' })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Sale complete' })).toBeVisible();
+  expect(server.lastSale).toMatchObject({
+    customerId: 104,
+    lines: [{ stockId: 7, quantity: 3 }],
+    prescription: { doctorId: 8, prescribedOn: '2026-11-02', patientIdNumber: 'TEST1234' },
+  });
+});

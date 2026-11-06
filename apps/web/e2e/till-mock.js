@@ -120,6 +120,21 @@ const BATCHES = Object.freeze(
       vatPercent: 0,
       medicineKind: 'antibiotic',
     },
+    {
+      stockId: 7,
+      itemId: 50,
+      itemName: 'Calmadol 50mg tabs',
+      itemCode: 'CAL50',
+      genericName: null,
+      batchNo: 'CL-0420',
+      barcode: null,
+      expiryDate: '2028-04-30',
+      expired: false,
+      available: 120,
+      labelPrice: '42.00',
+      vatPercent: 0,
+      medicineKind: 'controlled',
+    },
   ].map((batch) => ({ medicineKind: null, ...batch })),
 );
 

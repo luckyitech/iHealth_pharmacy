@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { NO_PRESCRIPTION, pickedDoctor, prescriptionForApi, withDoctor } from './prescription.js';
+import {
+  missingForRegister,
+  NO_PRESCRIPTION,
+  pickedDoctor,
+  prescriptionForApi,
+  withDoctor,
+} from './prescription.js';
 
 const DOCTOR = pickedDoctor({
   id: 7,
@@ -27,5 +33,22 @@ describe('the prescription on the till', () => {
     const chosen = { ...NO_PRESCRIPTION, hospital: { id: 9, label: 'Other Clinic' } };
     expect(withDoctor(chosen, DOCTOR).hospital).toEqual({ id: 9, label: 'Other Clinic' });
     expect(prescriptionForApi(withDoctor(chosen, DOCTOR))).toEqual({ doctorId: 7, hospitalId: 9 });
+  });
+
+  it('lists what the controlled-drug register still needs', () => {
+    expect(missingForRegister(NO_PRESCRIPTION, null)).toEqual([
+      'customerName',
+      'customerPhone',
+      'patientIdNumber',
+      'doctorId',
+      'prescribedOn',
+    ]);
+    const filled = { ...withDoctor(NO_PRESCRIPTION, DOCTOR), prescribedOn: '2026-11-01' };
+    expect(
+      missingForRegister({ ...filled, patientIdNumber: ' ' }, { name: 'Jane', phone: '0700' }),
+    ).toEqual(['patientIdNumber']);
+    expect(prescriptionForApi({ ...filled, patientIdNumber: ' TEST1234 ' })?.patientIdNumber).toBe(
+      'TEST1234',
+    );
   });
 });
