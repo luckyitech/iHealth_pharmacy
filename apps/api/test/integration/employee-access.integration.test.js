@@ -15,6 +15,9 @@ const ADMIN = { identifier: 'test.admin', password: 'Test-Admin-Pass-1', employe
 const CASHIER = { identifier: 'test.cashier', password: 'Test-Cashier-Pass-1', employeeId: 2 };
 const TEMPORARY_PASSWORD = 'Temporary-Pass-2026';
 const CHOSEN_PASSWORD = 'Chosen-By-Cashier-1';
+// Made-up approval PINs: six digits, the first not 0, as the legacy employee form requires.
+const SET_PIN = '482913';
+const OWN_PIN = '735102';
 
 /** @type {Awaited<ReturnType<typeof startTestDatabase>>} */
 let db;
@@ -197,11 +200,66 @@ describe('employee access', () => {
     expect(logged).toEqual({ byId: ADMIN.employeeId, previous: 'mfa@example.test' });
   });
 
-  it("refuses to change one's own sign-in, role or permissions", async () => {
+  it('sets an approval PIN the legacy screens and the new app both accept, and lifts its lock', async () => {
+    const before = await admin.agent.get(`/api/v1/masters/employees/${CASHIER.employeeId}/access`);
+    expect(before.body.data).toMatchObject({ hasApprovalPin: false, approvalPinLockedUntil: null });
+    await db.prisma.$executeRaw`
+      INSERT INTO ih_approval_pin (EMPLOYEE_ID, FAILED_COUNT, LOCKED_UNTIL)
+      VALUES (${CASHIER.employeeId}, 0, DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 10 MINUTE))`;
+    const locked = await admin.agent.get(`/api/v1/masters/employees/${CASHIER.employeeId}/access`);
+    expect(locked.body.data.approvalPinLockedUntil).not.toBeNull();
+
+    for (const pin of ['012345', '12345', '12345a'])
+      expect((await write('put', CASHIER.employeeId, '/approval-pin', { pin })).status).toBe(400);
+    const set = await write('put', CASHIER.employeeId, '/approval-pin', { pin: SET_PIN });
+    expect(set.status).toBe(200);
+    expect(set.body.data).toMatchObject({ hasApprovalPin: true, approvalPinLockedUntil: null });
+    expect(JSON.stringify(set.body)).not.toContain(SET_PIN);
+
+    const [legacy] =
+      await db.select`SELECT APPROVAL_ACCESS_PIN AS pin FROM employee_credentials WHERE EMPLOYEE_ID = ${CASHIER.employeeId}`;
+    expect(legacy.pin).toBe(SET_PIN);
+    const [copy] =
+      await db.select`SELECT PIN_HASH AS hash, FAILED_COUNT AS failed, LOCKED_UNTIL AS locked FROM ih_approval_pin WHERE EMPLOYEE_ID = ${CASHIER.employeeId}`;
+    expect(copy).toMatchObject({ failed: 0, locked: null });
+    expect(copy.hash).toMatch(/^\$argon2id\$/);
+    const [audited] =
+      await db.select`SELECT EMPLOYEE_ID AS byId, DETAILS AS details FROM ih_audit_log WHERE ACTION = 'employees.access.approval_pin_set'`;
+    expect(audited.byId).toBe(ADMIN.employeeId);
+    expect(JSON.stringify(audited.details)).not.toContain(SET_PIN);
+
+    const verified = await admin.agent
+      .post('/api/v1/auth/approval-pin/verify')
+      .set('x-csrf-token', admin.csrf)
+      .send({ username: CASHIER.identifier, pin: SET_PIN });
+    expect(verified.status).toBe(200);
+  });
+
+  it('lets employees change their own approval PIN after typing the current one', async () => {
+    const cashier = await signIn(CASHIER.identifier, CHOSEN_PASSWORD);
+    const change = (/** @type {Record<string, string>} */ body) =>
+      cashier.agent.put('/api/v1/auth/approval-pin').set('x-csrf-token', cashier.csrf).send(body);
+
+    const wrong = await change({ currentPin: '999999', newPin: OWN_PIN });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.error.details[0].path).toBe('body.currentPin');
+    expect((await change({ currentPin: SET_PIN, newPin: SET_PIN })).status).toBe(400);
+    expect((await change({ currentPin: SET_PIN, newPin: OWN_PIN })).status).toBe(204);
+
+    const [legacy] =
+      await db.select`SELECT APPROVAL_ACCESS_PIN AS pin FROM employee_credentials WHERE EMPLOYEE_ID = ${CASHIER.employeeId}`;
+    expect(legacy.pin).toBe(OWN_PIN);
+    const outcomes =
+      await db.select`SELECT OUTCOME AS outcome FROM ih_audit_log WHERE ACTION = 'auth.approval_pin_changed' ORDER BY AUDIT_LOG_ID`;
+    expect(outcomes.map((row) => row.outcome)).toEqual(['failure', 'success']);
+  });
+
+  it("refuses to change one's own sign-in, approval PIN, role or permissions", async () => {
     for (const [path, body] of /** @type {[string, Record<string, unknown>][]} */ ([
       ['/status', { enabled: false }],
       ['/role', { roleId: 1 }],
       ['/permissions', { permissionIds: [] }],
+      ['/approval-pin', { pin: SET_PIN }],
     ])) {
       const response = await write('put', ADMIN.employeeId, path, body);
       expect(response.status).toBe(403);

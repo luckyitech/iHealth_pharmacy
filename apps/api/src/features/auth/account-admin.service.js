@@ -23,6 +23,7 @@ export const ACCOUNT_AUDIT_ACTIONS = Object.freeze({
   TWO_FACTOR_RESET: 'employees.access.two_factor_reset',
   ROLE_SET: 'employees.access.role_set',
   PERMISSIONS_SET: 'employees.access.permissions_set',
+  APPROVAL_PIN_SET: 'employees.access.approval_pin_set',
 });
 
 /**
@@ -34,7 +35,8 @@ export const ACCOUNT_AUDIT_ACTIONS = Object.freeze({
 /**
  * Administering staff accounts: create or rename a sign-in, set a password (optionally to be
  * changed at the next sign-in), turn sign-in on or off, lift a lockout, reset two-factor sign-in,
- * set the role and the individual permissions. Every change is audited.
+ * set or reset the approval PIN, set the role and the individual permissions. Every change is
+ * audited.
  *
  * Administrators cannot change their own sign-in, role or permissions here, so nobody can lock
  * themselves out or grant themselves more access.
@@ -43,6 +45,7 @@ export const ACCOUNT_AUDIT_ACTIONS = Object.freeze({
  * @param {import('./auth.repository.js').AuthRepository} deps.repository
  * @param {import('./account-admin.repository.js').AccountAdminRepository} deps.adminRepository
  * @param {import('./login-throttle.js').LoginThrottle} deps.loginThrottle
+ * @param {import('./login-throttle.js').LoginThrottle} deps.pinThrottle The approval PIN check's lockout.
  * @param {import('../audit/audit-log.js').AuditLog} deps.audit
  * @param {() => Date} [deps.now]
  * @returns The service.
@@ -51,6 +54,7 @@ export function createAccountAdminService({
   repository,
   adminRepository,
   loginThrottle,
+  pinThrottle,
   audit,
   now = () => new Date(),
 }) {
@@ -108,6 +112,13 @@ export function createAccountAdminService({
   }
 
   /**
+   * @param {number | null} seconds
+   * @returns {string | null} When a lock that lasts this many more seconds ends.
+   */
+  const lockEnd = (seconds) =>
+    seconds === null ? null : new Date(now().getTime() + seconds * MS_PER_SECOND).toISOString();
+
+  /**
    * @param {Actor} actor
    * @param {string} action
    * @param {number} employeeId
@@ -132,12 +143,15 @@ export function createAccountAdminService({
      */
     async getAccess(employeeId) {
       await employeeOrFail(employeeId);
-      const [credentials, roles, permissionIds, rolePermissionIds] = await Promise.all([
-        repository.findCredentialsByEmployee(employeeId),
-        repository.findRoles(employeeId),
-        adminRepository.findDirectPermissionIds(employeeId),
-        adminRepository.findRolePermissionIds(employeeId),
-      ]);
+      const [credentials, roles, permissionIds, rolePermissionIds, approvalPin] = await Promise.all(
+        [
+          repository.findCredentialsByEmployee(employeeId),
+          repository.findRoles(employeeId),
+          adminRepository.findDirectPermissionIds(employeeId),
+          adminRepository.findRolePermissionIds(employeeId),
+          repository.findApprovalPin(employeeId),
+        ],
+      );
       const lockedFor = credentials
         ? await loginThrottle.lockedFor(accountThrottleKey(credentials.credentialsId))
         : null;
@@ -146,14 +160,13 @@ export function createAccountAdminService({
         hasLogin: Boolean(credentials),
         username: credentials?.username ?? null,
         loginEnabled: credentials?.active ?? false,
-        lockedUntil:
-          lockedFor === null
-            ? null
-            : new Date(now().getTime() + lockedFor * MS_PER_SECOND).toISOString(),
+        lockedUntil: lockEnd(lockedFor),
         twoFactorEnabled: credentials?.twoFactorEnabled ?? false,
         mustChangePassword: credentials
           ? await repository.isPasswordChangeRequired(credentials.credentialsId)
           : false,
+        hasApprovalPin: Boolean(credentials?.approvalPin),
+        approvalPinLockedUntil: lockEnd(approvalPin?.lockedSeconds ?? null),
         roleId: roles[0]?.roleId ?? null,
         roleName: roles[0]?.name ?? null,
         permissionIds,
@@ -248,6 +261,32 @@ export function createAccountAdminService({
       // A new password also lifts a lockout caused by the old one.
       await loginThrottle.reset(accountThrottleKey(credentials.credentialsId));
       await record(actor, ACCOUNT_AUDIT_ACTIONS.PASSWORD_SET, employeeId, { mustChangePassword });
+    },
+
+    /**
+     * Sets or resets the employee's approval PIN, chosen by the administrator. It also lifts a lock
+     * left by wrong PINs. The PIN itself is never returned or audited.
+     *
+     * @param {{ employeeId: number, pin: string }} input
+     * @param {Actor} actor
+     * @returns {Promise<void>}
+     */
+    async setApprovalPin({ employeeId, pin }, actor) {
+      assertNotSelf(actor, employeeId);
+      await employeeOrFail(employeeId);
+      const credentials = await credentialsOrFail(employeeId);
+      await repository.saveApprovalPin({
+        credentialsId: credentials.credentialsId,
+        employeeId,
+        pin,
+        hash: await hashPassword(pin),
+        fingerprint: legacyFingerprint(pin),
+        by: String(actor.employeeId),
+      });
+      await pinThrottle.reset(credentials.username);
+      await record(actor, ACCOUNT_AUDIT_ACTIONS.APPROVAL_PIN_SET, employeeId, {
+        replaced: Boolean(credentials.approvalPin),
+      });
     },
 
     /**

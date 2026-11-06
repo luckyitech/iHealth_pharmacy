@@ -371,6 +371,40 @@ describe('POST /auth/approval-pin/verify', () => {
   });
 });
 
+describe('PUT /auth/approval-pin', () => {
+  /**
+   * @param {{ username: string, password: string }} account
+   * @param {Record<string, string>} body
+   */
+  const change = async (account, body) => {
+    const { agent, csrfToken } = await signIn(account);
+    return agent.put('/api/v1/auth/approval-pin').set('x-csrf-token', csrfToken).send(body);
+  };
+
+  it('changes your own PIN after checking the current one (a legacy BCrypt PIN here)', async () => {
+    const response = await change(SEED.admin, { currentPin: SEED.admin.pin, newPin: '735102' });
+    expect(response.status).toBe(204);
+    expect(repository.state.credentials[0].approvalPin).toBe('735102');
+    expect(repository.state.approvalPins.get(SEED.admin.employeeId)?.hash).toMatch(/^\$argon2id\$/);
+    expect(auditEntries).toContainEqual({
+      action: 'auth.approval_pin_changed',
+      outcome: 'success',
+    });
+  });
+
+  it('refuses a new PIN the legacy employee form would not accept', async () => {
+    const response = await change(SEED.admin, { currentPin: SEED.admin.pin, newPin: '012345' });
+    expect(response.status).toBe(400);
+    expect(repository.state.credentials[0].approvalPin).not.toBe('012345');
+  });
+
+  it('sends someone without a PIN to an administrator', async () => {
+    const response = await change(SEED.cashier, { currentPin: '111111', newPin: '735102' });
+    expect(response.status).toBe(400);
+    expect(response.body.error.details[0]).toMatchObject({ path: 'body.currentPin' });
+  });
+});
+
 describe('sign in with a work email', () => {
   it('accepts the work email instead of the username, in any case', async () => {
     const { response } = await signIn({

@@ -79,3 +79,13 @@ export async function changePassword(body) {
   const response = await api.post('auth/change-password', { json: body }).json();
   setCsrfToken(response.data.csrfToken);
 }
+
+/**
+ * Changes the signed-in user's own approval PIN.
+ *
+ * @param {{ currentPin: string, newPin: string }} body
+ * @returns {Promise<void>}
+ */
+export async function changeApprovalPin(body) {
+  await api.put('auth/approval-pin', { json: body });
+}

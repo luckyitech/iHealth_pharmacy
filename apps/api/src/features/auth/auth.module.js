@@ -43,11 +43,13 @@ export function createAuthModule({
   });
   // One sign-in lockout, shared by sign-in and the administrators' "unlock".
   const loginThrottle = createLoginThrottle(counters, 'auth:login');
+  // The approval PIN check's lockout, which a PIN set by an administrator lifts.
+  const pinThrottle = createLoginThrottle(counters, 'auth:pin');
   const service = createAuthService({
     repository,
     accessTokens,
     loginThrottle,
-    pinThrottle: createLoginThrottle(counters, 'auth:pin'),
+    pinThrottle,
     resetThrottle: createLoginThrottle(counters, 'auth:reset'),
     mailer,
     appUrl: config.appUrl,
@@ -68,6 +70,12 @@ export function createAuthModule({
     }),
     guards: createAuthGuards({ accessTokens, repository, csrf, audit }),
     apiRateLimit: createRateLimiter(RATE_LIMITS.api, 'api', redis),
-    accountAdmin: createAccountAdminService({ repository, adminRepository, loginThrottle, audit }),
+    accountAdmin: createAccountAdminService({
+      repository,
+      adminRepository,
+      loginThrottle,
+      pinThrottle,
+      audit,
+    }),
   };
 }

@@ -1,6 +1,8 @@
 /* eslint-disable jsdoc/reject-any-type -- the record comes from the generic master dialog */
 import { getPermissionById, groupPermissions } from '@ihealth/shared/permissions';
 import {
+  APPROVAL_PIN_DIGITS,
+  employeeApprovalPinFormSchema,
   employeePasswordFormSchema,
   employeeRoleBodySchema,
   MIN_NEW_PASSWORD_LENGTH,
@@ -78,6 +80,15 @@ const run =
 
 /** How a password appears in a confirmation. */
 const MASKED_PASSWORD = '••••••••';
+/** How an approval PIN appears in a confirmation. */
+const MASKED_PIN = '•'.repeat(APPROVAL_PIN_DIGITS);
+
+/**
+ * @param {string} iso
+ * @returns {string} e.g. "14:05"
+ */
+const timeOf = (iso) =>
+  new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /**
  * @param {boolean} value
@@ -130,12 +141,15 @@ export function EmployeeAccessPanel({ item, canWrite }) {
             <Alert>
               <AlertDescription>
                 This is your own account. Another administrator has to change your sign-in, role or
-                permissions; you can change your password from your profile.
+                permissions; you can change your password and approval PIN from your account menu.
               </AlertDescription>
             </Alert>
           )}
           <SignInSection employeeId={item.id} access={data} editable={editable} />
           {data.hasLogin && <PasswordSection employeeId={item.id} editable={editable} />}
+          {data.hasLogin && (
+            <ApprovalPinSection employeeId={item.id} access={data} editable={editable} />
+          )}
           {data.twoFactorEnabled && <TwoFactorSection employeeId={item.id} editable={editable} />}
           <RoleSection employeeId={item.id} access={data} editable={editable} />
           <PermissionsSection employeeId={item.id} access={data} editable={editable} />
@@ -241,7 +255,7 @@ function SignInSection({ employeeId, access, editable }) {
         {lockedUntil && (
           <Status
             tone="warning"
-            label={`Locked after wrong passwords, until ${lockedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+            label={`Locked after wrong passwords, until ${timeOf(lockedUntil.toISOString())}`}
           />
         )}
       </div>
@@ -377,6 +391,84 @@ function PasswordSection({ employeeId, editable }) {
             <Button type="submit" variant="outline">
               {setPassword.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
               Set password
+            </Button>
+          </div>
+        </fieldset>
+      </form>
+    </FormSection>
+  );
+}
+
+/**
+ * The PIN this employee types to approve someone else's return, discount or cancellation. Set by
+ * an administrator, who tells it to them; they can then change it from their account menu.
+ *
+ * @param {{ employeeId: number, access: import('./access-api.js').EmployeeAccess, editable: boolean }} props
+ * @returns {React.JSX.Element}
+ */
+function ApprovalPinSection({ employeeId, access, editable }) {
+  const setPin = useAccessAction(employeeId, 'put', 'approval-pin');
+  const form = useZodForm(employeeApprovalPinFormSchema, {
+    defaultValues: { pin: '', confirmPin: '' },
+  });
+  const ask = useContext(AskContext);
+  const action = access.hasApprovalPin ? 'Reset PIN' : 'Set PIN';
+  const onSubmit = form.handleSubmit(({ pin }) =>
+    ask({
+      title: access.hasApprovalPin ? 'Reset the approval PIN?' : 'Set the approval PIN?',
+      description: access.hasApprovalPin
+        ? 'Their old PIN stops working at once, in the old system too.'
+        : 'They can approve with it at once, in the old system too.',
+      changes: [{ label: 'Approval PIN', to: MASKED_PIN }],
+      confirmLabel: action,
+      onConfirm: run(
+        setPin,
+        { pin },
+        {
+          success: access.hasApprovalPin ? 'Approval PIN reset' : 'Approval PIN set',
+          setError: form.setError,
+          after: () => form.reset(),
+        },
+      ),
+    }),
+  );
+  return (
+    <FormSection
+      title="Approval PIN"
+      description="Typed to approve someone else's return, big discount or cancellation. Tell it to them in person; they can change it from their account menu."
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Status label={access.hasApprovalPin ? 'PIN set' : 'No PIN yet'} />
+        {access.approvalPinLockedUntil && (
+          <Status
+            tone="warning"
+            label={`Locked after wrong PINs, until ${timeOf(access.approvalPinLockedUntil)}. A new PIN lifts it.`}
+          />
+        )}
+      </div>
+      <form noValidate onSubmit={onSubmit} className="grid gap-4">
+        <fieldset disabled={!editable || setPin.isPending} className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              form={form}
+              name="pin"
+              label={access.hasApprovalPin ? 'New PIN' : 'PIN'}
+              type="password"
+              inputMode="numeric"
+              hint={`${APPROVAL_PIN_DIGITS} digits, not starting with 0.`}
+            />
+            <TextField
+              form={form}
+              name="confirmPin"
+              label="Confirm PIN"
+              type="password"
+              inputMode="numeric"
+            />
+          </div>
+          <div>
+            <Button type="submit" variant="outline">
+              {setPin.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
+              {action}
             </Button>
           </div>
         </fieldset>

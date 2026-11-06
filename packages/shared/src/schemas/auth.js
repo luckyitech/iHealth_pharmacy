@@ -83,3 +83,32 @@ export const approvalPinBodySchema = z.object({
   pin: z.string().min(1, 'Enter the approval PIN').max(MAX_PIN_LENGTH),
   action: z.string().trim().max(64).optional(),
 });
+
+/** Digits in an approval PIN; the legacy employee form accepts exactly this many, the first not 0. */
+export const APPROVAL_PIN_DIGITS = 6;
+
+/** A new approval PIN, as the legacy employee form requires it, so the legacy screens keep it. */
+export const newApprovalPinSchema = z
+  .string()
+  .regex(
+    new RegExp(`^[1-9][0-9]{${APPROVAL_PIN_DIGITS - 1}}$`),
+    `Use ${APPROVAL_PIN_DIGITS} digits, not starting with 0`,
+  );
+
+/** `PUT /auth/approval-pin` body: the signed-in user changes their own approval PIN. */
+export const changeApprovalPinBodySchema = z.object({
+  currentPin: z.string().min(1, 'Enter your current approval PIN').max(MAX_PIN_LENGTH),
+  newPin: newApprovalPinSchema,
+});
+
+/** Change-approval-PIN form. The API body is the same without `confirmPin`. */
+export const changeApprovalPinFormSchema = changeApprovalPinBodySchema
+  .extend({ confirmPin: z.string().min(1, 'Type the new PIN again') })
+  .refine((values) => values.newPin === values.confirmPin, {
+    path: ['confirmPin'],
+    message: 'The PINs do not match',
+  })
+  .refine((values) => values.newPin !== values.currentPin, {
+    path: ['newPin'],
+    message: 'Choose a PIN different from your current one',
+  });

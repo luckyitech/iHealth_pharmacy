@@ -1,4 +1,4 @@
-import { changePasswordBodySchema } from '@ihealth/shared/schemas';
+import { changeApprovalPinBodySchema, changePasswordBodySchema } from '@ihealth/shared/schemas';
 
 import { defineRoute } from '../../http/define-route.js';
 import { COOKIES } from './auth.constants.js';
@@ -190,6 +190,25 @@ export function createAuthRoutes({ service, csrf, secureCookies, limiters }) {
         );
         setSessionCookies(res, session, secureCookies);
         return { data: { csrfToken: issueCsrf(req, res, session.familyId) } };
+      },
+    }),
+
+    defineRoute({
+      method: 'put',
+      path: '/auth/approval-pin',
+      summary: 'Change your own approval PIN',
+      description:
+        'Needs the current approval PIN. The new one is six digits, not starting with 0, as the legacy employee form requires. Wrong current PINs count towards the PIN lockout.',
+      tags: TAGS,
+      before: [limiters.approvalPin],
+      request: { body: changeApprovalPinBodySchema },
+      responses: { 204: { description: 'Approval PIN changed' } },
+      handler: async ({ req, res, input }) => {
+        const auth = getAuth(res);
+        await service.changeApprovalPin(
+          { employeeId: auth.employeeId, credentialsId: auth.credentialsId, ...input.body },
+          clientInfo(req),
+        );
       },
     }),
 
