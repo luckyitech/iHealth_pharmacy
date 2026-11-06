@@ -12,7 +12,6 @@ import {
 } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Kbd } from '@/components/ui/kbd';
 import { useConfirm } from '@/hooks/use-confirm';
 import { isApiError } from '@/lib/api-error';
 import { useFormat } from '@/lib/format';
@@ -44,7 +43,7 @@ import {
   useTillSettings,
 } from './till-api.js';
 import { problemKey } from './payment.js';
-import { KEY_LABELS, TILL_KEYS } from './till-keys.js';
+import { TILL_KEYS } from './till-keys.js';
 import { customerForApi, linesForApi, newSale, tillReducer, ZERO_TOTALS } from './till-state.js';
 import { SALES_LABELS } from '../labels.js';
 
@@ -250,7 +249,7 @@ export default function SalesScreenPage() {
       const saved = await hold.mutateAsync({ lines, ...customerForApi(state.customer) });
       dispatch({ type: 'clear' });
       notify.success(`Sale held for ${saved.customerName ?? 'Walk-in'}`, {
-        description: `Recall it with ${KEY_LABELS.HELD}, at any till.`,
+        description: 'Recall it from Held sales, at any till.',
       });
       return true;
     } catch (error) {
@@ -388,9 +387,6 @@ export default function SalesScreenPage() {
             <UserRound aria-hidden="true" />
             <span className="text-muted-foreground">Customer</span>
             <span className="font-semibold">{customerName}</span>
-            <Kbd decorative className="hidden sm:inline-flex">
-              {KEY_LABELS.CUSTOMER}
-            </Kbd>
           </Button>
           <div className="ml-auto flex gap-2">
             <Button
@@ -399,15 +395,9 @@ export default function SalesScreenPage() {
               onClick={() => void holdCurrent()}
             >
               <PauseCircle aria-hidden="true" /> Hold
-              <Kbd decorative className="hidden sm:inline-flex">
-                {KEY_LABELS.HOLD}
-              </Kbd>
             </Button>
             <Button variant="outline" onClick={() => setDialog('held')}>
               Held ({heldSales.length})
-              <Kbd decorative className="hidden sm:inline-flex">
-                {KEY_LABELS.HELD}
-              </Kbd>
             </Button>
           </div>
         </div>
@@ -427,26 +417,6 @@ export default function SalesScreenPage() {
           onPrice={() => setDialog('price')}
           approved={Boolean(approvedToken)}
         />
-        {state.lines.length > 0 && (
-          <p className="hidden flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground sm:flex">
-            <span>With the search empty, on the selected line:</span>
-            <span>
-              <Kbd decorative>↑</Kbd> <Kbd decorative>↓</Kbd> choose
-            </span>
-            <span>
-              <Kbd decorative>+</Kbd> <Kbd decorative>−</Kbd> quantity
-            </span>
-            <span>
-              <Kbd decorative>{KEY_LABELS.DISCOUNT}</Kbd> discount
-            </span>
-            <span>
-              <Kbd decorative>{KEY_LABELS.PRICE}</Kbd> price
-            </span>
-            <span>
-              <Kbd decorative>Del</Kbd> remove
-            </span>
-          </p>
-        )}
       </section>
 
       <aside aria-label="Payment" className="hidden content-start gap-4 lg:grid">
@@ -475,33 +445,9 @@ export default function SalesScreenPage() {
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              None. {KEY_LABELS.HOLD} parks a sale to serve the next person.
+              None. Hold parks a sale to serve the next person.
             </p>
           )}
-        </section>
-        <section
-          aria-label="Shortcuts"
-          className="rounded-lg border bg-card p-4 text-sm text-muted-foreground"
-        >
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5">
-            {[
-              [KEY_LABELS.SEARCH, 'Find an item'],
-              [KEY_LABELS.CUSTOMER, 'Customer'],
-              [KEY_LABELS.DISCOUNT, 'Discount on the selected line'],
-              [KEY_LABELS.PRICE, 'Change the price (needs approval)'],
-              [KEY_LABELS.HOLD, 'Hold this sale'],
-              [KEY_LABELS.HELD, 'Held sales'],
-              [KEY_LABELS.PAY, 'Pay'],
-              [KEY_LABELS.CLEAR, 'Clear the sale (asks first)'],
-            ].map(([key, label]) => (
-              <div key={key} className="contents">
-                <dt>
-                  <Kbd>{key}</Kbd>
-                </dt>
-                <dd>{label}</dd>
-              </div>
-            ))}
-          </dl>
         </section>
       </aside>
 

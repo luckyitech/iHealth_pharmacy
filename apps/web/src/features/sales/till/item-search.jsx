@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, ScanBarcode } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 
-import { Kbd } from '@/components/ui/kbd';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useFormat } from '@/lib/format';
 import { notify } from '@/lib/notify';
@@ -10,7 +9,6 @@ import { noAutofill } from '@/lib/autofill';
 import { cn } from '@/lib/utils';
 
 import { batchSearchKey, fetchBatches, useBatchSearch } from './till-api.js';
-import { KEY_LABELS } from './till-keys.js';
 import { parseEntry } from './till-state.js';
 
 /** Searches wait this long after the last key; a scanner types far faster. */
@@ -182,9 +180,6 @@ export function ItemSearch({ onAdd, onIdleKey, inputRef }) {
             × {quantity}
           </span>
         )}
-        <Kbd decorative className="hidden sm:inline-flex">
-          {KEY_LABELS.SEARCH}
-        </Kbd>
       </div>
 
       {shown && (
@@ -243,20 +238,6 @@ export function ItemSearch({ onAdd, onIdleKey, inputRef }) {
               Nothing in stock matches “{query}”.
             </p>
           )}
-          <p className="hidden gap-4 border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground sm:flex">
-            <span>
-              <Kbd decorative>↑</Kbd> <Kbd decorative>↓</Kbd> choose
-            </span>
-            <span>
-              <Kbd decorative>Enter</Kbd> add
-            </span>
-            <span>
-              <Kbd decorative>3*</Kbd> before the search sells 3
-            </span>
-            <span>
-              <Kbd decorative>Esc</Kbd> close
-            </span>
-          </p>
         </div>
       )}
     </div>

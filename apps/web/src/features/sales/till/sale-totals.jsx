@@ -1,11 +1,9 @@
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/utils';
 import { useFormat } from '@/lib/format';
 
-import { KEY_LABELS } from './till-keys.js';
 import { SALES_LABELS } from '../labels.js';
 
 /**
@@ -87,12 +85,6 @@ export function SaleTotals({
         onClick={onPay}
       >
         {askApproval ? 'Get approval' : 'Pay'}
-        <Kbd
-          decorative
-          className="border-primary-foreground/40 bg-transparent text-primary-foreground"
-        >
-          {KEY_LABELS.PAY}
-        </Kbd>
       </Button>
       <p
         className="flex min-h-5 items-center gap-1.5 text-xs text-muted-foreground"

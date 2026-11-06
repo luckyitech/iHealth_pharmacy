@@ -5,13 +5,11 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SHEET_ON_PHONE } from '@/components/ui/dialog-variants';
-import { Kbd } from '@/components/ui/kbd';
 import { useFormat } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { missingApproval } from '../approvals/approval-entry.js';
 import { ApproverFields, ReasonField } from '../approvals/approval-fields.jsx';
-import { KEY_LABELS } from './till-keys.js';
 
 /**
  * @typedef {import('./till-api.js').SaleQuote['lines'][number]} QuoteLine
@@ -138,20 +136,11 @@ function ApprovalForm({
       />
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" disabled={pending} onClick={onBack}>
-          Back{' '}
-          <Kbd decorative className="hidden sm:inline-flex">
-            {KEY_LABELS.CLEAR}
-          </Kbd>
+          Back
         </Button>
         <Button type="submit" disabled={pending}>
           {pending && <Loader2 aria-hidden="true" className="animate-spin" />}
           Approve and pay
-          <Kbd
-            decorative
-            className="hidden border-primary-foreground/40 bg-transparent text-primary-foreground sm:inline-flex"
-          >
-            {KEY_LABELS.CONFIRM}
-          </Kbd>
         </Button>
       </div>
     </form>
