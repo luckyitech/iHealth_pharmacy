@@ -12,4 +12,5 @@ export const TILL_KEYS = Object.freeze({
   HELD: 'F8',
   PAY: 'F9',
   PRINT: 'p',
+  LABELS: 'l',
 });

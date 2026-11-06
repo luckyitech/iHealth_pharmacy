@@ -157,7 +157,7 @@ const DOCTORS = Object.freeze([
 /**
  * State both tills share, like the server's database.
  *
- * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null, lastSale: Record<string, any> | null, doctors: { id: number, name: string, licenseNumber: string | null, hospitalId: number | null, hospitalName: string | null }[] }}
+ * @returns {{ held: Map<number, Record<string, any>>, nextHeld: number, nextBill: number, approved: string | null, lastSale: Record<string, any> | null, doctors: { id: number, name: string, licenseNumber: string | null, hospitalId: number | null, hospitalName: string | null }[], lastLabels: Record<string, any> | null }}
  */
 export const createTillServer = () => ({
   held: new Map(),
@@ -167,6 +167,8 @@ export const createTillServer = () => ({
   /** @type {Record<string, any> | null} The last sale completed, as the till sent it. */ lastSale:
     null,
   doctors: [...DOCTORS],
+  /** @type {Record<string, any> | null} The last labels printed, as the till sent them. */ lastLabels:
+    null,
 });
 
 /**
@@ -380,6 +382,45 @@ export async function mockTillApi(page, server) {
         },
         201,
       );
+    }
+    if (key === 'GET sales/label-codes')
+      return json({
+        data: [
+          { code: '1c', text: 'Take one capsule' },
+          { code: 'tds', text: '3 times a day' },
+          { code: '1t', text: 'Take one tablet' },
+          { code: 'hs', text: 'at bedtime' },
+          { code: 'a.m., am, AM', text: 'in the morning' },
+        ],
+      });
+    const labelsOf = /^(GET|POST) sales\/bills\/(\d+)\/labels$/.exec(key);
+    if (labelsOf?.[1] === 'GET') {
+      const sale = server.lastSale;
+      return json({
+        data: {
+          billId: Number(labelsOf[2]),
+          billCode: null,
+          printedBefore: false,
+          lines: (sale?.lines ?? []).map((/** @type {any} */ line, /** @type {number} */ index) => {
+            const batch = /** @type {any} */ (BATCHES.find((b) => b.stockId === line.stockId));
+            return {
+              lineId: index + 1,
+              itemName: batch.itemName,
+              batchNo: batch.batchNo,
+              expiryDate: batch.expiryDate,
+              quantity: line.quantity,
+              medicineKind: batch.medicineKind,
+              suggestedText: null,
+              savedText: null,
+              savedCopies: null,
+            };
+          }),
+        },
+      });
+    }
+    if (labelsOf?.[1] === 'POST') {
+      server.lastLabels = request.postDataJSON();
+      return route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4' });
     }
     if (key === 'POST sales/bills') {
       const body = request.postDataJSON();

@@ -54,6 +54,7 @@ import {
   REGISTER_FIELDS,
 } from '../prescriptions/prescription.js';
 import { PrescriptionStrip } from '../prescriptions/prescription-strip.jsx';
+import { LabelsDialog } from '../labels/labels-dialog.jsx';
 
 /** Server problems shown in the prescription strip, by their path. */
 const PRESCRIPTION_FIELD =
@@ -117,6 +118,8 @@ export default function SalesScreenPage() {
     /** @type {import('./till-api.js').CompletedSale | null} */ (null),
   );
   const [paymentErrors, setPaymentErrors] = useState({});
+  /** The bill whose dosing labels are being printed. */
+  const [labelsFor, setLabelsFor] = useState(/** @type {number | null} */ (null));
   /** A second person's approval, for the lines exactly as they were approved. */
   const [approval, setApproval] = useState(
     /** @type {{ token: string, key: string } | null} */ (null),
@@ -629,9 +632,11 @@ export default function SalesScreenPage() {
       <SaleDoneDialog
         sale={done}
         onPrint={() => void print()}
+        onLabels={() => done && setLabelsFor(done.id)}
         onNext={() => setDone(null)}
         returnFocusTo={searchRef}
       />
+      <LabelsDialog billId={labelsFor} onClose={() => setLabelsFor(null)} />
       {confirmDialog}
     </div>
   );

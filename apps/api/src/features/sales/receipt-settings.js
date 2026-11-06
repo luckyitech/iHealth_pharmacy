@@ -1,21 +1,30 @@
 /** The legacy receipt's row in `reports_mapping`: its closing lines are kept there. */
 const LEGACY_RECEIPT_REPORT = 'SALES_RECEIPT';
+/** The legacy dosing label's row: its header (the pharmacy's address) and its closing line. */
+const LEGACY_LABEL_REPORT = 'LABEL_INSTRUCTION';
 
 /**
- * @param {string | null | undefined} json The legacy `FOOTER_CONTENT`: `{ centerContent: [{ text }] }`.
- * @returns {string[]} Its non-empty centre lines, in order.
+ * @param {string | null | undefined} json Legacy header or footer content.
+ * @param {'leftContent' | 'centerContent' | 'rightContent'} side
+ * @returns {string[]} The non-empty lines on that side, in order.
  */
-export function footerLinesOf(json) {
+export function linesOf(json, side) {
   if (!json) return [];
   try {
     const content = JSON.parse(json);
-    return (Array.isArray(content?.centerContent) ? content.centerContent : [])
+    return (Array.isArray(content?.[side]) ? content[side] : [])
       .map((/** @type {{ text?: unknown }} */ part) => String(part?.text ?? '').trim())
       .filter(Boolean);
   } catch {
     return [];
   }
 }
+
+/**
+ * @param {string | null | undefined} json The legacy `FOOTER_CONTENT`: `{ centerContent: [{ text }] }`.
+ * @returns {string[]} Its non-empty centre lines, in order.
+ */
+export const footerLinesOf = (json) => linesOf(json, 'centerContent');
 
 /**
  * What the receipt prints besides the bill, read from the legacy tables so both apps print the
@@ -55,6 +64,29 @@ export function createReceiptSettings(prisma) {
         select: { footerContent: true },
       });
       return footerLinesOf(row?.footerContent);
+    },
+
+    /**
+     * What the legacy label setting prints around the dose: the pharmacy's lines at the top (left,
+     * then right) and the closing line at the bottom.
+     *
+     * @returns {Promise<{ header: string[], footer: string[] }>}
+     */
+    async labelLayout() {
+      const row = await prisma.reportsMapping.findFirst({
+        where: { reportCode: LEGACY_LABEL_REPORT },
+        select: { headerContent: true, footerContent: true },
+      });
+      return {
+        header: [
+          ...linesOf(row?.headerContent, 'leftContent'),
+          ...linesOf(row?.headerContent, 'rightContent'),
+        ],
+        footer: [
+          ...linesOf(row?.footerContent, 'leftContent'),
+          ...linesOf(row?.footerContent, 'rightContent'),
+        ],
+      };
     },
   };
 }

@@ -1,4 +1,4 @@
-import { Check, Printer } from 'lucide-react';
+import { Check, Printer, Tag } from 'lucide-react';
 import { useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -9,17 +9,18 @@ import { METHOD_LABELS } from '../history/bill-labels.js';
 import { TILL_KEYS } from './till-keys.js';
 
 /**
- * The sale is saved: the bill number and, large, the change to give. P prints the receipt; Enter
- * (the focused button) starts the next sale.
+ * The sale is saved: the bill number and, large, the change to give. P prints the receipt, L the
+ * dosing labels; Enter (the focused button) starts the next sale.
  *
  * @param {object} props
  * @param {import('./till-api.js').CompletedSale | null} props.sale
  * @param {() => void} props.onPrint
+ * @param {() => void} props.onLabels
  * @param {() => void} props.onNext
  * @param {React.RefObject<HTMLElement | null>} props.returnFocusTo Where the cashier carries on (the search).
  * @returns {React.JSX.Element}
  */
-export function SaleDoneDialog({ sale, onPrint, onNext, returnFocusTo }) {
+export function SaleDoneDialog({ sale, onPrint, onLabels, onNext, returnFocusTo }) {
   const format = useFormat();
   const next = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const paid = (sale?.payments ?? [])
@@ -44,9 +45,12 @@ export function SaleDoneDialog({ sale, onPrint, onNext, returnFocusTo }) {
         }}
         className="text-center [&>div:first-child]:justify-items-center [&>div:first-child]:pr-0"
         onKeyDown={(event) => {
-          if (event.key.toLowerCase() === TILL_KEYS.PRINT && !event.ctrlKey && !event.metaKey) {
+          if (event.ctrlKey || event.metaKey) return;
+          const key = event.key.toLowerCase();
+          if (key === TILL_KEYS.PRINT || key === TILL_KEYS.LABELS) {
             event.preventDefault();
-            onPrint();
+            if (key === TILL_KEYS.PRINT) onPrint();
+            else onLabels();
           }
         }}
       >
@@ -62,6 +66,9 @@ export function SaleDoneDialog({ sale, onPrint, onNext, returnFocusTo }) {
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
           <Button variant="outline" onClick={onPrint}>
             <Printer aria-hidden="true" /> Print receipt
+          </Button>
+          <Button variant="outline" onClick={onLabels}>
+            <Tag aria-hidden="true" /> Print labels
           </Button>
           <Button ref={next} onClick={onNext}>
             Next sale

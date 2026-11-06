@@ -115,6 +115,8 @@ const envSchema = z.object({
   MEDICINE_NAME_CONTROLLED: z.string().trim().min(1).default('Controlled'),
   MEDICINE_CODE_ANTIBIOTIC: z.string().trim().min(1).default('H1'),
   MEDICINE_NAME_ANTIBIOTIC: z.string().trim().min(1).default('Antibiotic'),
+  // Printed on every dosing sticker when the legacy label setting has no closing line.
+  LABEL_WARNING: z.string().trim().default('Keep out of reach and sight of children'),
   // Largest prescription photo kept with a bill, in kilobytes (the till makes photos smaller first).
   PRESCRIPTION_PHOTO_MAX_KB: z.coerce.number().int().min(50).max(700).default(500),
   // Most batches one till search returns.
@@ -148,6 +150,7 @@ const BYTES_PER_KB = 1024;
  * @property {string} documentCodePrefix
  * @property {{ roundingStep: number, selfDiscountLimit: number, defaultProviderId: number | undefined, maxHeld: number, searchLimit: number, quickCashNotes: number[], chequeMaxAgeMonths: number, cancelAloneMinutes: number, approvalPinTries: number, approvalLockMinutes: number, approvalValidMinutes: number, approvalReasons: string[], cancelReasons: string[] }} sales
  * @property {{ returnNote: string | null, exemptTaxCodes: string[] }} receipt
+ * @property {{ warning: string }} labels
  * @property {{ types: ReadonlyArray<Readonly<{ kind: 'prescription' | 'controlled' | 'antibiotic', code: string, name: string }>>, photoMaxBytes: number }} medicine
  * @property {{ locale: string, currency: string, timeZone: string, dbTimeZone: string }} region
  */
@@ -200,6 +203,7 @@ export function loadConfig(env) {
       returnNote: values.RECEIPT_RETURN_NOTE.trim() || null,
       exemptTaxCodes: values.RECEIPT_EXEMPT_TAX_CODES,
     }),
+    labels: Object.freeze({ warning: values.LABEL_WARNING }),
     medicine: Object.freeze({
       types: Object.freeze([
         Object.freeze({
